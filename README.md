@@ -1,8 +1,14 @@
 # MetaNovel-Engine
 
+![Version](https://img.shields.io/badge/version-v0.0.1-blue.svg)
+![Python](https://img.shields.io/badge/python-3.8+-green.svg)
+![License](https://img.shields.io/badge/license-MIT-yellow.svg)
+
 AI辅助小说创作引擎 - 结构化、分阶段的长篇小说创作工具链
 
 ## 🎯 项目简介
+
+**当前版本：v0.0.1（原型版本）**
 
 本项目提供一套完整的AI辅助小说创作工具链，通过结构化的7步流程，帮助作家从一个简单的想法逐步扩展为完整的小说作品。采用JSON格式存储各阶段数据，有效节省上下文tokens、降低AI幻觉率，以工程化方式打磨故事。
 
@@ -158,6 +164,17 @@ MetaNovel-Engine/
 ## 📄 许可证
 
 本项目采用MIT License，详见[LICENSE](LICENSE)文件。
+
+## 📝 版本历史
+
+### v0.0.1 (2024-12-19)
+- 🎉 首个原型版本发布
+- ✨ 实现完整的7步创作流程
+- 🌍 支持世界设定管理（角色、场景、道具）
+- 🔗 智能依赖检查和上下文整合
+- 📊 结构化数据存储和管理
+- 🤖 OpenRouter API集成
+- 🎮 交互式CLI界面
 
 ## 🙏 致谢
 
