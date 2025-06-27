@@ -28,7 +28,7 @@ class TestConfig(unittest.TestCase):
         """测试AI配置结构"""
         self.assertIn('AI_CONFIG', dir(config))
         
-        required_keys = ['model', 'backup_model', 'base_url', 'timeout', 'max_retries']
+        required_keys = ['model', 'backup_model', 'base_url', 'timeout']
         for key in required_keys:
             self.assertIn(key, config.AI_CONFIG)
     
@@ -84,7 +84,6 @@ class TestConfig(unittest.TestCase):
         self.assertIsInstance(config.AI_CONFIG['model'], str)
         self.assertIsInstance(config.AI_CONFIG['backup_model'], str)
         self.assertIsInstance(config.AI_CONFIG['timeout'], (int, float))
-        self.assertIsInstance(config.AI_CONFIG['max_retries'], int)
         
         # API配置类型检查
         # openrouter_api_key可能为None（如果未设置环境变量）
@@ -112,7 +111,6 @@ class TestConfig(unittest.TestCase):
         
         # AI配置合理性检查
         self.assertGreater(config.AI_CONFIG['timeout'], 0)
-        self.assertGreater(config.AI_CONFIG['max_retries'], 0)
         self.assertTrue(config.AI_CONFIG['base_url'].startswith('http'))
         
         # API配置合理性检查
@@ -146,6 +144,20 @@ class TestConfig(unittest.TestCase):
             config.setup_proxy()
         
         self.assertTrue(True)
+
+    def test_ai_config_values(self):
+        """测试AI配置值的有效性"""
+        # 检查模型名称不为空
+        self.assertIsInstance(config.AI_CONFIG['model'], str)
+        self.assertGreater(len(config.AI_CONFIG['model']), 0)
+        
+        # 检查备用模型名称不为空
+        self.assertIsInstance(config.AI_CONFIG['backup_model'], str)
+        self.assertGreater(len(config.AI_CONFIG['backup_model']), 0)
+        
+        # 检查超时时间为正整数
+        self.assertIsInstance(config.AI_CONFIG['timeout'], int)
+        self.assertGreater(config.AI_CONFIG['timeout'], 0)
 
 
 class TestConfigIntegration(unittest.TestCase):

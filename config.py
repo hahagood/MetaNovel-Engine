@@ -18,8 +18,8 @@ API_CONFIG = {
 # --- 网络配置 ---
 PROXY_CONFIG = {
     "enabled": bool(os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")),
-    "http_proxy": os.getenv("HTTP_PROXY", "http://127.0.0.1:8118"),
-    "https_proxy": os.getenv("HTTPS_PROXY", "http://127.0.0.1:8118")
+    "http_proxy": os.getenv("HTTP_PROXY", "http://127.0.0.1:7890"),
+    "https_proxy": os.getenv("HTTPS_PROXY", "http://127.0.0.1:7890")
 }
 
 # --- AI模型配置 ---
@@ -27,8 +27,7 @@ AI_CONFIG = {
     "model": os.getenv("DEFAULT_MODEL", "google/gemini-2.5-pro-preview-06-05"),
     "backup_model": os.getenv("BACKUP_MODEL", "meta-llama/llama-3.1-8b-instruct"),
     "base_url": "https://openrouter.ai/api/v1",
-    "timeout": int(os.getenv("REQUEST_TIMEOUT", "60")),
-    "max_retries": int(os.getenv("MAX_RETRIES", "3"))
+    "timeout": int(os.getenv("REQUEST_TIMEOUT", "60"))
 }
 
 # --- 文件路径配置 ---
@@ -57,7 +56,7 @@ GENERATION_CONFIG = {
 
 # --- 智能重试机制配置 ---
 RETRY_CONFIG = {
-    "max_retries": int(os.getenv("MAX_RETRIES", "3")),              # 最大重试次数
+    "max_retries": int(os.getenv("RETRY_MAX_ATTEMPTS", "3")),              # 最大重试次数
     "base_delay": float(os.getenv("RETRY_DELAY", "1.0")),          # 基础延迟时间（秒）
     "max_delay": float(os.getenv("MAX_RETRY_DELAY", "30.0")),      # 最大延迟时间（秒）
     "exponential_backoff": True,   # 是否使用指数退避
