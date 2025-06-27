@@ -1,4 +1,5 @@
 import os
+import json
 import httpx
 import asyncio
 from openai import OpenAI, APIStatusError, AsyncOpenAI
@@ -12,7 +13,41 @@ class LLMService:
     def __init__(self):
         self.client = None
         self.async_client = None
+        self.prompts = {}
+        self._load_prompts()
         self._initialize_clients()
+    
+    def _load_prompts(self):
+        """加载提示词配置"""
+        try:
+            with open('prompts.json', 'r', encoding='utf-8') as f:
+                self.prompts = json.load(f)
+        except FileNotFoundError:
+            print("警告: 未找到prompts.json文件，将使用默认提示词")
+            self.prompts = {}
+        except json.JSONDecodeError as e:
+            print(f"警告: prompts.json格式错误: {e}")
+            self.prompts = {}
+    
+    def _get_prompt(self, prompt_type, user_prompt="", **kwargs):
+        """获取格式化的提示词"""
+        if prompt_type not in self.prompts:
+            # 如果找不到配置，返回None，由调用方处理
+            return None
+        
+        prompt_config = self.prompts[prompt_type]
+        
+        # 格式化基础提示词
+        base_prompt = prompt_config["base_prompt"].format(**kwargs, **GENERATION_CONFIG)
+        
+        # 如果有用户自定义提示词，使用模板组合
+        if user_prompt.strip() and "user_prompt_template" in prompt_config:
+            return prompt_config["user_prompt_template"].format(
+                base_prompt=base_prompt,
+                user_prompt=user_prompt.strip()
+            )
+        else:
+            return base_prompt
     
     def _initialize_clients(self):
         """初始化同步和异步客户端"""
@@ -159,51 +194,53 @@ class LLMService:
     
     def generate_theme_paragraph(self, one_line_theme, user_prompt=""):
         """生成段落主题"""
-        base_prompt = f"请将以下这个一句话小说主题，扩展成一段更加具体、包含更多情节可能性的段落大纲，字数在{GENERATION_CONFIG['theme_paragraph_length']}。请直接输出扩写后的段落，不要包含额外说明和标题。\n\n一句话主题：{one_line_theme}"
+        prompt = self._get_prompt("theme_paragraph", user_prompt, one_line_theme=one_line_theme)
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"请将以下这个一句话小说主题，扩展成一段更加具体、包含更多情节可能性的段落大纲，字数在{GENERATION_CONFIG['theme_paragraph_length']}。请直接输出扩写后的段落，不要包含额外说明和标题。\n\n一句话主题：{one_line_theme}"
+            prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}" if user_prompt.strip() else base_prompt
         
-        if user_prompt.strip():
-            full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
-        else:
-            full_prompt = base_prompt
-        
-        return self._make_request(full_prompt)
+        return self._make_request(prompt)
     
     def generate_character_description(self, char_name, user_prompt=""):
         """生成角色描述"""
-        base_prompt = f"请为小说角色 '{char_name}' 创建一个详细的角色描述，包括外貌特征、性格特点、背景故事、能力特长等方面，字数在{GENERATION_CONFIG['character_description_length']}。请直接输出角色描述，不要包含额外说明和标题。"
+        prompt = self._get_prompt("character_description", user_prompt, char_name=char_name)
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"请为小说角色 '{char_name}' 创建一个详细的角色描述，包括外貌特征、性格特点、背景故事、能力特长等方面，字数在{GENERATION_CONFIG['character_description_length']}。请直接输出角色描述，不要包含额外说明和标题。"
+            prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}" if user_prompt.strip() else base_prompt
         
-        if user_prompt.strip():
-            full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
-        else:
-            full_prompt = base_prompt
-        
-        return self._make_request(full_prompt)
+        return self._make_request(prompt)
     
     def generate_location_description(self, loc_name, user_prompt=""):
         """生成场景描述"""
-        base_prompt = f"请为小说场景 '{loc_name}' 创建一个详细的场景描述，包括地理位置、环境特色、建筑风格、氛围感受、历史背景、重要特征等方面，字数在{GENERATION_CONFIG['location_description_length']}。请直接输出场景描述，不要包含额外说明和标题。"
+        prompt = self._get_prompt("location_description", user_prompt, loc_name=loc_name)
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"请为小说场景 '{loc_name}' 创建一个详细的场景描述，包括地理位置、环境特色、建筑风格、氛围感受、历史背景、重要特征等方面，字数在{GENERATION_CONFIG['location_description_length']}。请直接输出场景描述，不要包含额外说明和标题。"
+            prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}" if user_prompt.strip() else base_prompt
         
-        if user_prompt.strip():
-            full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
-        else:
-            full_prompt = base_prompt
-        
-        return self._make_request(full_prompt)
+        return self._make_request(prompt)
     
     def generate_item_description(self, item_name, user_prompt=""):
         """生成道具描述"""
-        base_prompt = f"请为小说道具 '{item_name}' 创建一个详细的道具描述，包括外观特征、材质工艺、功能用途、历史来源、特殊能力、重要意义等方面，字数在{GENERATION_CONFIG['item_description_length']}。请直接输出道具描述，不要包含额外说明和标题。"
+        prompt = self._get_prompt("item_description", user_prompt, item_name=item_name)
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"请为小说道具 '{item_name}' 创建一个详细的道具描述，包括外观特征、材质工艺、功能用途、历史来源、特殊能力、重要意义等方面，字数在{GENERATION_CONFIG['item_description_length']}。请直接输出道具描述，不要包含额外说明和标题。"
+            prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}" if user_prompt.strip() else base_prompt
         
-        if user_prompt.strip():
-            full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
-        else:
-            full_prompt = base_prompt
-        
-        return self._make_request(full_prompt)
+        return self._make_request(prompt)
     
     def generate_story_outline(self, one_line_theme, paragraph_theme, characters_info="", user_prompt=""):
         """生成故事大纲"""
-        base_prompt = f"""请基于以下信息创建一个详细的小说故事大纲：
+        prompt = self._get_prompt("story_outline", user_prompt, 
+                                  one_line_theme=one_line_theme, 
+                                  paragraph_theme=paragraph_theme,
+                                  characters_info=characters_info)
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"""请基于以下信息创建一个详细的小说故事大纲：
 
 一句话主题：{one_line_theme}
 
@@ -217,13 +254,9 @@ class LLMService:
 5. 结局方向
 
 大纲应该详细具体，字数在{GENERATION_CONFIG['story_outline_length']}。请直接输出故事大纲，不要包含额外说明和标题。"""
+            prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}" if user_prompt.strip() else base_prompt
         
-        if user_prompt.strip():
-            full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
-        else:
-            full_prompt = base_prompt
-        
-        return self._make_request(full_prompt)
+        return self._make_request(prompt)
     
     def generate_chapter_outline(self, one_line_theme, story_outline, characters_info="", user_prompt=""):
         """生成分章细纲"""

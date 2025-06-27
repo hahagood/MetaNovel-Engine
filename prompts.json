@@ -1,0 +1,34 @@
+{
+  "theme_paragraph": {
+    "base_prompt": "请将以下这个一句话小说主题，扩展成一段更加具体、包含更多情节可能性的段落大纲，字数在{theme_paragraph_length}。请直接输出扩写后的段落，不要包含额外说明和标题。\n\n一句话主题：{one_line_theme}",
+    "user_prompt_template": "{base_prompt}\n\n用户额外要求：{user_prompt}"
+  },
+  "character_description": {
+    "base_prompt": "请为小说角色 '{char_name}' 创建一个详细的角色描述，包括外貌特征、性格特点、背景故事、能力特长等方面，字数在{character_description_length}。请直接输出角色描述，不要包含额外说明和标题。",
+    "user_prompt_template": "{base_prompt}\n\n用户额外要求：{user_prompt}"
+  },
+  "location_description": {
+    "base_prompt": "请为小说场景 '{loc_name}' 创建一个详细的场景描述，包括地理位置、环境特色、建筑风格、氛围感受、历史背景、重要特征等方面，字数在{location_description_length}。请直接输出场景描述，不要包含额外说明和标题。",
+    "user_prompt_template": "{base_prompt}\n\n用户额外要求：{user_prompt}"
+  },
+  "item_description": {
+    "base_prompt": "请为小说道具 '{item_name}' 创建一个详细的道具描述，包括外观特征、材质工艺、功能用途、历史来源、特殊能力、重要意义等方面，字数在{item_description_length}。请直接输出道具描述，不要包含额外说明和标题。",
+    "user_prompt_template": "{base_prompt}\n\n用户额外要求：{user_prompt}"
+  },
+  "story_outline": {
+    "base_prompt": "请基于以下信息创建一个详细的小说故事大纲：\n\n一句话主题：{one_line_theme}\n\n段落主题：{paragraph_theme}\n\n角色信息：{characters_info}\n\n请创建一个包含开头、发展、高潮、结局的完整故事结构，字数在{story_outline_length}。输出格式为纯文本，不要包含额外说明和标题。",
+    "user_prompt_template": "{base_prompt}\n\n用户额外要求：{user_prompt}"
+  },
+  "chapter_outline": {
+    "base_prompt": "请基于以下信息创建详细的分章细纲：\n\n一句话主题：{one_line_theme}\n\n故事大纲：{story_outline}\n\n角色信息：{characters_info}\n\n请将故事分为若干章节，每章包含：\n1. 章节标题\n2. 主要情节\n3. 关键场景\n4. 人物发展\n5. 情节转折\n\n总字数控制在{chapter_outline_length}。输出格式为JSON，结构如下：\n{{\n  \"第1章\": {{\n    \"title\": \"章节标题\",\n    \"plot\": \"主要情节描述\",\n    \"scenes\": [\"场景1\", \"场景2\"],\n    \"characters\": [\"相关角色\"],\n    \"turning_point\": \"情节转折点\"\n  }},\n  \"第2章\": {{ ... }}\n}}",
+    "user_prompt_template": "{base_prompt}\n\n用户额外要求：{user_prompt}"
+  },
+  "chapter_summary": {
+    "base_prompt": "请基于以下信息为第{chapter_num}章创建详细的章节概要：\n\n章节信息：{chapter}\n\n上下文信息：{context_info}\n\n请创建一个详细的章节概要，包含：\n1. 章节的主要情节线\n2. 重要场景描述\n3. 人物互动和发展\n4. 关键对话要点\n5. 情节推进和转折\n\n字数控制在{chapter_summary_length}。输出格式为纯文本，不要包含额外说明和标题。",
+    "user_prompt_template": "{base_prompt}\n\n用户额外要求：{user_prompt}"
+  },
+  "novel_chapter": {
+    "base_prompt": "请基于以下信息为第{chapter_num}章创建完整的小说正文：\n\n章节信息：{chapter}\n\n章节概要：{summary_info}\n\n上下文信息：{context_info}\n\n请创建完整的小说章节正文，包含：\n1. 生动的场景描写\n2. 丰富的人物对话\n3. 细腻的心理描写\n4. 适当的动作描述\n5. 引人入胜的情节推进\n\n字数控制在{novel_chapter_length}。输出格式为纯文本小说正文，不要包含章节标题和额外说明。",
+    "user_prompt_template": "{base_prompt}\n\n用户额外要求：{user_prompt}"
+  }
+} 
