@@ -270,13 +270,6 @@ class UIUtils:
 
 欢迎使用MetaNovel Engine！这是一个强大的AI辅助小说创作工具，
 帮助您从一句话主题开始，逐步完成完整的小说创作。
-
-## ✨ 特色功能
-- 🧠 智能AI辅助创作
-- 📚 结构化创作流程  
-- 🎭 完整的世界设定管理
-- ⚡ 异步并发处理
-- 🔄 智能重试机制
         """
         UIUtils.print_markdown(welcome_text)
     
