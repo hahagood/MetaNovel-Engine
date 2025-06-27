@@ -1805,42 +1805,6 @@ def show_project_status():
     ui.print_project_status(completion_status)
 
 
-def create_beautiful_menu():
-    """创建美化的主菜单"""
-    # 菜单选项
-    menu_options = [
-        ("📝", "1. 确立一句话主题", "开始您的创作之旅"),
-        ("📖", "2. 扩展成一段话主题", "将主题扩展为详细描述"),
-        ("🌍", "3. 世界设定", "构建角色、场景和道具"),
-        ("📋", "4. 编辑故事大纲", "规划整体故事结构"),
-        ("📚", "5. 编辑分章细纲", "细化每章内容安排"),
-        ("📄", "6. 编辑章节概要", "生成章节摘要"),
-        ("✍️", "7. 生成小说正文", "AI辅助创作正文"),
-        ("⚙️", "8. 系统设置", "配置系统参数"),
-        ("👋", "9. 退出", "结束本次创作")
-    ]
-    
-    # 创建美化的菜单面板
-    menu_content = []
-    for emoji, option, description in menu_options:
-        menu_content.append(f"{emoji} [bold cyan]{option}[/bold cyan]")
-        menu_content.append(f"   [dim]{description}[/dim]")
-        menu_content.append("")  # 空行
-    
-    # 移除最后的空行
-    if menu_content:
-        menu_content.pop()
-    
-    menu_panel = Panel(
-        "\n".join(menu_content),
-        title="🎯 [bold magenta]创作菜单[/bold magenta]",
-        subtitle="[dim]使用方向键选择，回车确认[/dim]",
-        style="bright_blue",
-        padding=(1, 2)
-    )
-    
-    console.print(menu_panel)
-
 
 def main():
     """
@@ -1862,58 +1826,54 @@ def main():
         show_project_status()
         console.print()  # 空行
         
-        # 显示美化的菜单
-        create_beautiful_menu()
-        console.print()  # 空行
-        
-        # 使用questionary选择
+        # 直接使用questionary选择，不显示重复的美化菜单
         choice = questionary.select(
-            "请选择您要进行的操作:",
+            "🎯 请选择您要进行的操作:",
             choices=[
-                "1. 确立一句话主题",
-                "2. 扩展成一段话主题",
-                "3. 世界设定",
-                "4. 编辑故事大纲",
-                "5. 编辑分章细纲",
-                "6. 编辑章节概要",
-                "7. 生成小说正文",
-                "8. 系统设置",
-                "9. 退出"
+                "📝 1. 确立一句话主题 - 开始您的创作之旅",
+                "📖 2. 扩展成一段话主题 - 将主题扩展为详细描述", 
+                "🌍 3. 世界设定 - 构建角色、场景和道具",
+                "📋 4. 编辑故事大纲 - 规划整体故事结构",
+                "📚 5. 编辑分章细纲 - 细化每章内容安排",
+                "📄 6. 编辑章节概要 - 生成章节摘要",
+                "✍️  7. 生成小说正文 - AI辅助创作正文",
+                "⚙️  8. 系统设置 - 配置系统参数",
+                "👋 9. 退出 - 结束本次创作"
             ],
             use_indicator=True,
             style=questionary.Style([
-                ('question', 'bold'),
+                ('question', 'bold fg:#ff00ff'),
                 ('answer', 'fg:#ff9d00 bold'),
                 ('pointer', 'fg:#ff9d00 bold'),
                 ('highlighted', 'fg:#ff9d00 bold'),
                 ('selected', 'fg:#cc5454'),
                 ('separator', 'fg:#cc5454'),
-                ('instruction', ''),
+                ('instruction', 'fg:#888888'),
                 ('text', ''),
                 ('disabled', 'fg:#858585 italic')
             ])
         ).ask()
 
-        if choice is None or choice.endswith("退出"):
+        if choice is None or choice.startswith("👋"):
             console.clear()
             ui.print_goodbye()
             break
         
-        if choice.startswith("1."):
+        if choice.startswith("📝"):
             handle_theme_one_line()
-        elif choice.startswith("2."):
+        elif choice.startswith("📖"):
             handle_theme_paragraph()
-        elif choice.startswith("3."):
+        elif choice.startswith("🌍"):
             handle_world_setting()
-        elif choice.startswith("4."):
+        elif choice.startswith("📋"):
             handle_story_outline()
-        elif choice.startswith("5."):
+        elif choice.startswith("📚"):
             handle_chapter_outline()
-        elif choice.startswith("6."):
+        elif choice.startswith("📄"):
             handle_chapter_summary()
-        elif choice.startswith("7."):
+        elif choice.startswith("✍️"):
             handle_novel_generation()
-        elif choice.startswith("8."):
+        elif choice.startswith("⚙️"):
             handle_system_settings()
         else:
             print(f"您选择了: {choice} (功能开发中...)\n")

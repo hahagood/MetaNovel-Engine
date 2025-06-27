@@ -268,8 +268,6 @@ class UIUtils:
         welcome_text = """
 # 🎨 MetaNovel Engine
 
-> AI辅助小说创作工具
-
 欢迎使用MetaNovel Engine！这是一个强大的AI辅助小说创作工具，
 帮助您从一句话主题开始，逐步完成完整的小说创作。
 
