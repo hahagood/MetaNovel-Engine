@@ -1,22 +1,34 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# 加载.env文件中的环境变量
+load_dotenv()
 
 # --- 基础配置 ---
 META_DIR = Path("meta")
 META_BACKUP_DIR = Path("meta_backup")
 
+# --- API配置 ---
+API_CONFIG = {
+    "openrouter_api_key": os.getenv("OPENROUTER_API_KEY"),
+    "base_url": "https://openrouter.ai/api/v1",
+}
+
 # --- 网络配置 ---
 PROXY_CONFIG = {
-    "enabled": True,
-    "url": "http://127.0.0.1:8118"
+    "enabled": bool(os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")),
+    "http_proxy": os.getenv("HTTP_PROXY", "http://127.0.0.1:8118"),
+    "https_proxy": os.getenv("HTTPS_PROXY", "http://127.0.0.1:8118")
 }
 
 # --- AI模型配置 ---
 AI_CONFIG = {
-    "model": "google/gemini-2.5-pro-preview-06-05",
+    "model": os.getenv("DEFAULT_MODEL", "google/gemini-2.5-pro-preview-06-05"),
+    "backup_model": os.getenv("BACKUP_MODEL", "meta-llama/llama-3.1-8b-instruct"),
     "base_url": "https://openrouter.ai/api/v1",
-    "timeout": 60,
-    "max_retries": 3
+    "timeout": int(os.getenv("REQUEST_TIMEOUT", "60")),
+    "max_retries": int(os.getenv("MAX_RETRIES", "3"))
 }
 
 # --- 文件路径配置 ---
@@ -45,11 +57,11 @@ GENERATION_CONFIG = {
 
 # --- 智能重试机制配置 ---
 RETRY_CONFIG = {
-    "max_retries": 3,              # 最大重试次数
-    "base_delay": 1.0,             # 基础延迟时间（秒）
-    "max_delay": 30.0,             # 最大延迟时间（秒）
+    "max_retries": int(os.getenv("MAX_RETRIES", "3")),              # 最大重试次数
+    "base_delay": float(os.getenv("RETRY_DELAY", "1.0")),          # 基础延迟时间（秒）
+    "max_delay": float(os.getenv("MAX_RETRY_DELAY", "30.0")),      # 最大延迟时间（秒）
     "exponential_backoff": True,   # 是否使用指数退避
-    "backoff_multiplier": 2.0,     # 退避倍数
+    "backoff_multiplier": float(os.getenv("BACKOFF_FACTOR", "2.0")), # 退避倍数
     "jitter": True,                # 是否添加随机抖动
     "retryable_status_codes": [    # 可重试的HTTP状态码
         429,  # Too Many Requests (rate limit)
@@ -62,14 +74,22 @@ RETRY_CONFIG = {
         "timeout", "connection", "network", "dns", "ssl"
     ],
     "enable_batch_retry": True,    # 是否启用批量重试
-    "retry_delay_jitter_range": 0.1  # 抖动范围（秒）
+    "retry_delay_jitter_range": float(os.getenv("JITTER_RANGE", "0.1"))  # 抖动范围（秒）
 }
 
 def setup_proxy():
     """设置代理配置"""
     if PROXY_CONFIG["enabled"]:
-        os.environ['http_proxy'] = PROXY_CONFIG["url"]
-        os.environ['https_proxy'] = PROXY_CONFIG["url"]
+        os.environ['http_proxy'] = PROXY_CONFIG["http_proxy"]
+        os.environ['https_proxy'] = PROXY_CONFIG["https_proxy"]
+
+def validate_config():
+    """验证配置的有效性"""
+    if not API_CONFIG["openrouter_api_key"]:
+        print("警告: 未找到OPENROUTER_API_KEY环境变量")
+        print("请设置环境变量或创建.env文件")
+        return False
+    return True
 
 def ensure_directories():
     """确保必要的目录存在"""

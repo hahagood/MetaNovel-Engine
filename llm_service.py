@@ -1,10 +1,11 @@
 import os
 import json
+import re
 import httpx
 import asyncio
 from openai import OpenAI, APIStatusError, AsyncOpenAI
 from openai.types.chat import ChatCompletion
-from config import AI_CONFIG, GENERATION_CONFIG, PROXY_CONFIG
+from config import API_CONFIG, AI_CONFIG, GENERATION_CONFIG, PROXY_CONFIG, validate_config
 from retry_utils import retry_manager, RetryError
 
 class LLMService:
@@ -52,18 +53,32 @@ class LLMService:
     def _initialize_clients(self):
         """初始化同步和异步客户端"""
         try:
+            # 验证配置
+            if not validate_config():
+                self.client = None
+                self.async_client = None
+                return
+            
+            # 构建代理配置
+            proxy_config = None
+            if PROXY_CONFIG["enabled"]:
+                proxy_config = {
+                    "http://": PROXY_CONFIG["http_proxy"],
+                    "https://": PROXY_CONFIG["https_proxy"]
+                }
+            
             # 同步客户端
             self.client = OpenAI(
-                base_url=AI_CONFIG["base_url"],
-                api_key=AI_CONFIG["api_key"],
-                http_client=httpx.Client(proxies=PROXY_CONFIG) if PROXY_CONFIG else None
+                base_url=API_CONFIG["base_url"],
+                api_key=API_CONFIG["openrouter_api_key"],
+                http_client=httpx.Client(proxies=proxy_config) if proxy_config else None
             )
             
             # 异步客户端
             self.async_client = AsyncOpenAI(
-                base_url=AI_CONFIG["base_url"],
-                api_key=AI_CONFIG["api_key"],
-                http_client=httpx.AsyncClient(proxies=PROXY_CONFIG) if PROXY_CONFIG else None
+                base_url=API_CONFIG["base_url"],
+                api_key=API_CONFIG["openrouter_api_key"],
+                http_client=httpx.AsyncClient(proxies=proxy_config) if proxy_config else None
             )
         except Exception as e:
             print(f"初始化AI客户端时出错: {e}")
@@ -77,6 +92,86 @@ class LLMService:
     def is_async_available(self):
         """检查异步AI服务是否可用"""
         return self.async_client is not None
+    
+    def _make_json_request(self, prompt, timeout=None, task_name="", with_retry=True):
+        """专门用于需要JSON响应的请求（同步版本）"""
+        for attempt in range(3):  # 最多尝试3次
+            response_text = self._make_request(prompt, timeout, task_name, with_retry)
+            if response_text is None:
+                return None
+            
+            try:
+                # 尝试直接解析JSON
+                return json.loads(response_text)
+            except json.JSONDecodeError:
+                # 尝试提取被```json ... ```包裹的代码块
+                json_match = re.search(r"```json\s*(\{.*?\})\s*```", response_text, re.DOTALL)
+                if json_match:
+                    try:
+                        return json.loads(json_match.group(1))
+                    except json.JSONDecodeError:
+                        pass
+                
+                # 尝试提取被```包裹的代码块（不带json标识）
+                code_match = re.search(r"```\s*(\{.*?\})\s*```", response_text, re.DOTALL)
+                if code_match:
+                    try:
+                        return json.loads(code_match.group(1))
+                    except json.JSONDecodeError:
+                        pass
+                
+                # 如果还是失败，且不是最后一次尝试，发送修复请求
+                if attempt < 2:
+                    print(f"[{task_name}] JSON解析失败，尝试修复 (第{attempt + 1}次)")
+                    prompt = f"你上次返回的内容不是有效的JSON格式。请修正并返回严格的JSON格式：\n\n{response_text}\n\n请确保你的回答是严格的JSON格式，不要包含任何其他文字。"
+                else:
+                    print(f"[{task_name}] 多次尝试后仍无法解析JSON格式")
+                    return None
+        
+        return None
+    
+    async def _make_json_request_async(self, prompt, timeout=None, task_name="", with_retry=True, progress_callback=None):
+        """专门用于需要JSON响应的请求（异步版本）"""
+        for attempt in range(3):  # 最多尝试3次
+            response_text = await self._make_async_request(prompt, timeout, task_name, with_retry, progress_callback)
+            if response_text is None:
+                return None
+            
+            try:
+                # 尝试直接解析JSON
+                return json.loads(response_text)
+            except json.JSONDecodeError:
+                # 尝试提取被```json ... ```包裹的代码块
+                json_match = re.search(r"```json\s*(\{.*?\})\s*```", response_text, re.DOTALL)
+                if json_match:
+                    try:
+                        return json.loads(json_match.group(1))
+                    except json.JSONDecodeError:
+                        pass
+                
+                # 尝试提取被```包裹的代码块（不带json标识）
+                code_match = re.search(r"```\s*(\{.*?\})\s*```", response_text, re.DOTALL)
+                if code_match:
+                    try:
+                        return json.loads(code_match.group(1))
+                    except json.JSONDecodeError:
+                        pass
+                
+                # 如果还是失败，且不是最后一次尝试，发送修复请求
+                if attempt < 2:
+                    error_msg = f"[{task_name}] JSON解析失败，尝试修复 (第{attempt + 1}次)"
+                    print(error_msg)
+                    if progress_callback:
+                        progress_callback(error_msg)
+                    prompt = f"你上次返回的内容不是有效的JSON格式。请修正并返回严格的JSON格式：\n\n{response_text}\n\n请确保你的回答是严格的JSON格式，不要包含任何其他文字。"
+                else:
+                    error_msg = f"[{task_name}] 多次尝试后仍无法解析JSON格式"
+                    print(error_msg)
+                    if progress_callback:
+                        progress_callback(error_msg)
+                    return None
+        
+        return None
     
     def _make_request(self, prompt, timeout=None, task_name="", with_retry=True):
         """通用的AI请求方法（同步版本）"""
@@ -260,7 +355,14 @@ class LLMService:
     
     def generate_chapter_outline(self, one_line_theme, story_outline, characters_info="", user_prompt=""):
         """生成分章细纲"""
-        base_prompt = f"""请基于以下信息创建详细的分章细纲：
+        prompt = self._get_prompt("chapter_outline", user_prompt, 
+                                one_line_theme=one_line_theme, 
+                                story_outline=story_outline, 
+                                characters_info=characters_info)
+        
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"""请基于以下信息创建详细的分章细纲：
 
 主题：{one_line_theme}
 
@@ -283,13 +385,19 @@ class LLMService:
 }}
 
 请确保输出的是有效的JSON格式。"""
+            
+            if user_prompt.strip():
+                prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
+            else:
+                prompt = base_prompt
         
-        if user_prompt.strip():
-            full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
+        # 使用专门的JSON请求方法
+        result = self._make_json_request(prompt, task_name="分章细纲")
+        if result and isinstance(result, dict):
+            return result
         else:
-            full_prompt = base_prompt
-        
-        return self._make_request(full_prompt)
+            # 如果JSON解析失败，返回原始文本
+            return self._make_request(prompt)
     
     def generate_chapter_summary(self, chapter, chapter_num, context_info, user_prompt=""):
         """生成章节概要"""

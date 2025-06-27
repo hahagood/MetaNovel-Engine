@@ -29,6 +29,38 @@ class DataManager:
             print(f"写入文件 {file_path} 时出错: {e}")
             return False
     
+    # ===== 通用CRUD方法 =====
+    def add_item_to_dict(self, file_path, key, value):
+        """向字典类型的JSON文件添加项目"""
+        data = self.read_json_file(file_path)
+        data[key] = value
+        return self.write_json_file(file_path, data)
+    
+    def update_item_in_dict(self, file_path, key, value):
+        """更新字典类型的JSON文件中的项目"""
+        data = self.read_json_file(file_path)
+        if key in data:
+            data[key] = value
+            return self.write_json_file(file_path, data)
+        return False
+    
+    def delete_item_from_dict(self, file_path, key):
+        """从字典类型的JSON文件删除项目"""
+        data = self.read_json_file(file_path)
+        if key in data:
+            del data[key]
+            return self.write_json_file(file_path, data)
+        return False
+    
+    def get_item_from_dict(self, file_path, key):
+        """从字典类型的JSON文件获取项目"""
+        data = self.read_json_file(file_path)
+        return data.get(key, None)
+    
+    def list_items_in_dict(self, file_path):
+        """列出字典类型的JSON文件中的所有项目"""
+        return self.read_json_file(file_path)
+    
     # ===== 主题相关 =====
     def read_theme_one_line(self):
         """读取一句话主题"""

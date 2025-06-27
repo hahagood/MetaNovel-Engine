@@ -56,10 +56,12 @@ class TestLLMService(unittest.TestCase):
     def _mock_open(self, filename, mode='r', **kwargs):
         """模拟open函数，用于读取prompts.json"""
         if 'prompts.json' in filename:
-            return open(self.temp_file.name, mode, **kwargs)
+            # 直接返回临时文件的文件对象
+            import builtins
+            return builtins.open(self.temp_file.name, mode, **kwargs)
         else:
-            # 对于其他文件，使用原始的open
-            return open(filename, mode, **kwargs)
+            # 对于其他文件，抛出FileNotFoundError或返回空文件
+            raise FileNotFoundError(f"No such file: {filename}")
     
     def test_prompt_loading(self):
         """测试提示词加载"""
@@ -195,11 +197,12 @@ class TestLLMServiceAsync(unittest.IsolatedAsyncioTestCase):
         ]
         
         with patch.object(self.llm_service, 'generate_chapter_summary_async', return_value=mock_response):
-            results = await self.llm_service.generate_all_summaries_async(
+            results, failed = await self.llm_service.generate_all_summaries_async(
                 chapters, "上下文信息"
             )
             self.assertEqual(len(results), 2)
-            for result in results:
+            self.assertEqual(len(failed), 0)
+            for key, result in results.items():
                 self.assertEqual(result["summary"], mock_response)
 
 

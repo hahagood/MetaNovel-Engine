@@ -149,7 +149,18 @@ MetaNovel-Engine/
    pip install -r requirements.txt
    ```
 
-3. **配置API密钥**
+3. **配置API密钥和环境变量**
+   
+   **方法一：使用.env文件（推荐）**
+   ```bash
+   # 复制环境变量模板
+   cp .env.example .env
+   
+   # 编辑.env文件，填入你的API密钥
+   nano .env
+   ```
+   
+   **方法二：设置环境变量**
    ```bash
    export OPENROUTER_API_KEY="your-api-key-here"
    ```
