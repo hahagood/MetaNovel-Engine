@@ -16,6 +16,9 @@ from progress_utils import AsyncProgressManager, run_with_progress
 from retry_utils import batch_retry_manager
 from config import RETRY_CONFIG
 from entity_manager import handle_characters, handle_locations, handle_items
+from ui_utils import ui, console
+from rich.panel import Panel
+from rich.text import Text
 
 # --- Helper Functions ---
 def ensure_meta_dir():
@@ -1786,11 +1789,84 @@ def reset_retry_config():
     input("\n按回车键继续...")
 
 
+def show_project_status():
+    """显示项目完成状态"""
+    # 检查各个步骤的完成情况
+    completion_status = {
+        "theme_one_line": bool(data_manager.read_theme_one_line()),
+        "theme_paragraph": bool(data_manager.read_theme_paragraph()),
+        "world_settings": bool(data_manager.read_characters() or data_manager.read_locations() or data_manager.read_items()),
+        "story_outline": bool(data_manager.read_story_outline()),
+        "chapter_outline": bool(data_manager.read_chapter_outline()),
+        "chapter_summaries": bool(data_manager.read_chapter_summaries()),
+        "novel_chapters": bool(data_manager.read_novel_chapters())
+    }
+    
+    ui.print_project_status(completion_status)
+
+
+def create_beautiful_menu():
+    """创建美化的主菜单"""
+    # 菜单选项
+    menu_options = [
+        ("📝", "1. 确立一句话主题", "开始您的创作之旅"),
+        ("📖", "2. 扩展成一段话主题", "将主题扩展为详细描述"),
+        ("🌍", "3. 世界设定", "构建角色、场景和道具"),
+        ("📋", "4. 编辑故事大纲", "规划整体故事结构"),
+        ("📚", "5. 编辑分章细纲", "细化每章内容安排"),
+        ("📄", "6. 编辑章节概要", "生成章节摘要"),
+        ("✍️", "7. 生成小说正文", "AI辅助创作正文"),
+        ("⚙️", "8. 系统设置", "配置系统参数"),
+        ("👋", "9. 退出", "结束本次创作")
+    ]
+    
+    # 创建美化的菜单面板
+    menu_content = []
+    for emoji, option, description in menu_options:
+        menu_content.append(f"{emoji} [bold cyan]{option}[/bold cyan]")
+        menu_content.append(f"   [dim]{description}[/dim]")
+        menu_content.append("")  # 空行
+    
+    # 移除最后的空行
+    if menu_content:
+        menu_content.pop()
+    
+    menu_panel = Panel(
+        "\n".join(menu_content),
+        title="🎯 [bold magenta]创作菜单[/bold magenta]",
+        subtitle="[dim]使用方向键选择，回车确认[/dim]",
+        style="bright_blue",
+        padding=(1, 2)
+    )
+    
+    console.print(menu_panel)
+
+
 def main():
     """
     Main function to display the interactive menu.
     """
+    # 显示欢迎信息（只在首次启动时显示）
+    first_run = True
+    
     while True:
+        # 清屏并显示界面
+        console.clear()
+        
+        if first_run:
+            ui.print_welcome()
+            console.print()  # 空行
+            first_run = False
+        
+        # 显示项目状态
+        show_project_status()
+        console.print()  # 空行
+        
+        # 显示美化的菜单
+        create_beautiful_menu()
+        console.print()  # 空行
+        
+        # 使用questionary选择
         choice = questionary.select(
             "请选择您要进行的操作:",
             choices=[
@@ -1804,11 +1880,23 @@ def main():
                 "8. 系统设置",
                 "9. 退出"
             ],
-            use_indicator=True
+            use_indicator=True,
+            style=questionary.Style([
+                ('question', 'bold'),
+                ('answer', 'fg:#ff9d00 bold'),
+                ('pointer', 'fg:#ff9d00 bold'),
+                ('highlighted', 'fg:#ff9d00 bold'),
+                ('selected', 'fg:#cc5454'),
+                ('separator', 'fg:#cc5454'),
+                ('instruction', ''),
+                ('text', ''),
+                ('disabled', 'fg:#858585 italic')
+            ])
         ).ask()
 
         if choice is None or choice.endswith("退出"):
-            print("再见！")
+            console.clear()
+            ui.print_goodbye()
             break
         
         if choice.startswith("1."):
