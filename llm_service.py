@@ -59,27 +59,31 @@ class LLMService:
                 self.async_client = None
                 return
             
-            # 构建代理配置
-            proxy_config = None
+            # 构建HTTP客户端配置
+            client_kwargs = {
+                "base_url": API_CONFIG["base_url"],
+                "api_key": API_CONFIG["openrouter_api_key"]
+            }
+            
+            # 如果启用代理，配置HTTP客户端
             if PROXY_CONFIG["enabled"]:
-                proxy_config = {
-                    "http://": PROXY_CONFIG["http_proxy"],
-                    "https://": PROXY_CONFIG["https_proxy"]
-                }
+                proxy_url = PROXY_CONFIG["http_proxy"]
+                
+                # 同步客户端
+                http_client = httpx.Client(proxy=proxy_url)
+                client_kwargs["http_client"] = http_client
+                
+                # 异步客户端
+                async_http_client = httpx.AsyncClient(proxy=proxy_url)
+                async_client_kwargs = client_kwargs.copy()
+                async_client_kwargs["http_client"] = async_http_client
+            else:
+                async_client_kwargs = client_kwargs.copy()
             
-            # 同步客户端
-            self.client = OpenAI(
-                base_url=API_CONFIG["base_url"],
-                api_key=API_CONFIG["openrouter_api_key"],
-                http_client=httpx.Client(proxies=proxy_config) if proxy_config else None
-            )
+            # 创建客户端
+            self.client = OpenAI(**client_kwargs)
+            self.async_client = AsyncOpenAI(**async_client_kwargs)
             
-            # 异步客户端
-            self.async_client = AsyncOpenAI(
-                base_url=API_CONFIG["base_url"],
-                api_key=API_CONFIG["openrouter_api_key"],
-                http_client=httpx.AsyncClient(proxies=proxy_config) if proxy_config else None
-            )
         except Exception as e:
             print(f"初始化AI客户端时出错: {e}")
             self.client = None
