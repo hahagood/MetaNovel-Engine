@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from config import FILE_PATHS, ensure_directories
+from datetime import datetime
 
 class DataManager:
     """数据管理类，封装所有文件读写操作"""
@@ -33,6 +34,9 @@ class DataManager:
     def add_item_to_dict(self, file_path, key, value):
         """向字典类型的JSON文件添加项目"""
         data = self.read_json_file(file_path)
+        # 添加时间戳
+        if isinstance(value, dict):
+            value["created_at"] = datetime.now().isoformat()
         data[key] = value
         return self.write_json_file(file_path, data)
     
@@ -40,6 +44,10 @@ class DataManager:
         """更新字典类型的JSON文件中的项目"""
         data = self.read_json_file(file_path)
         if key in data:
+            # 保留原创建时间，更新修改时间
+            if isinstance(value, dict) and isinstance(data[key], dict):
+                value["created_at"] = data[key].get("created_at", datetime.now().isoformat())
+                value["updated_at"] = datetime.now().isoformat()
             data[key] = value
             return self.write_json_file(file_path, data)
         return False
@@ -69,7 +77,10 @@ class DataManager:
     
     def write_theme_one_line(self, theme):
         """写入一句话主题"""
-        data = {"theme": theme}
+        data = {
+            "theme": theme,
+            "created_at": datetime.now().isoformat()
+        }
         return self.write_json_file(FILE_PATHS["theme_one_line"], data)
     
     def read_theme_paragraph(self):
@@ -79,13 +90,16 @@ class DataManager:
     
     def write_theme_paragraph(self, theme_paragraph):
         """写入段落主题"""
-        data = {"theme_paragraph": theme_paragraph}
+        data = {
+            "theme_paragraph": theme_paragraph,
+            "created_at": datetime.now().isoformat()
+        }
         return self.write_json_file(FILE_PATHS["theme_paragraph"], data)
     
     # ===== 角色相关 =====
     def read_characters(self):
         """读取所有角色"""
-        return self.read_json_file(FILE_PATHS["characters"])
+        return self.list_items_in_dict(FILE_PATHS["characters"])
     
     def write_characters(self, characters_data):
         """写入角色数据"""
@@ -93,30 +107,28 @@ class DataManager:
     
     def add_character(self, name, description):
         """添加角色"""
-        characters = self.read_characters()
-        characters[name] = {"description": description}
-        return self.write_characters(characters)
-    
+        return self.add_item_to_dict(
+            FILE_PATHS["characters"],
+            name,
+            {"description": description}
+        )
+
     def update_character(self, name, description):
         """更新角色"""
-        characters = self.read_characters()
-        if name in characters:
-            characters[name]["description"] = description
-            return self.write_characters(characters)
-        return False
-    
+        return self.update_item_in_dict(
+            FILE_PATHS["characters"],
+            name,
+            {"description": description}
+        )
+
     def delete_character(self, name):
         """删除角色"""
-        characters = self.read_characters()
-        if name in characters:
-            del characters[name]
-            return self.write_characters(characters)
-        return False
-    
+        return self.delete_item_from_dict(FILE_PATHS["characters"], name)
+
     # ===== 场景相关 =====
     def read_locations(self):
         """读取所有场景"""
-        return self.read_json_file(FILE_PATHS["locations"])
+        return self.list_items_in_dict(FILE_PATHS["locations"])
     
     def write_locations(self, locations_data):
         """写入场景数据"""
@@ -124,30 +136,28 @@ class DataManager:
     
     def add_location(self, name, description):
         """添加场景"""
-        locations = self.read_locations()
-        locations[name] = {"description": description}
-        return self.write_locations(locations)
-    
+        return self.add_item_to_dict(
+            FILE_PATHS["locations"],
+            name,
+            {"description": description}
+        )
+
     def update_location(self, name, description):
         """更新场景"""
-        locations = self.read_locations()
-        if name in locations:
-            locations[name]["description"] = description
-            return self.write_locations(locations)
-        return False
-    
+        return self.update_item_in_dict(
+            FILE_PATHS["locations"],
+            name,
+            {"description": description}
+        )
+
     def delete_location(self, name):
         """删除场景"""
-        locations = self.read_locations()
-        if name in locations:
-            del locations[name]
-            return self.write_locations(locations)
-        return False
+        return self.delete_item_from_dict(FILE_PATHS["locations"], name)
     
     # ===== 道具相关 =====
     def read_items(self):
         """读取所有道具"""
-        return self.read_json_file(FILE_PATHS["items"])
+        return self.list_items_in_dict(FILE_PATHS["items"])
     
     def write_items(self, items_data):
         """写入道具数据"""
@@ -155,25 +165,23 @@ class DataManager:
     
     def add_item(self, name, description):
         """添加道具"""
-        items = self.read_items()
-        items[name] = {"description": description}
-        return self.write_items(items)
-    
+        return self.add_item_to_dict(
+            FILE_PATHS["items"],
+            name,
+            {"description": description}
+        )
+
     def update_item(self, name, description):
         """更新道具"""
-        items = self.read_items()
-        if name in items:
-            items[name]["description"] = description
-            return self.write_items(items)
-        return False
-    
+        return self.update_item_in_dict(
+            FILE_PATHS["items"],
+            name,
+            {"description": description}
+        )
+
     def delete_item(self, name):
         """删除道具"""
-        items = self.read_items()
-        if name in items:
-            del items[name]
-            return self.write_items(items)
-        return False
+        return self.delete_item_from_dict(FILE_PATHS["items"], name)
     
     # ===== 故事大纲相关 =====
     def read_story_outline(self):
@@ -183,7 +191,11 @@ class DataManager:
     
     def write_story_outline(self, outline):
         """写入故事大纲"""
-        data = {"outline": outline}
+        data = {
+            "outline": outline,
+            "created_at": datetime.now().isoformat(),
+            "word_count": len(outline)
+        }
         return self.write_json_file(FILE_PATHS["story_outline"], data)
     
     # ===== 分章细纲相关 =====
@@ -194,7 +206,11 @@ class DataManager:
     
     def write_chapter_outline(self, chapters):
         """写入分章细纲"""
-        data = {"chapters": chapters}
+        data = {
+            "chapters": chapters,
+            "total_chapters": len(chapters),
+            "created_at": datetime.now().isoformat()
+        }
         return self.write_json_file(FILE_PATHS["chapter_outline"], data)
     
     # ===== 章节概要相关 =====

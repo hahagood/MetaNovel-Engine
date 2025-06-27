@@ -8,9 +8,12 @@ idna==3.10
 multidict==6.1.0
 openai==1.58.1
 propcache==0.2.1
+pydantic==2.11.7
+pydantic_core==2.33.2
+python-dotenv==1.1.1
 requests==2.32.3
+rich==14.0.0
 tqdm==4.67.1
 typing_extensions==4.12.2
 urllib3==2.2.3
 yarl==1.18.3
-python-dotenv==1.1.1 
