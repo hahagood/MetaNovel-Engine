@@ -1,60 +1,36 @@
-import os
 import sys
 
-# --- Force Python's HTTP libraries to use a proxy ---
-# This must be done BEFORE importing openai or other network libraries.
-PROXY_URL = "http://127.0.0.1:8118"
-os.environ['http_proxy'] = PROXY_URL
-os.environ['https_proxy'] = PROXY_URL
+# --- 导入配置模块并设置代理 ---
+from config import setup_proxy
+setup_proxy()  # 必须在导入网络库之前设置代理
 # ----------------------------------------------------
 
 import questionary
 import json
-from pathlib import Path
-import os
-from openai import OpenAI, APIStatusError
-
-# --- Constants ---
-META_DIR = Path("meta")
-OPENROUTER_MODEL = "google/gemini-2.5-pro-preview-06-05" # 可以替换为任何 OpenRouter 支持的模型
+import re
+import datetime
+import asyncio
+from llm_service import llm_service
+from data_manager import data_manager
+from progress_utils import AsyncProgressManager, run_with_progress
+from retry_utils import batch_retry_manager
+from config import RETRY_CONFIG
 
 # --- Helper Functions ---
 def ensure_meta_dir():
     """Ensures the meta directory exists."""
-    META_DIR.mkdir(exist_ok=True)
+    # 现在由data_manager自动处理
+    pass
 
-def configure_llm():
-    """Configures the generative AI model, checking for the API key."""
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
-        print("\n错误: 找不到 OPENROUTER_API_KEY 环境变量。")
-        print("请确保您已在环境中正确设置了您的 OpenRouter API 密钥。")
-        return None
-    try:
-        client = OpenAI(
-            api_key=api_key,
-            base_url="https://openrouter.ai/api/v1",
-        )
-        return client
-    except Exception as e:
-        print(f"\n初始化大语言模型时出错: {e}")
-        return None
+
 
 def handle_theme_one_line():
     """Handles creating or updating the one-sentence theme."""
     ensure_meta_dir()
-    target_path = META_DIR / "theme_one_line.json"
     
-    current_theme = ""
-    if target_path.exists():
-        try:
-            with target_path.open('r', encoding='utf-8') as f:
-                data = json.load(f)
-                current_theme = data.get("theme", "")
-            if current_theme:
-                print(f"当前主题: {current_theme}")
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"无法读取现有主题文件: {e}")
+    current_theme = data_manager.read_theme_one_line()
+    if current_theme:
+        print(f"当前主题: {current_theme}")
 
     new_theme = questionary.text(
         "请输入您的一句话主题:",
@@ -62,10 +38,10 @@ def handle_theme_one_line():
     ).ask()
 
     if new_theme is not None and new_theme.strip() and new_theme != current_theme:
-        data = {"theme": new_theme}
-        with target_path.open('w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-        print(f"主题已更新为: {new_theme}\n")
+        if data_manager.write_theme_one_line(new_theme):
+            print(f"主题已更新为: {new_theme}\n")
+        else:
+            print("保存主题时出错。\n")
     elif new_theme is None:
         print("操作已取消。\n")
     else:
@@ -75,23 +51,15 @@ def handle_theme_one_line():
 def handle_theme_paragraph():
     """Handles creating or updating the paragraph-long theme using an LLM."""
     ensure_meta_dir()
-    one_line_theme_path = META_DIR / "theme_one_line.json"
-    paragraph_theme_path = META_DIR / "theme_paragraph.json"
 
     # 首先检查一句话主题是否存在
-    if not one_line_theme_path.exists():
+    one_line_theme = data_manager.read_theme_one_line()
+    if not one_line_theme:
         print("\n请先使用选项 [1] 确立一句话主题。")
         return
 
     # 检查是否已有段落主题
-    existing_paragraph = ""
-    if paragraph_theme_path.exists():
-        try:
-            with paragraph_theme_path.open('r', encoding='utf-8') as f:
-                data = json.load(f)
-                existing_paragraph = data.get("theme_paragraph", "").strip()
-        except (json.JSONDecodeError, IOError):
-            pass  # 如果文件损坏或无法读取，就重新生成
+    existing_paragraph = data_manager.read_theme_paragraph()
 
     if existing_paragraph:
         # 如果已有段落主题，显示并提供操作选项
@@ -123,10 +91,10 @@ def handle_theme_paragraph():
                 multiline=True
             ).ask()
             if edited_paragraph and edited_paragraph.strip() and edited_paragraph != existing_paragraph:
-                data = {"theme_paragraph": edited_paragraph}
-                with paragraph_theme_path.open('w', encoding='utf-8') as f:
-                    json.dump(data, f, ensure_ascii=False, indent=4)
-                print("段落主题已更新。\n")
+                if data_manager.write_theme_paragraph(edited_paragraph):
+                    print("段落主题已更新。\n")
+                else:
+                    print("保存段落主题时出错。\n")
             elif edited_paragraph is None:
                 print("操作已取消。\n")
             else:
@@ -139,12 +107,9 @@ def handle_theme_paragraph():
             return
 
     # 生成新的段落主题（无论是首次生成还是重新生成）
-    with one_line_theme_path.open('r', encoding='utf-8') as f:
-        one_line_data = json.load(f)
-        one_line_theme = one_line_data.get("theme")
-        if not one_line_theme:
-            print("\n一句话主题文件为空，请先使用选项 [1] 确立主题。")
-            return
+    if not one_line_theme:
+        print("\n一句话主题为空，请先使用选项 [1] 确立主题。")
+        return
             
     print(f'\n基于主题 "{one_line_theme}" 进行扩展...')
 
@@ -166,44 +131,18 @@ def handle_theme_paragraph():
             print("操作已取消。\n")
             return
 
-    llm = configure_llm()
-    if not llm:
+    if not llm_service.is_available():
+        print("AI服务不可用，请检查配置。")
         return
 
-    # 构建完整的提示词
-    base_prompt = f"请将以下这个一句话小说主题，扩展成一段更加具体、包含更多情节可能性的段落大纲，字数在200字左右。请直接输出扩写后的段落，不要包含额外说明和标题。\n\n一句话主题：{one_line_theme}"
-    
     if user_prompt.strip():
-        full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
         print(f"用户指导：{user_prompt.strip()}")
-    else:
-        full_prompt = base_prompt
     
     print("正在调用 AI 生成段落主题，请稍候...")
-    try:
-        completion = llm.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": full_prompt,
-                }
-            ],
-            timeout=60,
-        )
-        generated_paragraph = completion.choices[0].message.content
-    except APIStatusError as e:
-        print(f"\n错误: 调用 API 时出错 (状态码: {e.status_code})")
-        if e.status_code == 429:
-             print("API 资源配额已用尽或达到速率限制。请检查您在 OpenRouter 的账户。")
-        else:
-            print(f"详细信息: {e.response.text}")
-        return
-    except Exception as e:
-        print(f"\n调用 AI 时出错: {e}")
-        if "Timeout" in str(e) or "timed out" in str(e):
-             print("\n错误：请求超时。")
-             print("这很可能是您的网络无法连接到 OpenRouter 的服务器。请检查您的网络连接、代理或防火墙设置。")
+    generated_paragraph = llm_service.generate_theme_paragraph(one_line_theme, user_prompt)
+    
+    if not generated_paragraph:
+        print("AI生成失败，请稍后重试。")
         return
 
     print("\n--- AI 生成的段落主题 ---")
@@ -226,10 +165,10 @@ def handle_theme_paragraph():
         return
     elif action.startswith("1."):
         # 直接保存
-        data = {"theme_paragraph": generated_paragraph}
-        with paragraph_theme_path.open('w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-        print("段落主题已保存。\n")
+        if data_manager.write_theme_paragraph(generated_paragraph):
+            print("段落主题已保存。\n")
+        else:
+            print("保存段落主题时出错。\n")
     elif action.startswith("2."):
         # 修改后保存
         edited_paragraph = questionary.text(
@@ -239,10 +178,10 @@ def handle_theme_paragraph():
         ).ask()
 
         if edited_paragraph and edited_paragraph.strip():
-            data = {"theme_paragraph": edited_paragraph}
-            with paragraph_theme_path.open('w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
-            print("段落主题已保存。\n")
+            if data_manager.write_theme_paragraph(edited_paragraph):
+                print("段落主题已保存。\n")
+            else:
+                print("保存段落主题时出错。\n")
         else:
             print("操作已取消或内容为空，未保存。\n")
 
@@ -252,14 +191,13 @@ def handle_world_setting():
     ensure_meta_dir()
     
     # 检查前置条件
-    one_line_theme_path = META_DIR / "theme_one_line.json"
-    paragraph_theme_path = META_DIR / "theme_paragraph.json"
+    one_line_exists, paragraph_exists = data_manager.check_prerequisites_for_world_setting()
     
-    if not one_line_theme_path.exists() or not paragraph_theme_path.exists():
+    if not one_line_exists or not paragraph_exists:
         print("\n请先完成前面的步骤：")
-        if not one_line_theme_path.exists():
+        if not one_line_exists:
             print("- 步骤1: 确立一句话主题")
-        if not paragraph_theme_path.exists():
+        if not paragraph_exists:
             print("- 步骤2: 扩展成一段话主题")
         print("\n世界设定需要基于明确的主题来创建角色、场景和道具。\n")
         return
@@ -289,18 +227,14 @@ def handle_world_setting():
 def handle_characters():
     """Handles character management with full CRUD operations."""
     ensure_meta_dir()
-    characters_path = META_DIR / "characters.json"
     
     # 读取现有角色数据
-    characters_data = {}
-    if characters_path.exists():
-        try:
-            with characters_path.open('r', encoding='utf-8') as f:
-                characters_data = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            characters_data = {}
+    characters_data = data_manager.read_characters()
     
     while True:
+        # 每次循环重新读取数据
+        characters_data = data_manager.read_characters()
+        
         # 显示当前角色列表
         if characters_data:
             print("\n--- 当前角色列表 ---")
@@ -336,19 +270,19 @@ def handle_characters():
             break
         elif action.startswith("1."):
             # 添加新角色
-            add_character(characters_data, characters_path)
+            add_character()
         elif action.startswith("2.") and characters_data:
             # 查看角色详情
-            view_character(characters_data)
+            view_character()
         elif action.startswith("2.") and not characters_data:
             # 返回上级菜单（当没有角色时）
             break
         elif action.startswith("3."):
             # 修改角色信息
-            edit_character(characters_data, characters_path)
+            edit_character()
         elif action.startswith("4."):
             # 删除角色
-            delete_character(characters_data, characters_path)
+            delete_character()
         elif action.startswith("5.") or action.startswith("2."):
             # 返回上级菜单
             break
@@ -357,18 +291,11 @@ def handle_characters():
 def handle_locations():
     """Handles location/scene management with full CRUD operations."""
     ensure_meta_dir()
-    locations_path = META_DIR / "locations.json"
-    
-    # 读取现有场景数据
-    locations_data = {}
-    if locations_path.exists():
-        try:
-            with locations_path.open('r', encoding='utf-8') as f:
-                locations_data = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            locations_data = {}
     
     while True:
+        # 每次循环重新读取数据
+        locations_data = data_manager.read_locations()
+        
         # 显示当前场景列表
         if locations_data:
             print("\n--- 当前场景列表 ---")
@@ -404,19 +331,19 @@ def handle_locations():
             break
         elif action.startswith("1."):
             # 添加新场景
-            add_location(locations_data, locations_path)
+            add_location()
         elif action.startswith("2.") and locations_data:
             # 查看场景详情
-            view_location(locations_data)
+            view_location()
         elif action.startswith("2.") and not locations_data:
             # 返回上级菜单（当没有场景时）
             break
         elif action.startswith("3."):
             # 修改场景信息
-            edit_location(locations_data, locations_path)
+            edit_location()
         elif action.startswith("4."):
             # 删除场景
-            delete_location(locations_data, locations_path)
+            delete_location()
         elif action.startswith("5.") or action.startswith("2."):
             # 返回上级菜单
             break
@@ -425,18 +352,11 @@ def handle_locations():
 def handle_items():
     """Handles item/prop management with full CRUD operations."""
     ensure_meta_dir()
-    items_path = META_DIR / "items.json"
-    
-    # 读取现有道具数据
-    items_data = {}
-    if items_path.exists():
-        try:
-            with items_path.open('r', encoding='utf-8') as f:
-                items_data = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            items_data = {}
     
     while True:
+        # 每次循环重新读取数据
+        items_data = data_manager.read_items()
+        
         # 显示当前道具列表
         if items_data:
             print("\n--- 当前道具列表 ---")
@@ -472,25 +392,25 @@ def handle_items():
             break
         elif action.startswith("1."):
             # 添加新道具
-            add_item(items_data, items_path)
+            add_item()
         elif action.startswith("2.") and items_data:
             # 查看道具详情
-            view_item(items_data)
+            view_item()
         elif action.startswith("2.") and not items_data:
             # 返回上级菜单（当没有道具时）
             break
         elif action.startswith("3."):
             # 修改道具信息
-            edit_item(items_data, items_path)
+            edit_item()
         elif action.startswith("4."):
             # 删除道具
-            delete_item(items_data, items_path)
+            delete_item()
         elif action.startswith("5.") or action.startswith("2."):
             # 返回上级菜单
             break
 
 
-def add_character(characters_data, characters_path):
+def add_character():
     """Add a new character."""
     char_name = questionary.text("请输入角色名称:").ask()
     if not char_name or not char_name.strip():
@@ -498,6 +418,7 @@ def add_character(characters_data, characters_path):
         return
     
     char_name = char_name.strip()
+    characters_data = data_manager.read_characters()
     if char_name in characters_data:
         print(f"角色 '{char_name}' 已存在。\n")
         return
@@ -524,40 +445,14 @@ def add_character(characters_data, characters_path):
     if not llm:
         return
 
-    # 构建提示词
-    base_prompt = f"请为小说角色 '{char_name}' 创建一个详细的角色描述，包括外貌特征、性格特点、背景故事、能力特长等方面，字数在150-200字左右。请直接输出角色描述，不要包含额外说明和标题。"
-    
     if user_prompt.strip():
-        full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
         print(f"用户指导：{user_prompt.strip()}")
-    else:
-        full_prompt = base_prompt
     
     print("正在调用 AI 生成角色描述，请稍候...")
-    try:
-        completion = llm.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": full_prompt,
-                }
-            ],
-            timeout=60,
-        )
-        generated_description = completion.choices[0].message.content
-    except APIStatusError as e:
-        print(f"\n错误: 调用 API 时出错 (状态码: {e.status_code})")
-        if e.status_code == 429:
-             print("API 资源配额已用尽或达到速率限制。请检查您在 OpenRouter 的账户。")
-        else:
-            print(f"详细信息: {e.response.text}")
-        return
-    except Exception as e:
-        print(f"\n调用 AI 时出错: {e}")
-        if "Timeout" in str(e) or "timed out" in str(e):
-             print("\n错误：请求超时。")
-             print("这很可能是您的网络无法连接到 OpenRouter 的服务器。请检查您的网络连接、代理或防火墙设置。")
+    generated_description = llm_service.generate_character_description(char_name, user_prompt)
+    
+    if not generated_description:
+        print("AI生成失败，请稍后重试。")
         return
 
     print(f"\n--- AI 生成的角色描述：{char_name} ---")
@@ -580,9 +475,10 @@ def add_character(characters_data, characters_path):
         return
     elif action.startswith("1."):
         # 直接保存
-        characters_data[char_name] = {"description": generated_description}
-        save_characters_data(characters_data, characters_path)
-        print(f"角色 '{char_name}' 已保存。\n")
+        if data_manager.add_character(char_name, generated_description):
+            print(f"角色 '{char_name}' 已保存。\n")
+        else:
+            print("保存角色时出错。\n")
     elif action.startswith("2."):
         # 修改后保存
         edited_description = questionary.text(
@@ -592,15 +488,21 @@ def add_character(characters_data, characters_path):
         ).ask()
 
         if edited_description and edited_description.strip():
-            characters_data[char_name] = {"description": edited_description}
-            save_characters_data(characters_data, characters_path)
-            print(f"角色 '{char_name}' 已保存。\n")
+            if data_manager.add_character(char_name, edited_description):
+                print(f"角色 '{char_name}' 已保存。\n")
+            else:
+                print("保存角色时出错。\n")
         else:
             print("操作已取消或内容为空，未保存。\n")
 
 
-def view_character(characters_data):
+def view_character():
     """View character details."""
+    characters_data = data_manager.read_characters()
+    if not characters_data:
+        print("\n当前没有角色信息。\n")
+        return
+        
     char_names = list(characters_data.keys())
     char_name = questionary.select(
         "请选择要查看的角色：",
@@ -615,8 +517,13 @@ def view_character(characters_data):
         print("------------------------\n")
 
 
-def edit_character(characters_data, characters_path):
+def edit_character():
     """Edit character information."""
+    characters_data = data_manager.read_characters()
+    if not characters_data:
+        print("\n当前没有角色信息可编辑。\n")
+        return
+        
     char_names = list(characters_data.keys())
     char_name = questionary.select(
         "请选择要修改的角色：",
@@ -639,17 +546,23 @@ def edit_character(characters_data, characters_path):
     ).ask()
     
     if edited_description and edited_description.strip() and edited_description != current_description:
-        characters_data[char_name]['description'] = edited_description
-        save_characters_data(characters_data, characters_path)
-        print(f"角色 '{char_name}' 已更新。\n")
+        if data_manager.update_character(char_name, edited_description):
+            print(f"角色 '{char_name}' 已更新。\n")
+        else:
+            print("更新角色时出错。\n")
     elif edited_description is None:
         print("操作已取消。\n")
     else:
         print("内容未更改。\n")
 
 
-def delete_character(characters_data, characters_path):
+def delete_character():
     """Delete a character."""
+    characters_data = data_manager.read_characters()
+    if not characters_data:
+        print("\n当前没有角色信息可删除。\n")
+        return
+        
     char_names = list(characters_data.keys())
     char_name = questionary.select(
         "请选择要删除的角色：",
@@ -662,22 +575,17 @@ def delete_character(characters_data, characters_path):
     
     confirm = questionary.confirm(f"确定要删除角色 '{char_name}' 吗？").ask()
     if confirm:
-        del characters_data[char_name]
-        save_characters_data(characters_data, characters_path)
-        print(f"角色 '{char_name}' 已删除。\n")
+        if data_manager.delete_character(char_name):
+            print(f"角色 '{char_name}' 已删除。\n")
+        else:
+            print("删除角色时出错。\n")
     else:
         print("操作已取消。\n")
 
 
-def save_characters_data(characters_data, characters_path):
-    """Save characters data to file."""
-    with characters_path.open('w', encoding='utf-8') as f:
-        json.dump(characters_data, f, ensure_ascii=False, indent=4)
-
-
 # ===== 场景管理函数 =====
 
-def add_location(locations_data, locations_path):
+def add_location():
     """Add a new location/scene."""
     loc_name = questionary.text("请输入场景名称:").ask()
     if not loc_name or not loc_name.strip():
@@ -685,6 +593,7 @@ def add_location(locations_data, locations_path):
         return
     
     loc_name = loc_name.strip()
+    locations_data = data_manager.read_locations()
     if loc_name in locations_data:
         print(f"场景 '{loc_name}' 已存在。\n")
         return
@@ -711,40 +620,14 @@ def add_location(locations_data, locations_path):
     if not llm:
         return
 
-    # 构建提示词
-    base_prompt = f"请为小说场景 '{loc_name}' 创建一个详细的场景描述，包括地理位置、环境特色、建筑风格、氛围感受、历史背景、重要特征等方面，字数在150-200字左右。请直接输出场景描述，不要包含额外说明和标题。"
-    
     if user_prompt.strip():
-        full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
         print(f"用户指导：{user_prompt.strip()}")
-    else:
-        full_prompt = base_prompt
     
     print("正在调用 AI 生成场景描述，请稍候...")
-    try:
-        completion = llm.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": full_prompt,
-                }
-            ],
-            timeout=60,
-        )
-        generated_description = completion.choices[0].message.content
-    except APIStatusError as e:
-        print(f"\n错误: 调用 API 时出错 (状态码: {e.status_code})")
-        if e.status_code == 429:
-             print("API 资源配额已用尽或达到速率限制。请检查您在 OpenRouter 的账户。")
-        else:
-            print(f"详细信息: {e.response.text}")
-        return
-    except Exception as e:
-        print(f"\n调用 AI 时出错: {e}")
-        if "Timeout" in str(e) or "timed out" in str(e):
-             print("\n错误：请求超时。")
-             print("这很可能是您的网络无法连接到 OpenRouter 的服务器。请检查您的网络连接、代理或防火墙设置。")
+    generated_description = llm_service.generate_location_description(loc_name, user_prompt)
+    
+    if not generated_description:
+        print("AI生成失败，请稍后重试。")
         return
 
     print(f"\n--- AI 生成的场景描述：{loc_name} ---")
@@ -767,9 +650,10 @@ def add_location(locations_data, locations_path):
         return
     elif action.startswith("1."):
         # 直接保存
-        locations_data[loc_name] = {"description": generated_description}
-        save_locations_data(locations_data, locations_path)
-        print(f"场景 '{loc_name}' 已保存。\n")
+        if data_manager.add_location(loc_name, generated_description):
+            print(f"场景 '{loc_name}' 已保存。\n")
+        else:
+            print("保存场景时出错。\n")
     elif action.startswith("2."):
         # 修改后保存
         edited_description = questionary.text(
@@ -779,15 +663,21 @@ def add_location(locations_data, locations_path):
         ).ask()
 
         if edited_description and edited_description.strip():
-            locations_data[loc_name] = {"description": edited_description}
-            save_locations_data(locations_data, locations_path)
-            print(f"场景 '{loc_name}' 已保存。\n")
+            if data_manager.add_location(loc_name, edited_description):
+                print(f"场景 '{loc_name}' 已保存。\n")
+            else:
+                print("保存场景时出错。\n")
         else:
             print("操作已取消或内容为空，未保存。\n")
 
 
-def view_location(locations_data):
+def view_location():
     """View location details."""
+    locations_data = data_manager.read_locations()
+    if not locations_data:
+        print("\n当前没有场景信息。\n")
+        return
+        
     loc_names = list(locations_data.keys())
     loc_name = questionary.select(
         "请选择要查看的场景：",
@@ -802,8 +692,13 @@ def view_location(locations_data):
         print("------------------------\n")
 
 
-def edit_location(locations_data, locations_path):
+def edit_location():
     """Edit location information."""
+    locations_data = data_manager.read_locations()
+    if not locations_data:
+        print("\n当前没有场景信息可编辑。\n")
+        return
+        
     loc_names = list(locations_data.keys())
     loc_name = questionary.select(
         "请选择要修改的场景：",
@@ -826,17 +721,23 @@ def edit_location(locations_data, locations_path):
     ).ask()
     
     if edited_description and edited_description.strip() and edited_description != current_description:
-        locations_data[loc_name]['description'] = edited_description
-        save_locations_data(locations_data, locations_path)
-        print(f"场景 '{loc_name}' 已更新。\n")
+        if data_manager.update_location(loc_name, edited_description):
+            print(f"场景 '{loc_name}' 已更新。\n")
+        else:
+            print("更新场景时出错。\n")
     elif edited_description is None:
         print("操作已取消。\n")
     else:
         print("内容未更改。\n")
 
 
-def delete_location(locations_data, locations_path):
+def delete_location():
     """Delete a location."""
+    locations_data = data_manager.read_locations()
+    if not locations_data:
+        print("\n当前没有场景信息可删除。\n")
+        return
+        
     loc_names = list(locations_data.keys())
     loc_name = questionary.select(
         "请选择要删除的场景：",
@@ -849,22 +750,17 @@ def delete_location(locations_data, locations_path):
     
     confirm = questionary.confirm(f"确定要删除场景 '{loc_name}' 吗？").ask()
     if confirm:
-        del locations_data[loc_name]
-        save_locations_data(locations_data, locations_path)
-        print(f"场景 '{loc_name}' 已删除。\n")
+        if data_manager.delete_location(loc_name):
+            print(f"场景 '{loc_name}' 已删除。\n")
+        else:
+            print("删除场景时出错。\n")
     else:
         print("操作已取消。\n")
 
 
-def save_locations_data(locations_data, locations_path):
-    """Save locations data to file."""
-    with locations_path.open('w', encoding='utf-8') as f:
-        json.dump(locations_data, f, ensure_ascii=False, indent=4)
-
-
 # ===== 道具管理函数 =====
 
-def add_item(items_data, items_path):
+def add_item():
     """Add a new item/prop."""
     item_name = questionary.text("请输入道具名称:").ask()
     if not item_name or not item_name.strip():
@@ -872,6 +768,7 @@ def add_item(items_data, items_path):
         return
     
     item_name = item_name.strip()
+    items_data = data_manager.read_items()
     if item_name in items_data:
         print(f"道具 '{item_name}' 已存在。\n")
         return
@@ -898,40 +795,14 @@ def add_item(items_data, items_path):
     if not llm:
         return
 
-    # 构建提示词
-    base_prompt = f"请为小说道具 '{item_name}' 创建一个详细的道具描述，包括外观特征、材质工艺、功能用途、历史来源、特殊能力、重要意义等方面，字数在150-200字左右。请直接输出道具描述，不要包含额外说明和标题。"
-    
     if user_prompt.strip():
-        full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
         print(f"用户指导：{user_prompt.strip()}")
-    else:
-        full_prompt = base_prompt
     
     print("正在调用 AI 生成道具描述，请稍候...")
-    try:
-        completion = llm.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": full_prompt,
-                }
-            ],
-            timeout=60,
-        )
-        generated_description = completion.choices[0].message.content
-    except APIStatusError as e:
-        print(f"\n错误: 调用 API 时出错 (状态码: {e.status_code})")
-        if e.status_code == 429:
-             print("API 资源配额已用尽或达到速率限制。请检查您在 OpenRouter 的账户。")
-        else:
-            print(f"详细信息: {e.response.text}")
-        return
-    except Exception as e:
-        print(f"\n调用 AI 时出错: {e}")
-        if "Timeout" in str(e) or "timed out" in str(e):
-             print("\n错误：请求超时。")
-             print("这很可能是您的网络无法连接到 OpenRouter 的服务器。请检查您的网络连接、代理或防火墙设置。")
+    generated_description = llm_service.generate_item_description(item_name, user_prompt)
+    
+    if not generated_description:
+        print("AI生成失败，请稍后重试。")
         return
 
     print(f"\n--- AI 生成的道具描述：{item_name} ---")
@@ -954,9 +825,10 @@ def add_item(items_data, items_path):
         return
     elif action.startswith("1."):
         # 直接保存
-        items_data[item_name] = {"description": generated_description}
-        save_items_data(items_data, items_path)
-        print(f"道具 '{item_name}' 已保存。\n")
+        if data_manager.add_item(item_name, generated_description):
+            print(f"道具 '{item_name}' 已保存。\n")
+        else:
+            print("保存道具时出错。\n")
     elif action.startswith("2."):
         # 修改后保存
         edited_description = questionary.text(
@@ -966,15 +838,21 @@ def add_item(items_data, items_path):
         ).ask()
 
         if edited_description and edited_description.strip():
-            items_data[item_name] = {"description": edited_description}
-            save_items_data(items_data, items_path)
-            print(f"道具 '{item_name}' 已保存。\n")
+            if data_manager.add_item(item_name, edited_description):
+                print(f"道具 '{item_name}' 已保存。\n")
+            else:
+                print("保存道具时出错。\n")
         else:
             print("操作已取消或内容为空，未保存。\n")
 
 
-def view_item(items_data):
+def view_item():
     """View item details."""
+    items_data = data_manager.read_items()
+    if not items_data:
+        print("\n当前没有道具信息。\n")
+        return
+        
     item_names = list(items_data.keys())
     item_name = questionary.select(
         "请选择要查看的道具：",
@@ -989,8 +867,13 @@ def view_item(items_data):
         print("------------------------\n")
 
 
-def edit_item(items_data, items_path):
+def edit_item():
     """Edit item information."""
+    items_data = data_manager.read_items()
+    if not items_data:
+        print("\n当前没有道具信息可编辑。\n")
+        return
+        
     item_names = list(items_data.keys())
     item_name = questionary.select(
         "请选择要修改的道具：",
@@ -1013,17 +896,23 @@ def edit_item(items_data, items_path):
     ).ask()
     
     if edited_description and edited_description.strip() and edited_description != current_description:
-        items_data[item_name]['description'] = edited_description
-        save_items_data(items_data, items_path)
-        print(f"道具 '{item_name}' 已更新。\n")
+        if data_manager.update_item(item_name, edited_description):
+            print(f"道具 '{item_name}' 已更新。\n")
+        else:
+            print("更新道具时出错。\n")
     elif edited_description is None:
         print("操作已取消。\n")
     else:
         print("内容未更改。\n")
 
 
-def delete_item(items_data, items_path):
+def delete_item():
     """Delete an item."""
+    items_data = data_manager.read_items()
+    if not items_data:
+        print("\n当前没有道具信息可删除。\n")
+        return
+        
     item_names = list(items_data.keys())
     item_name = questionary.select(
         "请选择要删除的道具：",
@@ -1036,52 +925,38 @@ def delete_item(items_data, items_path):
     
     confirm = questionary.confirm(f"确定要删除道具 '{item_name}' 吗？").ask()
     if confirm:
-        del items_data[item_name]
-        save_items_data(items_data, items_path)
-        print(f"道具 '{item_name}' 已删除。\n")
+        if data_manager.delete_item(item_name):
+            print(f"道具 '{item_name}' 已删除。\n")
+        else:
+            print("删除道具时出错。\n")
     else:
         print("操作已取消。\n")
-
-
-def save_items_data(items_data, items_path):
-    """Save items data to file."""
-    with items_path.open('w', encoding='utf-8') as f:
-        json.dump(items_data, f, ensure_ascii=False, indent=4)
 
 
 def handle_story_outline():
     """Handles story outline management with full CRUD operations."""
     ensure_meta_dir()
-    outline_path = META_DIR / "story_outline.json"
     
     # 检查前置条件
-    one_line_theme_path = META_DIR / "theme_one_line.json"
-    paragraph_theme_path = META_DIR / "theme_paragraph.json"
+    one_line_exists, paragraph_exists = data_manager.check_prerequisites_for_story_outline()
     
-    if not one_line_theme_path.exists() or not paragraph_theme_path.exists():
+    if not one_line_exists or not paragraph_exists:
         print("\n请先完成前面的步骤：")
-        if not one_line_theme_path.exists():
+        if not one_line_exists:
             print("- 步骤1: 确立一句话主题")
-        if not paragraph_theme_path.exists():
+        if not paragraph_exists:
             print("- 步骤2: 扩展成一段话主题")
         print()
         return
     
     # 读取现有大纲数据
-    outline_data = {}
-    if outline_path.exists():
-        try:
-            with outline_path.open('r', encoding='utf-8') as f:
-                outline_data = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            outline_data = {}
+    current_outline = data_manager.read_story_outline()
     
     # 显示当前大纲状态
-    if outline_data and outline_data.get('outline'):
+    if current_outline:
         print("\n--- 当前故事大纲 ---")
-        outline_text = outline_data['outline']
         # 显示前200字符作为预览
-        preview = outline_text[:200] + "..." if len(outline_text) > 200 else outline_text
+        preview = current_outline[:200] + "..." if len(current_outline) > 200 else current_outline
         print(preview)
         print("------------------------\n")
         
@@ -1100,11 +975,11 @@ def handle_story_outline():
             return
         elif action.startswith("1."):
             print("\n--- 完整故事大纲 ---")
-            print(outline_data['outline'])
+            print(current_outline)
             print("------------------------\n")
             return
         elif action.startswith("2."):
-            edit_outline(outline_data, outline_path)
+            edit_outline()
             return
         elif action.startswith("3."):
             print("\n正在重新生成故事大纲...")
@@ -1114,34 +989,17 @@ def handle_story_outline():
         print("\n当前没有故事大纲，让我们来生成一个。\n")
     
     # 生成新的故事大纲
-    generate_story_outline(outline_path)
+    generate_story_outline()
 
 
-def generate_story_outline(outline_path):
+def generate_story_outline():
     """Generate a new story outline based on existing themes and characters."""
     # 读取主题信息
-    one_line_theme_path = META_DIR / "theme_one_line.json"
-    paragraph_theme_path = META_DIR / "theme_paragraph.json"
-    characters_path = META_DIR / "characters.json"
-    
-    with one_line_theme_path.open('r', encoding='utf-8') as f:
-        one_line_theme = json.load(f).get("theme", "")
-    
-    with paragraph_theme_path.open('r', encoding='utf-8') as f:
-        paragraph_theme = json.load(f).get("theme_paragraph", "")
+    one_line_theme = data_manager.read_theme_one_line()
+    paragraph_theme = data_manager.read_theme_paragraph()
     
     # 读取角色信息（如果有的话）
-    characters_info = ""
-    if characters_path.exists():
-        try:
-            with characters_path.open('r', encoding='utf-8') as f:
-                characters_data = json.load(f)
-                if characters_data:
-                    characters_info = "\n\n已有角色信息：\n"
-                    for char_name, char_data in characters_data.items():
-                        characters_info += f"- {char_name}: {char_data.get('description', '无描述')}\n"
-        except (json.JSONDecodeError, IOError):
-            pass
+    characters_info = data_manager.get_characters_info_string()
     
     print(f"基于主题和角色信息生成故事大纲...")
     
@@ -1167,53 +1025,14 @@ def generate_story_outline(outline_path):
     if not llm:
         return
 
-    # 构建提示词
-    base_prompt = f"""请基于以下信息创建一个详细的小说故事大纲：
-
-一句话主题：{one_line_theme}
-
-段落主题：{paragraph_theme}{characters_info}
-
-请创建一个包含以下要素的完整故事大纲：
-1. 故事背景设定
-2. 主要情节线索
-3. 关键转折点
-4. 冲突与高潮
-5. 结局方向
-
-大纲应该详细具体，字数在500-800字左右。请直接输出故事大纲，不要包含额外说明和标题。"""
-    
     if user_prompt.strip():
-        full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
         print(f"用户指导：{user_prompt.strip()}")
-    else:
-        full_prompt = base_prompt
     
     print("正在调用 AI 生成故事大纲，请稍候...")
-    try:
-        completion = llm.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": full_prompt,
-                }
-            ],
-            timeout=60,
-        )
-        generated_outline = completion.choices[0].message.content
-    except APIStatusError as e:
-        print(f"\n错误: 调用 API 时出错 (状态码: {e.status_code})")
-        if e.status_code == 429:
-             print("API 资源配额已用尽或达到速率限制。请检查您在 OpenRouter 的账户。")
-        else:
-            print(f"详细信息: {e.response.text}")
-        return
-    except Exception as e:
-        print(f"\n调用 AI 时出错: {e}")
-        if "Timeout" in str(e) or "timed out" in str(e):
-             print("\n错误：请求超时。")
-             print("这很可能是您的网络无法连接到 OpenRouter 的服务器。请检查您的网络连接、代理或防火墙设置。")
+    generated_outline = llm_service.generate_story_outline(one_line_theme, paragraph_theme, characters_info, user_prompt)
+    
+    if not generated_outline:
+        print("AI生成失败，请稍后重试。")
         return
 
     print("\n--- AI 生成的故事大纲 ---")
@@ -1236,9 +1055,10 @@ def generate_story_outline(outline_path):
         return
     elif action.startswith("1."):
         # 直接保存
-        outline_data = {"outline": generated_outline}
-        save_outline_data(outline_data, outline_path)
-        print("故事大纲已保存。\n")
+        if data_manager.write_story_outline(generated_outline):
+            print("故事大纲已保存。\n")
+        else:
+            print("保存故事大纲时出错。\n")
     elif action.startswith("2."):
         # 修改后保存
         edited_outline = questionary.text(
@@ -1248,16 +1068,17 @@ def generate_story_outline(outline_path):
         ).ask()
 
         if edited_outline and edited_outline.strip():
-            outline_data = {"outline": edited_outline}
-            save_outline_data(outline_data, outline_path)
-            print("故事大纲已保存。\n")
+            if data_manager.write_story_outline(edited_outline):
+                print("故事大纲已保存。\n")
+            else:
+                print("保存故事大纲时出错。\n")
         else:
             print("操作已取消或内容为空，未保存。\n")
 
 
-def edit_outline(outline_data, outline_path):
+def edit_outline():
     """Edit existing story outline."""
-    current_outline = outline_data.get('outline', '')
+    current_outline = data_manager.read_story_outline()
     print("\n--- 当前故事大纲 ---")
     print(current_outline)
     print("------------------------\n")
@@ -1269,47 +1090,34 @@ def edit_outline(outline_data, outline_path):
     ).ask()
     
     if edited_outline and edited_outline.strip() and edited_outline != current_outline:
-        outline_data['outline'] = edited_outline
-        save_outline_data(outline_data, outline_path)
-        print("故事大纲已更新。\n")
+        if data_manager.write_story_outline(edited_outline):
+            print("故事大纲已更新。\n")
+        else:
+            print("更新故事大纲时出错。\n")
     elif edited_outline is None:
         print("操作已取消。\n")
     else:
         print("内容未更改。\n")
 
 
-def save_outline_data(outline_data, outline_path):
-    """Save outline data to file."""
-    with outline_path.open('w', encoding='utf-8') as f:
-        json.dump(outline_data, f, ensure_ascii=False, indent=4)
-
-
 def handle_chapter_outline():
     """Handles chapter outline management with full CRUD operations."""
     ensure_meta_dir()
-    chapter_outline_path = META_DIR / "chapter_outline.json"
     
     # 检查前置条件
-    story_outline_path = META_DIR / "story_outline.json"
+    story_outline_exists = data_manager.check_prerequisites_for_chapter_outline()
     
-    if not story_outline_path.exists():
+    if not story_outline_exists:
         print("\n请先完成步骤4: 编辑故事大纲\n")
         return
     
     while True:
         # 每次循环都重新读取数据
-        chapter_data = {}
-        if chapter_outline_path.exists():
-            try:
-                with chapter_outline_path.open('r', encoding='utf-8') as f:
-                    chapter_data = json.load(f)
-            except (json.JSONDecodeError, IOError):
-                chapter_data = {}
+        chapters = data_manager.read_chapter_outline()
         
         # 显示当前章节列表
-        if chapter_data and chapter_data.get('chapters'):
+        if chapters:
             print("\n--- 当前分章细纲 ---")
-            chapters = chapter_data['chapters']
             for i, chapter in enumerate(chapters, 1):
                 title = chapter.get('title', f'第{i}章')
                 outline = chapter.get('outline', '无大纲')
@@ -1329,7 +1137,7 @@ def handle_chapter_outline():
             "6. 返回主菜单"
         ]
         
-        if not chapter_data or not chapter_data.get('chapters'):
+        if not chapters:
             # 如果没有章节，只显示生成和返回选项
             choices = [
                 "1. 生成分章细纲",
@@ -1346,52 +1154,33 @@ def handle_chapter_outline():
             break
         elif action.startswith("1."):
             # 生成分章细纲
-            generate_chapter_outline(chapter_outline_path)
-        elif action.startswith("2.") and chapter_data and chapter_data.get('chapters'):
+            generate_chapter_outline()
+        elif action.startswith("2.") and chapters:
             # 添加新章节
-            add_chapter(chapter_data, chapter_outline_path)
-        elif action.startswith("2.") and (not chapter_data or not chapter_data.get('chapters')):
+            add_chapter()
+        elif action.startswith("2.") and not chapters:
             # 返回主菜单（当没有章节时）
             break
         elif action.startswith("3."):
             # 查看章节详情
-            view_chapter(chapter_data)
+            view_chapter()
         elif action.startswith("4."):
             # 修改章节信息
-            edit_chapter(chapter_data, chapter_outline_path)
+            edit_chapter()
         elif action.startswith("5."):
             # 删除章节
-            delete_chapter(chapter_data, chapter_outline_path)
+            delete_chapter()
         elif action.startswith("6.") or action.startswith("2."):
             # 返回主菜单
             break
 
 
-def generate_chapter_outline(chapter_outline_path):
+def generate_chapter_outline():
     """Generate chapter outline based on story outline."""
     # 读取故事大纲和其他信息
-    story_outline_path = META_DIR / "story_outline.json"
-    one_line_theme_path = META_DIR / "theme_one_line.json"
-    characters_path = META_DIR / "characters.json"
-    
-    with story_outline_path.open('r', encoding='utf-8') as f:
-        story_outline = json.load(f).get("outline", "")
-    
-    with one_line_theme_path.open('r', encoding='utf-8') as f:
-        one_line_theme = json.load(f).get("theme", "")
-    
-    # 读取角色信息（如果有的话）
-    characters_info = ""
-    if characters_path.exists():
-        try:
-            with characters_path.open('r', encoding='utf-8') as f:
-                characters_data = json.load(f)
-                if characters_data:
-                    characters_info = "\n\n已有角色信息：\n"
-                    for char_name, char_data in characters_data.items():
-                        characters_info += f"- {char_name}: {char_data.get('description', '无描述')}\n"
-        except (json.JSONDecodeError, IOError):
-            pass
+    story_outline = data_manager.read_story_outline()
+    one_line_theme = data_manager.read_theme_one_line()
+    characters_info = data_manager.get_characters_info_string()
     
     print("基于故事大纲生成分章细纲...")
     
@@ -1417,80 +1206,14 @@ def generate_chapter_outline(chapter_outline_path):
     if not llm:
         return
 
-    # 构建提示词
-    base_prompt = f"""请基于以下信息创建详细的分章细纲：
-
-主题：{one_line_theme}
-
-故事大纲：{story_outline}{characters_info}
-
-请将故事分解为5-10个章节，每个章节包含：
-1. 章节标题
-2. 章节大纲（150-200字）
-3. 主要情节点
-4. 角色发展
-
-请以JSON格式输出，格式如下：
-{{
-  "chapters": [
-    {{
-      "title": "章节标题",
-      "outline": "章节详细大纲内容"
-    }}
-  ]
-}}
-
-请确保输出的是有效的JSON格式。"""
-    
     if user_prompt.strip():
-        full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
         print(f"用户指导：{user_prompt.strip()}")
-    else:
-        full_prompt = base_prompt
     
     print("正在调用 AI 生成分章细纲，请稍候...")
-    try:
-        completion = llm.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": full_prompt,
-                }
-            ],
-            timeout=60,
-        )
-        generated_response = completion.choices[0].message.content
-        
-        # 尝试解析JSON
-        try:
-            # 提取JSON部分（如果AI返回了额外的文本）
-            import re
-            json_match = re.search(r'\{.*\}', generated_response, re.DOTALL)
-            if json_match:
-                json_str = json_match.group()
-                chapter_outline_data = json.loads(json_str)
-            else:
-                raise ValueError("未找到有效的JSON格式")
-        except (json.JSONDecodeError, ValueError) as e:
-            print(f"\n解析AI响应时出错: {e}")
-            print("AI返回的原始内容：")
-            print(generated_response)
-            print("\n请稍后重试或手动添加章节。")
-            return
-            
-    except APIStatusError as e:
-        print(f"\n错误: 调用 API 时出错 (状态码: {e.status_code})")
-        if e.status_code == 429:
-             print("API 资源配额已用尽或达到速率限制。请检查您在 OpenRouter 的账户。")
-        else:
-            print(f"详细信息: {e.response.text}")
-        return
-    except Exception as e:
-        print(f"\n调用 AI 时出错: {e}")
-        if "Timeout" in str(e) or "timed out" in str(e):
-             print("\n错误：请求超时。")
-             print("这很可能是您的网络无法连接到 OpenRouter 的服务器。请检查您的网络连接、代理或防火墙设置。")
+    chapter_outline_data = llm_service.generate_chapter_outline(one_line_theme, story_outline, characters_info, user_prompt)
+    
+    if not chapter_outline_data:
+        print("AI生成失败，请稍后重试。")
         return
 
     # 显示生成的章节
@@ -1517,8 +1240,11 @@ def generate_chapter_outline(chapter_outline_path):
         return
     elif action.startswith("1."):
         # 直接保存
-        save_chapter_data(chapter_outline_data, chapter_outline_path)
-        print("分章细纲已保存。\n")
+        chapters_list = chapter_outline_data.get('chapters', [])
+        if data_manager.write_chapter_outline(chapters_list):
+            print("分章细纲已保存。\n")
+        else:
+            print("保存分章细纲时出错。\n")
     elif action.startswith("2."):
         # 修改后保存（这里可以让用户逐个修改章节）
         print("请逐个确认或修改每个章节：\n")
@@ -1543,14 +1269,15 @@ def generate_chapter_outline(chapter_outline_path):
                     modified_chapters.append(chapter)
         
         if modified_chapters:
-            final_data = {"chapters": modified_chapters}
-            save_chapter_data(final_data, chapter_outline_path)
-            print("分章细纲已保存。\n")
+            if data_manager.write_chapter_outline(modified_chapters):
+                print("分章细纲已保存。\n")
+            else:
+                print("保存分章细纲时出错。\n")
         else:
             print("未保存任何章节。\n")
 
 
-def add_chapter(chapter_data, chapter_outline_path):
+def add_chapter():
     """Add a new chapter."""
     title = questionary.text("请输入章节标题:").ask()
     if not title or not title.strip():
@@ -1564,18 +1291,20 @@ def add_chapter(chapter_data, chapter_outline_path):
     
     new_chapter = {"title": title.strip(), "outline": outline.strip()}
     
-    if 'chapters' not in chapter_data:
-        chapter_data['chapters'] = []
+    chapters = data_manager.read_chapter_outline()
+    chapters.append(new_chapter)
     
-    chapter_data['chapters'].append(new_chapter)
-    save_chapter_data(chapter_data, chapter_outline_path)
-    print(f"章节 '{title}' 已添加。\n")
+    if data_manager.write_chapter_outline(chapters):
+        print(f"章节 '{title}' 已添加。\n")
+    else:
+        print("添加章节时出错。\n")
 
 
-def view_chapter(chapter_data):
+def view_chapter():
     """View chapter details."""
-    chapters = chapter_data.get('chapters', [])
+    chapters = data_manager.read_chapter_outline()
     if not chapters:
+        print("\n当前没有章节信息。\n")
         return
     
     chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
@@ -1593,10 +1322,11 @@ def view_chapter(chapter_data):
         print("------------------------\n")
 
 
-def edit_chapter(chapter_data, chapter_outline_path):
+def edit_chapter():
     """Edit chapter information."""
-    chapters = chapter_data.get('chapters', [])
+    chapters = data_manager.read_chapter_outline()
     if not chapters:
+        print("\n当前没有章节信息可编辑。\n")
         return
     
     chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
@@ -1629,14 +1359,17 @@ def edit_chapter(chapter_data, chapter_outline_path):
     
     # 更新章节信息
     chapters[chapter_index] = {"title": new_title.strip(), "outline": new_outline.strip()}
-    save_chapter_data(chapter_data, chapter_outline_path)
-    print("章节信息已更新。\n")
+    if data_manager.write_chapter_outline(chapters):
+        print("章节信息已更新。\n")
+    else:
+        print("更新章节信息时出错。\n")
 
 
-def delete_chapter(chapter_data, chapter_outline_path):
+def delete_chapter():
     """Delete a chapter."""
-    chapters = chapter_data.get('chapters', [])
+    chapters = data_manager.read_chapter_outline()
     if not chapters:
+        print("\n当前没有章节信息可删除。\n")
         return
     
     chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
@@ -1655,38 +1388,27 @@ def delete_chapter(chapter_data, chapter_outline_path):
     confirm = questionary.confirm(f"确定要删除章节 '{chapter_title}' 吗？").ask()
     if confirm:
         chapters.pop(chapter_index)
-        save_chapter_data(chapter_data, chapter_outline_path)
-        print(f"章节 '{chapter_title}' 已删除。\n")
+        if data_manager.write_chapter_outline(chapters):
+            print(f"章节 '{chapter_title}' 已删除。\n")
+        else:
+            print("删除章节时出错。\n")
     else:
         print("操作已取消。\n")
-
-
-def save_chapter_data(chapter_data, chapter_outline_path):
-    """Save chapter data to file."""
-    with chapter_outline_path.open('w', encoding='utf-8') as f:
-        json.dump(chapter_data, f, ensure_ascii=False, indent=4)
 
 
 def handle_chapter_summary():
     """Handles chapter summary management with full CRUD operations."""
     ensure_meta_dir()
-    chapter_summary_path = META_DIR / "chapter_summary.json"
     
     # 检查前置条件
-    chapter_outline_path = META_DIR / "chapter_outline.json"
+    chapter_outline_exists = data_manager.check_prerequisites_for_chapter_summary()
     
-    if not chapter_outline_path.exists():
+    if not chapter_outline_exists:
         print("\n请先完成步骤5: 编辑分章细纲\n")
         return
     
     # 读取分章细纲
-    try:
-        with chapter_outline_path.open('r', encoding='utf-8') as f:
-            chapter_outline_data = json.load(f)
-            chapters = chapter_outline_data.get('chapters', [])
-    except (json.JSONDecodeError, IOError):
-        print("\n无法读取分章细纲文件，请检查步骤5是否正确完成。\n")
-        return
+    chapters = data_manager.read_chapter_outline()
     
     if not chapters:
         print("\n分章细纲为空，请先完成步骤5。\n")
@@ -1694,17 +1416,10 @@ def handle_chapter_summary():
     
     while True:
         # 每次循环都重新读取数据
-        summary_data = {}
-        if chapter_summary_path.exists():
-            try:
-                with chapter_summary_path.open('r', encoding='utf-8') as f:
-                    summary_data = json.load(f)
-            except (json.JSONDecodeError, IOError):
-                summary_data = {}
+        summaries = data_manager.read_chapter_summaries()
         
         # 显示当前章节概要状态
         print(f"\n--- 章节概要状态 (共{len(chapters)}章) ---")
-        summaries = summary_data.get('summaries', {})
         
         for i, chapter in enumerate(chapters, 1):
             chapter_key = f"chapter_{i}"
@@ -1733,26 +1448,49 @@ def handle_chapter_summary():
             break
         elif action.startswith("1."):
             # 生成所有章节概要
-            generate_all_summaries(chapters, chapter_summary_path)
+            generate_all_summaries(chapters)
         elif action.startswith("2."):
             # 生成单个章节概要
-            generate_single_summary(chapters, summary_data, chapter_summary_path)
+            generate_single_summary(chapters)
         elif action.startswith("3."):
             # 查看章节概要
-            view_chapter_summary(chapters, summary_data)
+            view_chapter_summary(chapters)
         elif action.startswith("4."):
             # 修改章节概要
-            edit_chapter_summary(chapters, summary_data, chapter_summary_path)
+            edit_chapter_summary(chapters)
         elif action.startswith("5."):
             # 删除章节概要
-            delete_chapter_summary(chapters, summary_data, chapter_summary_path)
+            delete_chapter_summary(chapters)
 
 
-def generate_all_summaries(chapters, chapter_summary_path):
+def generate_all_summaries(chapters):
     """Generate summaries for all chapters."""
     print(f"准备为所有 {len(chapters)} 个章节生成概要...")
     
-    confirm = questionary.confirm("这将为所有章节生成概要，可能需要较长时间。确定继续吗？").ask()
+    # 提供生成模式选择
+    mode_choice = questionary.select(
+        "请选择生成模式：",
+        choices=[
+            "1. 🚀 并发生成（推荐）- 同时生成多个章节，速度更快",
+            "2. 📝 顺序生成 - 逐个生成章节，更稳定",
+            "3. 🔙 返回上级菜单"
+        ],
+        use_indicator=True
+    ).ask()
+    
+    if mode_choice is None or mode_choice.startswith("3."):
+        return
+    
+    use_async = mode_choice.startswith("1.")
+    
+    confirm_msg = f"这将为所有 {len(chapters)} 个章节生成概要"
+    if use_async:
+        confirm_msg += "（并发模式，速度较快）"
+    else:
+        confirm_msg += "（顺序模式，较为稳定）"
+    confirm_msg += "。确定继续吗？"
+    
+    confirm = questionary.confirm(confirm_msg).ask()
     if not confirm:
         print("操作已取消。\n")
         return
@@ -1768,55 +1506,93 @@ def generate_all_summaries(chapters, chapter_summary_path):
         print("操作已取消。\n")
         return
     
-    llm = configure_llm()
-    if not llm:
+    if not llm_service.is_available():
+        print("AI服务不可用，请检查配置。")
         return
     
+    if use_async and not llm_service.is_async_available():
+        print("异步AI服务不可用，自动切换到顺序模式。")
+        use_async = False
+    
     # 读取相关信息
-    context_info = get_context_info()
+    context_info = data_manager.get_context_info()
     
-    summaries = {}
-    failed_chapters = []
-    
-    for i, chapter in enumerate(chapters, 1):
-        chapter_key = f"chapter_{i}"
-        print(f"\n正在生成第{i}章概要...")
+    if use_async:
+        # 异步并发生成
+        async def async_generate():
+            progress = AsyncProgressManager()
+            progress.start(len(chapters), "准备开始并发生成...")
+            
+            try:
+                callback = progress.create_callback()
+                results, failed_chapters = await llm_service.generate_all_summaries_async(
+                    chapters, context_info, user_prompt, callback
+                )
+                
+                # 保存结果
+                if results:
+                    if data_manager.write_chapter_summaries(results):
+                        progress.finish(f"成功生成 {len(results)} 个章节概要")
+                        
+                        if failed_chapters:
+                            print(f"失败的章节: {', '.join(map(str, failed_chapters))}")
+                            print("您可以稍后单独重新生成失败的章节。")
+                    else:
+                        progress.finish("保存章节概要时出错")
+                else:
+                    progress.finish("所有章节概要生成均失败")
+                    
+            except Exception as e:
+                progress.finish(f"生成过程中出现异常: {e}")
         
-        summary = generate_chapter_summary_content(
-            llm, chapter, i, len(chapters), context_info, user_prompt
-        )
-        
-        if summary:
-            summaries[chapter_key] = {
-                "title": chapter.get('title', f'第{i}章'),
-                "summary": summary
-            }
-            print(f"第{i}章概要生成完成。")
-        else:
-            failed_chapters.append(i)
-            print(f"第{i}章概要生成失败。")
-    
-    # 保存结果
-    if summaries:
-        summary_data = {"summaries": summaries}
-        save_summary_data(summary_data, chapter_summary_path)
-        print(f"\n成功生成 {len(summaries)} 个章节概要。")
-        
-        if failed_chapters:
-            print(f"失败的章节: {', '.join(map(str, failed_chapters))}")
-            print("您可以稍后单独重新生成失败的章节。")
+        # 运行异步生成
+        asyncio.run(async_generate())
     else:
-        print("\n所有章节概要生成均失败。")
+        # 同步顺序生成
+        summaries = {}
+        failed_chapters = []
+        
+        for i, chapter in enumerate(chapters, 1):
+            chapter_key = f"chapter_{i}"
+            print(f"\n正在生成第{i}章概要... ({i}/{len(chapters)})")
+            
+            summary = llm_service.generate_chapter_summary(chapter, i, context_info, user_prompt)
+            
+            if summary:
+                summaries[chapter_key] = {
+                    "title": chapter.get('title', f'第{i}章'),
+                    "summary": summary
+                }
+                print(f"✅ 第{i}章概要生成完成")
+            else:
+                failed_chapters.append(i)
+                print(f"❌ 第{i}章概要生成失败")
+        
+        # 保存结果
+        if summaries:
+            if data_manager.write_chapter_summaries(summaries):
+                print(f"\n✅ 成功生成 {len(summaries)} 个章节概要")
+                
+                if failed_chapters:
+                    print(f"失败的章节: {', '.join(map(str, failed_chapters))}")
+                    print("您可以稍后单独重新生成失败的章节。")
+            else:
+                print("❌ 保存章节概要时出错")
+        else:
+            print("\n❌ 所有章节概要生成均失败")
 
 
-def generate_single_summary(chapters, summary_data, chapter_summary_path):
+def generate_single_summary(chapters):
     """Generate summary for a single chapter."""
+    # 读取现有概要数据
+    summaries = data_manager.read_chapter_summaries()
+    
     # 选择章节
     chapter_choices = []
     for i, chapter in enumerate(chapters, 1):
         chapter_key = f"chapter_{i}"
         title = chapter.get('title', f'第{i}章')
-        status = "已完成" if chapter_key in summary_data.get('summaries', {}) else "未完成"
+        status = "已完成" if chapter_key in summaries else "未完成"
         chapter_choices.append(f"{i}. {title} ({status})")
     
     choice = questionary.select(
@@ -1834,7 +1610,7 @@ def generate_single_summary(chapters, summary_data, chapter_summary_path):
     chapter_key = f"chapter_{chapter_num}"
     
     # 如果已存在概要，询问是否覆盖
-    if chapter_key in summary_data.get('summaries', {}):
+    if chapter_key in summaries:
         overwrite = questionary.confirm(f"第{chapter_num}章已有概要，是否覆盖？").ask()
         if not overwrite:
             print("操作已取消。\n")
@@ -1851,17 +1627,15 @@ def generate_single_summary(chapters, summary_data, chapter_summary_path):
         print("操作已取消。\n")
         return
     
-    llm = configure_llm()
-    if not llm:
+    if not llm_service.is_available():
+        print("AI服务不可用，请检查配置。")
         return
     
     # 读取相关信息
-    context_info = get_context_info()
+    context_info = data_manager.get_context_info()
     
     print(f"\n正在生成第{chapter_num}章概要...")
-    summary = generate_chapter_summary_content(
-        llm, chapter, chapter_num, len(chapters), context_info, user_prompt
-    )
+    summary = llm_service.generate_chapter_summary(chapter, chapter_num, context_info, user_prompt)
     
     if summary:
         print(f"\n--- 第{chapter_num}章概要 ---")
@@ -1884,14 +1658,10 @@ def generate_single_summary(chapters, summary_data, chapter_summary_path):
             return
         elif action.startswith("1."):
             # 直接保存
-            if 'summaries' not in summary_data:
-                summary_data['summaries'] = {}
-            summary_data['summaries'][chapter_key] = {
-                "title": chapter.get('title', f'第{chapter_num}章'),
-                "summary": summary
-            }
-            save_summary_data(summary_data, chapter_summary_path)
-            print(f"第{chapter_num}章概要已保存。\n")
+            if data_manager.set_chapter_summary(chapter_num, chapter.get('title', f'第{chapter_num}章'), summary):
+                print(f"第{chapter_num}章概要已保存。\n")
+            else:
+                print("保存章节概要时出错。\n")
         elif action.startswith("2."):
             # 修改后保存
             edited_summary = questionary.text(
@@ -1901,134 +1671,22 @@ def generate_single_summary(chapters, summary_data, chapter_summary_path):
             ).ask()
 
             if edited_summary and edited_summary.strip():
-                if 'summaries' not in summary_data:
-                    summary_data['summaries'] = {}
-                summary_data['summaries'][chapter_key] = {
-                    "title": chapter.get('title', f'第{chapter_num}章'),
-                    "summary": edited_summary
-                }
-                save_summary_data(summary_data, chapter_summary_path)
-                print(f"第{chapter_num}章概要已保存。\n")
+                if data_manager.set_chapter_summary(chapter_num, chapter.get('title', f'第{chapter_num}章'), edited_summary):
+                    print(f"第{chapter_num}章概要已保存。\n")
+                else:
+                    print("保存章节概要时出错。\n")
             else:
                 print("操作已取消或内容为空，未保存。\n")
     else:
         print(f"第{chapter_num}章概要生成失败。\n")
 
 
-def generate_chapter_summary_content(llm, chapter, chapter_num, total_chapters, context_info, user_prompt):
-    """Generate summary content for a single chapter."""
-    # 构建提示词
-    base_prompt = f"""请基于以下信息为第{chapter_num}章创建详细的章节概要：
-
-{context_info}
-
-当前章节信息：
-章节标题：{chapter.get('title', f'第{chapter_num}章')}
-章节大纲：{chapter.get('outline', '无大纲')}
-
-请创建一个详细的章节概要，包含：
-1. 场景设定（时间、地点、环境）
-2. 主要人物及其行动
-3. 关键情节发展
-4. 对话要点
-5. 情感氛围
-6. 与整体故事的连接
-
-概要应该详细具体，字数在300-500字左右，为后续的正文写作提供充分的指导。请直接输出章节概要，不要包含额外说明和标题。"""
-    
-    if user_prompt.strip():
-        full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
-    else:
-        full_prompt = base_prompt
-    
-    try:
-        completion = llm.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": full_prompt,
-                }
-            ],
-            timeout=60,
-        )
-        return completion.choices[0].message.content
-    except APIStatusError as e:
-        print(f"\n错误: 调用 API 时出错 (状态码: {e.status_code})")
-        if e.status_code == 429:
-             print("API 资源配额已用尽或达到速率限制。请检查您在 OpenRouter 的账户。")
-        else:
-            print(f"详细信息: {e.response.text}")
-        return None
-    except Exception as e:
-        print(f"\n调用 AI 时出错: {e}")
-        if "Timeout" in str(e) or "timed out" in str(e):
-             print("\n错误：请求超时。")
-             print("这很可能是您的网络无法连接到 OpenRouter 的服务器。请检查您的网络连接、代理或防火墙设置。")
-        return None
 
 
-def get_context_info():
-    """Get context information for chapter summary generation."""
-    context_parts = []
-    
-    # 读取主题信息
-    try:
-        with (META_DIR / "theme_one_line.json").open('r', encoding='utf-8') as f:
-            theme = json.load(f).get("theme", "")
-            if theme:
-                context_parts.append(f"主题：{theme}")
-    except:
-        pass
-    
-    # 读取角色信息
-    try:
-        with (META_DIR / "characters.json").open('r', encoding='utf-8') as f:
-            characters_data = json.load(f)
-            if characters_data:
-                context_parts.append("主要角色：")
-                for char_name, char_data in characters_data.items():
-                    context_parts.append(f"- {char_name}: {char_data.get('description', '无描述')}")
-    except:
-        pass
-    
-    # 读取场景信息
-    try:
-        with (META_DIR / "locations.json").open('r', encoding='utf-8') as f:
-            locations_data = json.load(f)
-            if locations_data:
-                context_parts.append("重要场景：")
-                for loc_name, loc_data in locations_data.items():
-                    context_parts.append(f"- {loc_name}: {loc_data.get('description', '无描述')}")
-    except:
-        pass
-    
-    # 读取道具信息
-    try:
-        with (META_DIR / "items.json").open('r', encoding='utf-8') as f:
-            items_data = json.load(f)
-            if items_data:
-                context_parts.append("重要道具：")
-                for item_name, item_data in items_data.items():
-                    context_parts.append(f"- {item_name}: {item_data.get('description', '无描述')}")
-    except:
-        pass
-    
-    # 读取故事大纲
-    try:
-        with (META_DIR / "story_outline.json").open('r', encoding='utf-8') as f:
-            outline = json.load(f).get("outline", "")
-            if outline:
-                context_parts.append(f"故事大纲：{outline}")
-    except:
-        pass
-    
-    return "\n".join(context_parts)
 
-
-def view_chapter_summary(chapters, summary_data):
+def view_chapter_summary(chapters):
     """View chapter summary details."""
-    summaries = summary_data.get('summaries', {})
+    summaries = data_manager.read_chapter_summaries()
     if not summaries:
         print("\n当前没有章节概要。\n")
         return
@@ -2061,9 +1719,9 @@ def view_chapter_summary(chapters, summary_data):
         print("------------------------\n")
 
 
-def edit_chapter_summary(chapters, summary_data, chapter_summary_path):
+def edit_chapter_summary(chapters):
     """Edit chapter summary."""
-    summaries = summary_data.get('summaries', {})
+    summaries = data_manager.read_chapter_summaries()
     if not summaries:
         print("\n当前没有章节概要可编辑。\n")
         return
@@ -2100,18 +1758,19 @@ def edit_chapter_summary(chapters, summary_data, chapter_summary_path):
     ).ask()
     
     if edited_summary and edited_summary.strip() and edited_summary != summary_info['summary']:
-        summaries[chapter_key]['summary'] = edited_summary
-        save_summary_data(summary_data, chapter_summary_path)
-        print(f"第{chapter_num}章概要已更新。\n")
+        if data_manager.set_chapter_summary(chapter_num, summary_info['title'], edited_summary):
+            print(f"第{chapter_num}章概要已更新。\n")
+        else:
+            print("更新章节概要时出错。\n")
     elif edited_summary is None:
         print("操作已取消。\n")
     else:
         print("内容未更改。\n")
 
 
-def delete_chapter_summary(chapters, summary_data, chapter_summary_path):
+def delete_chapter_summary(chapters):
     """Delete chapter summary."""
-    summaries = summary_data.get('summaries', {})
+    summaries = data_manager.read_chapter_summaries()
     if not summaries:
         print("\n当前没有章节概要可删除。\n")
         return
@@ -2139,65 +1798,41 @@ def delete_chapter_summary(chapters, summary_data, chapter_summary_path):
     
     confirm = questionary.confirm(f"确定要删除第{chapter_num}章 '{title}' 的概要吗？").ask()
     if confirm:
-        del summaries[chapter_key]
-        save_summary_data(summary_data, chapter_summary_path)
-        print(f"第{chapter_num}章概要已删除。\n")
+        if data_manager.delete_chapter_summary(chapter_num):
+            print(f"第{chapter_num}章概要已删除。\n")
+        else:
+            print("删除章节概要时出错。\n")
     else:
         print("操作已取消。\n")
-
-
-def save_summary_data(summary_data, chapter_summary_path):
-    """Save summary data to file."""
-    with chapter_summary_path.open('w', encoding='utf-8') as f:
-        json.dump(summary_data, f, ensure_ascii=False, indent=4)
 
 
 def handle_novel_generation():
     """Handles novel text generation with full management operations."""
     ensure_meta_dir()
-    novel_text_path = META_DIR / "novel_text.json"
     
     # 检查前置条件
-    chapter_summary_path = META_DIR / "chapter_summary.json"
+    chapter_summary_exists = data_manager.check_prerequisites_for_novel_generation()
     
-    if not chapter_summary_path.exists():
+    if not chapter_summary_exists:
         print("\n请先完成步骤6: 编辑章节概要\n")
         return
     
     # 读取章节概要
-    try:
-        with chapter_summary_path.open('r', encoding='utf-8') as f:
-            summary_data = json.load(f)
-            summaries = summary_data.get('summaries', {})
-    except (json.JSONDecodeError, IOError):
-        print("\n无法读取章节概要文件，请检查步骤6是否正确完成。\n")
-        return
+    summaries = data_manager.read_chapter_summaries()
     
     if not summaries:
         print("\n章节概要为空，请先完成步骤6。\n")
         return
     
     # 读取分章细纲以获取章节顺序
-    try:
-        with (META_DIR / "chapter_outline.json").open('r', encoding='utf-8') as f:
-            chapter_outline_data = json.load(f)
-            chapters = chapter_outline_data.get('chapters', [])
-    except:
-        chapters = []
+    chapters = data_manager.read_chapter_outline()
     
     while True:
         # 每次循环都重新读取数据
-        novel_data = {}
-        if novel_text_path.exists():
-            try:
-                with novel_text_path.open('r', encoding='utf-8') as f:
-                    novel_data = json.load(f)
-            except (json.JSONDecodeError, IOError):
-                novel_data = {}
+        novel_chapters = data_manager.read_novel_chapters()
         
         # 显示当前小说正文状态
         print(f"\n--- 小说正文状态 (共{len(summaries)}章) ---")
-        novel_chapters = novel_data.get('chapters', {})
         
         # 按章节顺序显示
         for i in range(1, len(chapters) + 1):
@@ -2231,29 +1866,57 @@ def handle_novel_generation():
             break
         elif action.startswith("1."):
             # 生成所有章节正文
-            generate_all_novel_chapters(chapters, summaries, novel_text_path)
+            generate_all_novel_chapters(chapters, summaries)
         elif action.startswith("2."):
             # 生成单个章节正文
-            generate_single_novel_chapter(chapters, summaries, novel_data, novel_text_path)
+            generate_single_novel_chapter(chapters, summaries, novel_chapters)
         elif action.startswith("3."):
             # 查看章节正文
-            view_novel_chapter(chapters, novel_data)
+            view_novel_chapter(chapters, novel_chapters)
         elif action.startswith("4."):
             # 修改章节正文
-            edit_novel_chapter(chapters, novel_data, novel_text_path)
+            edit_novel_chapter(chapters, novel_chapters)
         elif action.startswith("5."):
             # 删除章节正文
-            delete_novel_chapter(chapters, novel_data, novel_text_path)
+            delete_novel_chapter(chapters, novel_chapters)
         elif action.startswith("6."):
             # 导出完整小说
-            export_complete_novel(chapters, novel_data)
+            export_complete_novel(chapters, novel_chapters)
 
 
-def generate_all_novel_chapters(chapters, summaries, novel_text_path):
+def generate_all_novel_chapters(chapters, summaries):
     """Generate novel text for all chapters."""
-    print(f"准备为所有 {len(summaries)} 个章节生成正文...")
+    available_chapters = sum(1 for i in range(1, len(chapters) + 1) if f"chapter_{i}" in summaries)
+    print(f"准备为 {available_chapters} 个有概要的章节生成正文...")
     
-    confirm = questionary.confirm("这将为所有章节生成正文，可能需要很长时间。确定继续吗？").ask()
+    if available_chapters == 0:
+        print("没有可用的章节概要，请先生成章节概要。")
+        return
+    
+    # 提供生成模式选择
+    mode_choice = questionary.select(
+        "请选择生成模式：",
+        choices=[
+            "1. 🚀 并发生成（推荐）- 同时生成多个章节，速度更快",
+            "2. 📝 顺序生成 - 逐个生成章节，更稳定",
+            "3. 🔙 返回上级菜单"
+        ],
+        use_indicator=True
+    ).ask()
+    
+    if mode_choice is None or mode_choice.startswith("3."):
+        return
+    
+    use_async = mode_choice.startswith("1.")
+    
+    confirm_msg = f"这将为 {available_chapters} 个章节生成正文"
+    if use_async:
+        confirm_msg += "（并发模式，速度较快）"
+    else:
+        confirm_msg += "（顺序模式，较为稳定）"
+    confirm_msg += "，可能需要较长时间。确定继续吗？"
+    
+    confirm = questionary.confirm(confirm_msg).ask()
     if not confirm:
         print("操作已取消。\n")
         return
@@ -2269,53 +1932,93 @@ def generate_all_novel_chapters(chapters, summaries, novel_text_path):
         print("操作已取消。\n")
         return
     
-    llm = configure_llm()
-    if not llm:
+    if not llm_service.is_available():
+        print("AI服务不可用，请检查配置。")
         return
     
+    if use_async and not llm_service.is_async_available():
+        print("异步AI服务不可用，自动切换到顺序模式。")
+        use_async = False
+    
     # 读取相关信息
-    context_info = get_context_info()
+    context_info = data_manager.get_context_info()
     
-    novel_chapters = {}
-    failed_chapters = []
-    
-    for i in range(1, len(chapters) + 1):
-        chapter_key = f"chapter_{i}"
-        if chapter_key not in summaries:
-            continue
+    if use_async:
+        # 异步并发生成
+        async def async_generate():
+            progress = AsyncProgressManager()
+            progress.start(available_chapters, "准备开始并发生成小说正文...")
             
-        print(f"\n正在生成第{i}章正文...")
+            try:
+                callback = progress.create_callback()
+                results, failed_chapters = await llm_service.generate_all_novels_async(
+                    chapters, summaries, context_info, user_prompt, callback
+                )
+                
+                # 保存结果
+                if results:
+                    if data_manager.write_novel_chapters(results):
+                        total_words = sum(ch.get('word_count', 0) for ch in results.values())
+                        progress.finish(f"成功生成 {len(results)} 个章节正文，总计 {total_words} 字")
+                        
+                        if failed_chapters:
+                            print(f"失败的章节: {', '.join(map(str, failed_chapters))}")
+                            print("您可以稍后单独重新生成失败的章节。")
+                    else:
+                        progress.finish("保存小说正文时出错")
+                else:
+                    progress.finish("所有章节正文生成均失败")
+                    
+            except Exception as e:
+                progress.finish(f"生成过程中出现异常: {e}")
         
-        chapter_content = generate_novel_chapter_content(
-            llm, chapters[i-1], summaries[chapter_key], i, len(chapters), context_info, user_prompt
-        )
-        
-        if chapter_content:
-            novel_chapters[chapter_key] = {
-                "title": chapters[i-1].get('title', f'第{i}章'),
-                "content": chapter_content,
-                "word_count": len(chapter_content)
-            }
-            print(f"第{i}章正文生成完成 ({len(chapter_content)}字)。")
-        else:
-            failed_chapters.append(i)
-            print(f"第{i}章正文生成失败。")
-    
-    # 保存结果
-    if novel_chapters:
-        novel_data = {"chapters": novel_chapters}
-        save_novel_data(novel_data, novel_text_path)
-        total_words = sum(ch.get('word_count', 0) for ch in novel_chapters.values())
-        print(f"\n成功生成 {len(novel_chapters)} 个章节正文，总计 {total_words} 字。")
-        
-        if failed_chapters:
-            print(f"失败的章节: {', '.join(map(str, failed_chapters))}")
-            print("您可以稍后单独重新生成失败的章节。")
+        # 运行异步生成
+        asyncio.run(async_generate())
     else:
-        print("\n所有章节正文生成均失败。")
+        # 同步顺序生成
+        novel_chapters = {}
+        failed_chapters = []
+        
+        processed = 0
+        for i in range(1, len(chapters) + 1):
+            chapter_key = f"chapter_{i}"
+            if chapter_key not in summaries:
+                continue
+                
+            processed += 1
+            print(f"\n正在生成第{i}章正文... ({processed}/{available_chapters})")
+            
+            chapter_content = llm_service.generate_novel_chapter(
+                chapters[i-1], summaries[chapter_key], i, context_info, user_prompt
+            )
+            
+            if chapter_content:
+                novel_chapters[chapter_key] = {
+                    "title": chapters[i-1].get('title', f'第{i}章'),
+                    "content": chapter_content,
+                    "word_count": len(chapter_content)
+                }
+                print(f"✅ 第{i}章正文生成完成 ({len(chapter_content)}字)")
+            else:
+                failed_chapters.append(i)
+                print(f"❌ 第{i}章正文生成失败")
+        
+        # 保存结果
+        if novel_chapters:
+            if data_manager.write_novel_chapters(novel_chapters):
+                total_words = sum(ch.get('word_count', 0) for ch in novel_chapters.values())
+                print(f"\n✅ 成功生成 {len(novel_chapters)} 个章节正文，总计 {total_words} 字")
+                
+                if failed_chapters:
+                    print(f"失败的章节: {', '.join(map(str, failed_chapters))}")
+                    print("您可以稍后单独重新生成失败的章节。")
+            else:
+                print("❌ 保存小说正文时出错")
+        else:
+            print("\n❌ 所有章节正文生成均失败")
 
 
-def generate_single_novel_chapter(chapters, summaries, novel_data, novel_text_path):
+def generate_single_novel_chapter(chapters, summaries, novel_data):
     """Generate novel text for a single chapter."""
     # 选择章节
     chapter_choices = []
@@ -2359,16 +2062,16 @@ def generate_single_novel_chapter(chapters, summaries, novel_data, novel_text_pa
         print("操作已取消。\n")
         return
     
-    llm = configure_llm()
-    if not llm:
+    if not llm_service.is_available():
+        print("AI服务不可用，请检查配置。")
         return
     
     # 读取相关信息
-    context_info = get_context_info()
+    context_info = data_manager.get_context_info()
     
     print(f"\n正在生成第{chapter_num}章正文...")
-    chapter_content = generate_novel_chapter_content(
-        llm, chapter, summaries[chapter_key], chapter_num, len(chapters), context_info, user_prompt
+    chapter_content = llm_service.generate_novel_chapter(
+        chapter, summaries[chapter_key], chapter_num, context_info, user_prompt
     )
     
     if chapter_content:
@@ -2394,15 +2097,10 @@ def generate_single_novel_chapter(chapters, summaries, novel_data, novel_text_pa
             return
         elif action.startswith("1."):
             # 直接保存
-            if 'chapters' not in novel_data:
-                novel_data['chapters'] = {}
-            novel_data['chapters'][chapter_key] = {
-                "title": chapter.get('title', f'第{chapter_num}章'),
-                "content": chapter_content,
-                "word_count": len(chapter_content)
-            }
-            save_novel_data(novel_data, novel_text_path)
-            print(f"第{chapter_num}章正文已保存 ({len(chapter_content)}字)。\n")
+            if data_manager.set_novel_chapter(chapter_num, chapter.get('title', f'第{chapter_num}章'), chapter_content):
+                print(f"第{chapter_num}章正文已保存 ({len(chapter_content)}字)。\n")
+            else:
+                print("保存章节正文时出错。\n")
         elif action.startswith("2."):
             # 修改后保存
             edited_content = questionary.text(
@@ -2412,75 +2110,15 @@ def generate_single_novel_chapter(chapters, summaries, novel_data, novel_text_pa
             ).ask()
 
             if edited_content and edited_content.strip():
-                if 'chapters' not in novel_data:
-                    novel_data['chapters'] = {}
-                novel_data['chapters'][chapter_key] = {
-                    "title": chapter.get('title', f'第{chapter_num}章'),
-                    "content": edited_content,
-                    "word_count": len(edited_content)
-                }
-                save_novel_data(novel_data, novel_text_path)
-                print(f"第{chapter_num}章正文已保存 ({len(edited_content)}字)。\n")
+                if data_manager.set_novel_chapter(chapter_num, chapter.get('title', f'第{chapter_num}章'), edited_content):
+                    print(f"第{chapter_num}章正文已保存 ({len(edited_content)}字)。\n")
+                else:
+                    print("保存章节正文时出错。\n")
             else:
                 print("操作已取消或内容为空，未保存。\n")
     else:
         print(f"第{chapter_num}章正文生成失败。\n")
 
-
-def generate_novel_chapter_content(llm, chapter, summary_info, chapter_num, total_chapters, context_info, user_prompt):
-    """Generate novel content for a single chapter."""
-    # 构建提示词
-    base_prompt = f"""请基于以下信息为第{chapter_num}章创建完整的小说正文：
-
-{context_info}
-
-当前章节信息：
-章节标题：{chapter.get('title', f'第{chapter_num}章')}
-章节大纲：{chapter.get('outline', '无大纲')}
-
-章节概要：
-{summary_info.get('summary', '无概要')}
-
-请创建完整的小说正文，要求：
-1. 生动的场景描写和环境渲染
-2. 丰富的人物对话和内心独白
-3. 细腻的情感表达和心理描写
-4. 流畅的情节推进和节奏控制
-5. 符合小说文学风格的语言表达
-6. 与前后章节的自然衔接
-
-正文应该详细完整，字数在2000-4000字左右。请直接输出小说正文，不要包含章节标题和额外说明。"""
-    
-    if user_prompt.strip():
-        full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
-    else:
-        full_prompt = base_prompt
-    
-    try:
-        completion = llm.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": full_prompt,
-                }
-            ],
-            timeout=120,  # 增加超时时间，因为生成正文需要更长时间
-        )
-        return completion.choices[0].message.content
-    except APIStatusError as e:
-        print(f"\n错误: 调用 API 时出错 (状态码: {e.status_code})")
-        if e.status_code == 429:
-             print("API 资源配额已用尽或达到速率限制。请检查您在 OpenRouter 的账户。")
-        else:
-            print(f"详细信息: {e.response.text}")
-        return None
-    except Exception as e:
-        print(f"\n调用 AI 时出错: {e}")
-        if "Timeout" in str(e) or "timed out" in str(e):
-             print("\n错误：请求超时。")
-             print("这很可能是您的网络无法连接到 OpenRouter 的服务器。请检查您的网络连接、代理或防火墙设置。")
-        return None
 
 
 def view_novel_chapter(chapters, novel_data):
@@ -2520,7 +2158,7 @@ def view_novel_chapter(chapters, novel_data):
         print("------------------------\n")
 
 
-def edit_novel_chapter(chapters, novel_data, novel_text_path):
+def edit_novel_chapter(chapters, novel_data):
     """Edit novel chapter content."""
     novel_chapters = novel_data.get('chapters', {})
     if not novel_chapters:
@@ -2560,17 +2198,17 @@ def edit_novel_chapter(chapters, novel_data, novel_text_path):
     ).ask()
     
     if edited_content and edited_content.strip() and edited_content != chapter_info['content']:
-        novel_chapters[chapter_key]['content'] = edited_content
-        novel_chapters[chapter_key]['word_count'] = len(edited_content)
-        save_novel_data(novel_data, novel_text_path)
-        print(f"第{chapter_num}章正文已更新 ({len(edited_content)}字)。\n")
+        if data_manager.set_novel_chapter(chapter_num, chapter_info['title'], edited_content):
+            print(f"第{chapter_num}章正文已更新 ({len(edited_content)}字)。\n")
+        else:
+            print("更新章节正文时出错。\n")
     elif edited_content is None:
         print("操作已取消。\n")
     else:
         print("内容未更改。\n")
 
 
-def delete_novel_chapter(chapters, novel_data, novel_text_path):
+def delete_novel_chapter(chapters, novel_data):
     """Delete novel chapter content."""
     novel_chapters = novel_data.get('chapters', {})
     if not novel_chapters:
@@ -2601,9 +2239,10 @@ def delete_novel_chapter(chapters, novel_data, novel_text_path):
     
     confirm = questionary.confirm(f"确定要删除第{chapter_num}章 '{title}' 的正文吗？").ask()
     if confirm:
-        del novel_chapters[chapter_key]
-        save_novel_data(novel_data, novel_text_path)
-        print(f"第{chapter_num}章正文已删除。\n")
+        if data_manager.delete_novel_chapter(chapter_num):
+            print(f"第{chapter_num}章正文已删除。\n")
+        else:
+            print("删除章节正文时出错。\n")
     else:
         print("操作已取消。\n")
 
@@ -2618,7 +2257,7 @@ def export_complete_novel(chapters, novel_data):
     # 获取小说名（基于主题）
     novel_name = "未命名小说"
     try:
-        with (META_DIR / "theme_one_line.json").open('r', encoding='utf-8') as f:
+        with FILE_PATHS["theme_one_line"].open('r', encoding='utf-8') as f:
             theme_data = json.load(f)
             theme = theme_data.get("theme", "")
             if theme:
@@ -2684,10 +2323,169 @@ def export_complete_novel(chapters, novel_data):
         print(f"\n导出失败: {e}\n")
 
 
-def save_novel_data(novel_data, novel_text_path):
-    """Save novel data to file."""
-    with novel_text_path.open('w', encoding='utf-8') as f:
-        json.dump(novel_data, f, ensure_ascii=False, indent=4)
+
+
+def handle_system_settings():
+    """Handle system settings including retry configuration."""
+    while True:
+        choice = questionary.select(
+            "请选择系统设置项:",
+            choices=[
+                "1. 查看重试设置",
+                "2. 修改重试设置",
+                "3. 重置重试设置",
+                "4. 返回主菜单"
+            ],
+            use_indicator=True
+        ).ask()
+
+        if choice is None or choice.startswith("4."):
+            break
+        elif choice.startswith("1."):
+            show_retry_config()
+        elif choice.startswith("2."):
+            modify_retry_config()
+        elif choice.startswith("3."):
+            reset_retry_config()
+
+def show_retry_config():
+    """Display current retry configuration."""
+    print("\n🔄 当前重试机制配置:")
+    print("=" * 50)
+    
+    config_descriptions = {
+        "max_retries": "最大重试次数",
+        "base_delay": "基础延迟时间(秒)",
+        "max_delay": "最大延迟时间(秒)",
+        "exponential_backoff": "指数退避策略",
+        "backoff_multiplier": "退避倍数",
+        "jitter": "随机抖动",
+        "enable_batch_retry": "批量重试功能",
+        "retry_delay_jitter_range": "抖动范围(秒)"
+    }
+    
+    for key, value in RETRY_CONFIG.items():
+        if key in config_descriptions:
+            desc = config_descriptions[key]
+            if isinstance(value, bool):
+                status = "启用" if value else "禁用"
+                print(f"  {desc}: {status}")
+            else:
+                print(f"  {desc}: {value}")
+    
+    print("\n可重试的HTTP状态码:", ", ".join(map(str, RETRY_CONFIG["retryable_status_codes"])))
+    print("可重试的异常关键词:", ", ".join(RETRY_CONFIG["retryable_exceptions"]))
+    print("=" * 50)
+    
+    input("\n按回车键继续...")
+
+def modify_retry_config():
+    """Modify retry configuration settings."""
+    print("\n⚙️  修改重试配置")
+    print("=" * 30)
+    
+    # 选择要修改的配置项
+    modifiable_configs = [
+        ("最大重试次数", "max_retries", "int", 1, 10),
+        ("基础延迟时间(秒)", "base_delay", "float", 0.1, 10.0),
+        ("最大延迟时间(秒)", "max_delay", "float", 1.0, 120.0),
+        ("指数退避策略", "exponential_backoff", "bool", None, None),
+        ("退避倍数", "backoff_multiplier", "float", 1.1, 5.0),
+        ("随机抖动", "jitter", "bool", None, None),
+        ("批量重试功能", "enable_batch_retry", "bool", None, None),
+        ("抖动范围(秒)", "retry_delay_jitter_range", "float", 0.01, 1.0),
+        ("返回上级菜单", None, None, None, None)
+    ]
+    
+    choices = [f"{i+1}. {desc}" for i, (desc, _, _, _, _) in enumerate(modifiable_configs)]
+    
+    choice = questionary.select(
+        "请选择要修改的配置项:",
+        choices=choices,
+        use_indicator=True
+    ).ask()
+    
+    if choice is None or choice.endswith("返回上级菜单"):
+        return
+    
+    # 解析选择
+    idx = int(choice.split('.')[0]) - 1
+    desc, key, value_type, min_val, max_val = modifiable_configs[idx]
+    
+    current_value = RETRY_CONFIG[key]
+    
+    print(f"\n当前 {desc}: {current_value}")
+    
+    if value_type == "bool":
+        new_value = questionary.confirm(f"启用 {desc}").ask()
+        if new_value is not None:
+            RETRY_CONFIG[key] = new_value
+            print(f"✅ {desc} 已设置为: {'启用' if new_value else '禁用'}")
+        else:
+            print("❌ 操作已取消")
+    elif value_type in ["int", "float"]:
+        try:
+            prompt = f"请输入新的 {desc}"
+            if min_val is not None and max_val is not None:
+                prompt += f" (范围: {min_val}-{max_val})"
+            prompt += ":"
+            
+            input_value = questionary.text(prompt, default=str(current_value)).ask()
+            
+            if input_value is None:
+                print("❌ 操作已取消")
+                return
+                
+            if value_type == "int":
+                new_value = int(input_value)
+            else:
+                new_value = float(input_value)
+            
+            # 验证范围
+            if min_val is not None and new_value < min_val:
+                print(f"❌ 值太小，最小值为 {min_val}")
+                return
+            if max_val is not None and new_value > max_val:
+                print(f"❌ 值太大，最大值为 {max_val}")
+                return
+                
+            RETRY_CONFIG[key] = new_value
+            print(f"✅ {desc} 已设置为: {new_value}")
+            
+        except ValueError:
+            print("❌ 输入的值格式不正确")
+    
+    input("\n按回车键继续...")
+
+def reset_retry_config():
+    """Reset retry configuration to defaults."""
+    print("\n🔄 重置重试配置")
+    
+    confirm = questionary.confirm("确定要将重试配置重置为默认值吗？").ask()
+    
+    if confirm:
+        # 重置为默认配置
+        default_config = {
+            "max_retries": 3,
+            "base_delay": 1.0,
+            "max_delay": 30.0,
+            "exponential_backoff": True,
+            "backoff_multiplier": 2.0,
+            "jitter": True,
+            "retryable_status_codes": [429, 500, 502, 503, 504],
+            "retryable_exceptions": ["timeout", "connection", "network", "dns", "ssl"],
+            "enable_batch_retry": True,
+            "retry_delay_jitter_range": 0.1
+        }
+        
+        for key, value in default_config.items():
+            RETRY_CONFIG[key] = value
+        
+        print("✅ 重试配置已重置为默认值")
+    else:
+        print("❌ 操作已取消")
+    
+    input("\n按回车键继续...")
 
 
 def main():
@@ -2705,7 +2503,8 @@ def main():
                 "5. 编辑分章细纲",
                 "6. 编辑章节概要",
                 "7. 生成小说正文",
-                "8. 退出"
+                "8. 系统设置",
+                "9. 退出"
             ],
             use_indicator=True
         ).ask()
@@ -2728,6 +2527,8 @@ def main():
             handle_chapter_summary()
         elif choice.startswith("7."):
             handle_novel_generation()
+        elif choice.startswith("8."):
+            handle_system_settings()
         else:
             print(f"您选择了: {choice} (功能开发中...)\n")
 
