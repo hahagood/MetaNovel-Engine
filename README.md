@@ -1,6 +1,6 @@
 # MetaNovel-Engine
 
-![Version](https://img.shields.io/badge/version-v0.0.3-blue.svg)
+![Version](https://img.shields.io/badge/version-v0.0.4-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
@@ -227,7 +227,7 @@ python -m pytest tests/test_data_manager.py -v
 
 ## 📝 版本历史
 
-### v0.0.3+ (2025-01-17) - 用户体验优化版本
+### v0.0.4 (2025-06-28) - 用户体验优化版本
 - ✨ 主菜单第一项动态显示小说名称功能
 - 📤 分章节导出功能：支持完整小说、单章节、章节范围导出
 - 🎨 美化项目进度显示：详细统计、完成度百分比、智能建议
