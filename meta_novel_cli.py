@@ -352,47 +352,53 @@ def handle_story_outline():
         print()
         return
     
-    # 读取现有大纲数据
-    current_outline = data_manager.read_story_outline()
-    
-    # 显示当前大纲状态
-    if current_outline:
-        print("\n--- 当前故事大纲 ---")
-        # 显示前200字符作为预览
-        preview = current_outline[:200] + "..." if len(current_outline) > 200 else current_outline
-        print(preview)
-        print("------------------------\n")
+    while True:
+        # 每次循环都重新读取大纲数据
+        current_outline = data_manager.read_story_outline()
         
-        action = questionary.select(
-            "请选择您要进行的操作：",
-            choices=[
-                "1. 查看完整大纲",
-                "2. 修改当前大纲",
-                "3. 重新生成大纲",
-                "4. 返回主菜单"
-            ],
-            use_indicator=True
-        ).ask()
-        
-        if action is None or action.startswith("4."):
-            return
-        elif action.startswith("1."):
-            print("\n--- 完整故事大纲 ---")
-            print(current_outline)
+        # 显示当前大纲状态
+        if current_outline:
+            print("\n--- 当前故事大纲 ---")
+            # 显示前200字符作为预览
+            preview = current_outline[:200] + "..." if len(current_outline) > 200 else current_outline
+            print(preview)
             print("------------------------\n")
-            return
-        elif action.startswith("2."):
-            edit_outline()
-            return
-        elif action.startswith("3."):
-            print("\n正在重新生成故事大纲...")
+            
+            action = questionary.select(
+                "请选择您要进行的操作：",
+                choices=[
+                    "1. 查看完整大纲",
+                    "2. 修改当前大纲",
+                    "3. 重新生成大纲",
+                    "4. 返回主菜单"
+                ],
+                use_indicator=True
+            ).ask()
+            
+            if action is None or action.startswith("4."):
+                break
+            elif action.startswith("1."):
+                print("\n--- 完整故事大纲 ---")
+                print(current_outline)
+                print("------------------------\n")
+                
+                # 等待用户确认后继续循环
+                questionary.press_any_key_to_continue("按任意键继续...").ask()
+                continue
+            elif action.startswith("2."):
+                edit_outline()
+                continue
+            elif action.startswith("3."):
+                print("\n正在重新生成故事大纲...")
+                generate_story_outline()
+                continue
+            else:
+                break
         else:
-            return
-    else:
-        print("\n当前没有故事大纲，让我们来生成一个。\n")
-    
-    # 生成新的故事大纲
-    generate_story_outline()
+            print("\n当前没有故事大纲，让我们来生成一个。\n")
+            # 生成新的故事大纲
+            generate_story_outline()
+            break
 
 
 def generate_story_outline():
