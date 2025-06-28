@@ -167,6 +167,7 @@ cython_debug/
 .idea/
 
 # Project specific
+meta/
 meta_backup/
 *.txt
 !requirements.txt
