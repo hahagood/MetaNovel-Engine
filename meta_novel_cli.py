@@ -2025,7 +2025,7 @@ def main():
                 "📋 4. 编辑故事大纲 - 规划整体故事结构",
                 "📚 5. 编辑分章细纲 - 细化每章内容安排",
                 "📄 6. 编辑章节概要 - 生成章节摘要",
-                "📝 7. 生成小说正文 - AI辅助创作正文",
+                "📜 7. 生成小说正文 - AI辅助创作正文",
                 "🔧 8. 系统设置 - 配置系统参数",
                 "👋 9. 退出 - 结束本次创作"
             ],
@@ -2060,7 +2060,7 @@ def main():
             handle_chapter_outline()
         elif choice.startswith("📄"):
             handle_chapter_summary()
-        elif choice.startswith("📝") and "生成小说正文" in choice:
+        elif choice.startswith("📜"):
             handle_novel_generation()
         elif choice.startswith("🔧"):
             handle_system_settings()
