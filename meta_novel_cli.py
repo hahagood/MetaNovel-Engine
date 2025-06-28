@@ -2169,18 +2169,163 @@ def set_novel_name():
 
 def show_project_status():
     """显示项目完成状态"""
-    # 检查各个步骤的完成情况
-    completion_status = {
-        "theme_one_line": bool(data_manager.read_theme_one_line()),
-        "theme_paragraph": bool(data_manager.read_theme_paragraph()),
-        "world_settings": bool(data_manager.read_characters() or data_manager.read_locations() or data_manager.read_items()),
-        "story_outline": bool(data_manager.read_story_outline()),
-        "chapter_outline": bool(data_manager.read_chapter_outline()),
-        "chapter_summaries": bool(data_manager.read_chapter_summaries()),
-        "novel_chapters": bool(data_manager.read_novel_chapters())
-    }
+    # 收集详细状态信息
+    status_details = {}
     
-    ui.print_project_status(completion_status)
+    # 1. 一句话主题
+    theme_one_line = data_manager.read_theme_one_line()
+    if theme_one_line:
+        # 获取小说名和主题内容
+        novel_name = get_novel_name()
+        
+        if isinstance(theme_one_line, dict):
+            theme_content = theme_one_line.get('theme', '')
+        elif isinstance(theme_one_line, str):
+            theme_content = theme_one_line
+        else:
+            theme_content = ''
+        
+        status_details["theme_one_line"] = {
+            "completed": True,
+            "details": f"小说：《{novel_name}》"
+        }
+    else:
+        status_details["theme_one_line"] = {
+            "completed": False,
+            "details": "尚未设置"
+        }
+    
+    # 2. 段落主题
+    theme_paragraph = data_manager.read_theme_paragraph()
+    if theme_paragraph and theme_paragraph.strip():
+        word_count = len(theme_paragraph)
+        status_details["theme_paragraph"] = {
+            "completed": True,
+            "details": f"{word_count}字"
+        }
+    else:
+        status_details["theme_paragraph"] = {
+            "completed": False,
+            "details": "尚未生成"
+        }
+    
+    # 3. 世界设定
+    characters = data_manager.read_characters()
+    locations = data_manager.read_locations() 
+    items = data_manager.read_items()
+    
+    char_count = len(characters) if characters else 0
+    loc_count = len(locations) if locations else 0
+    item_count = len(items) if items else 0
+    
+    if char_count > 0 or loc_count > 0 or item_count > 0:
+        details_parts = []
+        if char_count > 0:
+            # 获取主要角色名（前3个）
+            main_chars = list(characters.keys())[:3]
+            char_names = "、".join(main_chars)
+            if len(characters) > 3:
+                char_names += "等"
+            details_parts.append(f"角色{char_count}个({char_names})")
+        if loc_count > 0:
+            details_parts.append(f"场景{loc_count}个")
+        if item_count > 0:
+            details_parts.append(f"道具{item_count}个")
+        
+        status_details["world_settings"] = {
+            "completed": True,
+            "details": "、".join(details_parts)
+        }
+    else:
+        status_details["world_settings"] = {
+            "completed": False,
+            "details": "尚未创建"
+        }
+    
+    # 4. 故事大纲
+    story_outline = data_manager.read_story_outline()
+    if story_outline and story_outline.strip():
+        word_count = len(story_outline)
+        status_details["story_outline"] = {
+            "completed": True,
+            "details": f"{word_count}字"
+        }
+    else:
+        status_details["story_outline"] = {
+            "completed": False,
+            "details": "尚未编写"
+        }
+    
+    # 5. 分章细纲
+    chapters = data_manager.read_chapter_outline()
+    if chapters and len(chapters) > 0:
+        chapter_count = len(chapters)
+        total_outline_words = sum(len(ch.get('outline', '')) for ch in chapters)
+        avg_words = total_outline_words // chapter_count if chapter_count > 0 else 0
+        
+        status_details["chapter_outline"] = {
+            "completed": True,
+            "details": f"{chapter_count}章，平均{avg_words}字/章"
+        }
+    else:
+        status_details["chapter_outline"] = {
+            "completed": False,
+            "details": "尚未规划"
+        }
+    
+    # 6. 章节概要
+    summaries = data_manager.read_chapter_summaries()
+    if summaries and len(summaries) > 0:
+        total_chapters = len(chapters) if chapters else 0
+        completed_summaries = len(summaries)
+        
+        if total_chapters > 0:
+            completion_rate = int((completed_summaries / total_chapters) * 100)
+            total_summary_words = sum(len(s.get('summary', '')) for s in summaries.values())
+            avg_words = total_summary_words // completed_summaries if completed_summaries > 0 else 0
+            
+            status_details["chapter_summaries"] = {
+                "completed": completion_rate == 100,
+                "details": f"完成度{completion_rate}%，平均{avg_words}字/章"
+            }
+        else:
+            status_details["chapter_summaries"] = {
+                "completed": False,
+                "details": "需先完成分章细纲"
+            }
+    else:
+        status_details["chapter_summaries"] = {
+            "completed": False,
+            "details": "尚未生成"
+        }
+    
+    # 7. 小说正文
+    novel_chapters = data_manager.read_novel_chapters()
+    if novel_chapters and len(novel_chapters) > 0:
+        total_chapters = len(chapters) if chapters else 0
+        completed_novels = len(novel_chapters)
+        
+        if total_chapters > 0:
+            completion_rate = int((completed_novels / total_chapters) * 100)
+            total_words = sum(ch.get('word_count', len(ch.get('content', ''))) for ch in novel_chapters.values())
+            avg_words = total_words // completed_novels if completed_novels > 0 else 0
+            
+            status_details["novel_chapters"] = {
+                "completed": completion_rate == 100,
+                "details": f"完成度{completion_rate}%，总计{total_words}字，平均{avg_words}字/章"
+            }
+        else:
+            status_details["novel_chapters"] = {
+                "completed": False,
+                "details": "需先完成前置步骤"
+            }
+    else:
+        status_details["novel_chapters"] = {
+            "completed": False,
+            "details": "尚未开始"
+        }
+    
+    ui.print_project_status(status_details)
 
 
 

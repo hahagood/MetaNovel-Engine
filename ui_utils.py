@@ -188,9 +188,9 @@ class UIUtils:
         console.print(table)
     
     @staticmethod
-    def print_project_status(completion_status: Dict[str, bool]):
+    def print_project_status(status_details: Dict[str, Dict]):
         """打印项目状态"""
-        table = UIUtils.create_table("📊 项目进度", ["步骤", "状态", "完成情况"])
+        table = UIUtils.create_table("📊 项目进度", ["步骤", "状态", "详细信息"])
         
         steps = {
             "theme_one_line": "1. 确立一句话主题",
@@ -202,18 +202,58 @@ class UIUtils:
             "novel_chapters": "7. 生成小说正文"
         }
         
+        completed_count = 0
+        total_count = len(steps)
+        
         for key, step_name in steps.items():
-            is_complete = completion_status.get(key, False)
-            status = "✅ 已完成" if is_complete else "⏳ 待完成"
-            status_style = Colors.SUCCESS if is_complete else Colors.WARNING
+            status_info = status_details.get(key, {"completed": False, "details": "状态未知"})
+            is_complete = status_info.get("completed", False)
+            details = status_info.get("details", "状态未知")
+            
+            if is_complete:
+                completed_count += 1
+                status_icon = "✅"
+                status_style = Colors.SUCCESS
+            else:
+                status_icon = "⏳"
+                status_style = Colors.WARNING
             
             table.add_row(
                 step_name,
-                f"[{status_style}]{status}[/{status_style}]",
-                "100%" if is_complete else "0%"
+                f"[{status_style}]{status_icon}[/{status_style}]",
+                details
             )
         
         console.print(table)
+        
+        # 显示总体完成度进度条
+        completion_percentage = int((completed_count / total_count) * 100)
+        
+        # 创建进度条
+        from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
+        
+        progress_text = f"总体完成度: {completed_count}/{total_count} ({completion_percentage}%)"
+        
+        if completion_percentage == 100:
+            # 全部完成时的祝贺
+            UIUtils.print_success("🎉 恭喜！您已完成所有创作步骤！")
+        elif completion_percentage > 0:
+            # 显示下一步建议
+            next_step = None
+            for key, step_name in steps.items():
+                status_info = status_details.get(key, {"completed": False})
+                if not status_info.get("completed", False):
+                    next_step = step_name
+                    break
+            
+            if next_step:
+                UIUtils.print_info(f"💡 建议下一步: {next_step}")
+        else:
+            # 刚开始时的提示
+            UIUtils.print_info("💡 建议从第一步开始您的创作之旅")
+        
+        # 显示简洁的进度条
+        console.print(f"\n📈 {progress_text}", style=Colors.HIGHLIGHT)
     
     @staticmethod
     def print_menu(title: str, options: List[str]):
