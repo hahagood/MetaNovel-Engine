@@ -1,6 +1,6 @@
 # MetaNovel-Engine
 
-![Version](https://img.shields.io/badge/version-v0.0.3-blue.svg)
+![Version](https://img.shields.io/badge/version-v0.0.4-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
@@ -221,6 +221,16 @@ python -m pytest tests/test_data_manager.py -v
 本项目采用MIT License，详见[LICENSE](LICENSE)文件。
 
 ## 📝 版本历史
+
+### v0.0.4 (2025-06-28) - 用户体验重大优化版本
+- 🎯 **用户界面重构**：彻底修复多行文本编辑界面混乱问题
+- 🔧 **编辑流程优化**：章节编辑支持灵活选择，不再强制线性流程
+- 📊 **项目进度重构**：准确的进度统计和详细状态信息显示
+- 🧹 **仓库清理**：从Git历史中彻底删除meta目录，保护用户隐私
+- ⚙️ **配置改进**：添加meta/到gitignore，确保用户数据不被误提交
+- 💡 **提示优化**：统一所有编辑界面的提示格式和操作指引
+- 🐛 **Bug修复**：解决questionary库提示与实际操作不一致的问题
+- 🏗️ **历史重写**：使用git filter-branch清理项目历史，提供干净的代码仓库
 
 ### v0.0.3 (2025-06-28) - 大师级精炼版本
 - 🎯 数据模型升级：引入Pydantic提供类型安全和自动验证
