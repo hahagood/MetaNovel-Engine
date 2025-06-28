@@ -50,6 +50,7 @@ GENERATION_CONFIG = {
     "location_description_length": "150-200字左右", 
     "item_description_length": "150-200字左右",
     "story_outline_length": "500-800字左右",
+    "chapter_outline_length": "800-1200字左右",
     "chapter_summary_length": "300-500字左右",
     "novel_chapter_length": "2000-4000字左右"
 }
