@@ -633,10 +633,23 @@ def generate_chapter_outline():
 
     # 显示生成的章节
     print("\n--- AI 生成的分章细纲 ---")
-    chapters = chapter_outline_data.get('chapters', [])
-    for i, chapter in enumerate(chapters, 1):
-        print(f"\n第{i}章: {chapter.get('title', '无标题')}")
-        print(f"大纲: {chapter.get('outline', '无大纲')}")
+    
+    # 处理不同的返回格式
+    if isinstance(chapter_outline_data, dict):
+        chapters = chapter_outline_data.get('chapters', [])
+        if not chapters:
+            # 如果没有chapters字段，可能是直接返回的章节列表或其他格式
+            print("JSON解析结果：")
+            print(chapter_outline_data)
+        else:
+            for i, chapter in enumerate(chapters, 1):
+                print(f"\n第{i}章: {chapter.get('title', '无标题')}")
+                print(f"大纲: {chapter.get('outline', '无大纲')}")
+    else:
+        # 如果不是字典格式，直接显示原始内容
+        print("AI返回的原始内容：")
+        print(chapter_outline_data)
+    
     print("------------------------\n")
     
     # 提供操作选项
@@ -655,33 +668,67 @@ def generate_chapter_outline():
         return
     elif action.startswith("1."):
         # 直接保存
-        chapters_list = chapter_outline_data.get('chapters', [])
-        if data_manager.write_chapter_outline(chapters_list):
-            print("分章细纲已保存。\n")
+        if isinstance(chapter_outline_data, dict):
+            chapters_list = chapter_outline_data.get('chapters', [])
+            if chapters_list:
+                if data_manager.write_chapter_outline(chapters_list):
+                    print("分章细纲已保存。\n")
+                else:
+                    print("保存分章细纲时出错。\n")
+            else:
+                print("生成的数据格式不正确，无法保存。请检查AI返回的内容格式。\n")
         else:
-            print("保存分章细纲时出错。\n")
+            print("生成的数据不是预期的JSON格式，无法直接保存。请选择修改后保存。\n")
     elif action.startswith("2."):
-        # 修改后保存（这里可以让用户逐个修改章节）
+        # 修改后保存
+        if isinstance(chapter_outline_data, dict):
+            chapters = chapter_outline_data.get('chapters', [])
+            if not chapters:
+                print("无有效的章节数据可以修改。\n")
+                return
+        else:
+            print("由于数据格式问题，请手动输入章节信息：\n")
+            chapters = []
+            
+        # 让用户逐个确认或修改章节
         print("请逐个确认或修改每个章节：\n")
         modified_chapters = []
-        for i, chapter in enumerate(chapters, 1):
-            print(f"--- 第{i}章 ---")
-            print(f"当前标题: {chapter.get('title', '无标题')}")
-            print(f"当前大纲: {chapter.get('outline', '无大纲')}")
-            
-            keep_chapter = questionary.confirm(f"保留第{i}章吗？").ask()
-            if keep_chapter:
-                # 可以选择修改标题和大纲
-                modify = questionary.confirm("需要修改这一章吗？").ask()
-                if modify:
-                    new_title = questionary.text("章节标题:", default=chapter.get('title', '')).ask()
-                    new_outline = questionary.text("章节大纲:", default=chapter.get('outline', ''), multiline=True).ask()
-                    if new_title is not None and new_outline is not None:
-                        modified_chapters.append({"title": new_title, "outline": new_outline})
+        
+        if chapters:
+            for i, chapter in enumerate(chapters, 1):
+                print(f"--- 第{i}章 ---")
+                print(f"当前标题: {chapter.get('title', '无标题')}")
+                print(f"当前大纲: {chapter.get('outline', '无大纲')}")
+                
+                keep_chapter = questionary.confirm(f"保留第{i}章吗？").ask()
+                if keep_chapter:
+                    # 可以选择修改标题和大纲
+                    modify = questionary.confirm("需要修改这一章吗？").ask()
+                    if modify:
+                        new_title = questionary.text("章节标题:", default=chapter.get('title', '')).ask()
+                        new_outline = questionary.text("章节大纲:", default=chapter.get('outline', ''), multiline=True).ask()
+                        if new_title is not None and new_outline is not None:
+                            modified_chapters.append({"title": new_title, "outline": new_outline})
+                        else:
+                            modified_chapters.append(chapter)
                     else:
                         modified_chapters.append(chapter)
-                else:
-                    modified_chapters.append(chapter)
+        else:
+            # 手动创建章节
+            while True:
+                add_chapter = questionary.confirm("添加一个章节吗？").ask()
+                if not add_chapter:
+                    break
+                    
+                title = questionary.text("章节标题:").ask()
+                if not title:
+                    continue
+                    
+                outline = questionary.text("章节大纲:", multiline=True).ask()
+                if outline is None:
+                    continue
+                    
+                modified_chapters.append({"title": title.strip(), "outline": outline.strip()})
         
         if modified_chapters:
             if data_manager.write_chapter_outline(modified_chapters):
