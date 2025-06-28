@@ -137,46 +137,78 @@ class EntityManager:
     
     def _add_entity(self):
         """添加新实体"""
-        entity_name = questionary.text(f"请输入{self.config.name}名称:").ask()
-        if not entity_name or not entity_name.strip():
-            print(f"{self.config.name}名称不能为空。\n")
+        print(f"\n--- 添加新{self.config.name} ---")
+        print(f"请输入{self.config.name}信息（可以是名称、JSON格式、或任何描述）")
+        print(f"AI会自动理解您的输入并生成标准的{self.config.name}描述。")
+        
+        user_input = questionary.text(f"请输入{self.config.name}信息:").ask()
+        if not user_input or not user_input.strip():
+            print(f"{self.config.name}信息不能为空。\n")
             return
         
-        entity_name = entity_name.strip()
+        user_input = user_input.strip()
+        
+        # 构造给LLM的提示词，让LLM自己解析输入并返回标准格式
+        llm_prompt = f"""用户想要创建一个{self.config.name}，提供的信息如下：
+{user_input}
+
+请基于这些信息生成{self.config.name}描述。如果用户提供了JSON格式或结构化信息，请解析其中的内容。
+如果只提供了名称，请基于名称创造合适的{self.config.name}描述。
+
+请按以下JSON格式返回：
+{{
+  "name": "{self.config.name}名称",
+  "description": "详细的{self.config.name}描述"
+}}"""
+        
+        print(f"正在调用 AI 解析并生成{self.config.name}信息，请稍候...")
+        
+        # 使用JSON请求方法获取结构化结果
+        if hasattr(self.config, 'json_generator_func'):
+            ai_result = self.config.json_generator_func(llm_prompt)
+        else:
+            # 临时使用字符描述生成器
+            ai_response = self.config.generator_func("", llm_prompt)
+            if not ai_response:
+                print("AI生成失败，请稍后重试。")
+                return
+            
+            # 尝试从响应中提取JSON
+            import json
+            import re
+            try:
+                # 尝试提取JSON
+                json_match = re.search(r'\{.*\}', ai_response, re.DOTALL)
+                if json_match:
+                    ai_result = json.loads(json_match.group(0))
+                else:
+                    # 如果没有找到JSON，使用原始输入作为名称
+                    entity_name = user_input.split(',')[0].strip().strip('"').split(':')[-1].strip()
+                    ai_result = {"name": entity_name, "description": ai_response}
+            except:
+                # JSON解析失败，使用原始输入作为名称
+                entity_name = user_input.split(',')[0].strip().strip('"').split(':')[-1].strip()
+                ai_result = {"name": entity_name, "description": ai_response}
+        
+        if not ai_result:
+            print("AI生成失败，请稍后重试。")
+            return
+        
+        # 提取角色名称和描述
+        entity_name = ai_result.get("name", "未知").strip()
+        generated_description = ai_result.get("description", "").strip()
+        
+        if not entity_name or not generated_description:
+            print("AI返回的数据格式不完整，请重试。")
+            return
+        
+        # 检查是否已存在
         entities_data = self.config.reader_func()
         if entity_name in entities_data:
             print(f"{self.config.name} '{entity_name}' 已存在。\n")
             return
         
-        # 获取用户自定义提示词
-        print(f"您可以输入额外的要求或指导来影响AI生成{self.config.name}描述。")
-        user_prompt = questionary.text(
-            "请输入您的额外要求或指导（直接回车跳过）:",
-            default=""
-        ).ask()
-
-        if user_prompt is None:
-            print("操作已取消。\n")
-            return
-        
-        # 如果用户不想继续，提供确认选项
-        if not user_prompt.strip():
-            confirm = questionary.confirm(f"确定要继续生成{self.config.name}描述吗？").ask()
-            if not confirm:
-                print("操作已取消。\n")
-                return
-
-        if user_prompt.strip():
-            print(f"用户指导：{user_prompt.strip()}")
-        
-        print(f"正在调用 AI 生成{self.config.name}描述，请稍候...")
-        generated_description = self.config.generator_func(entity_name, user_prompt)
-        
-        if not generated_description:
-            print("AI生成失败，请稍后重试。")
-            return
-
-        print(f"\n--- AI 生成的{self.config.name}描述：{entity_name} ---")
+        print(f"\n--- AI 生成的{self.config.name}：{entity_name} ---")
         print(generated_description)
         print("------------------------\n")
         
