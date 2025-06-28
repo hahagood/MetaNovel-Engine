@@ -71,17 +71,44 @@ class DataManager:
     
     # ===== 主题相关 =====
     def read_theme_one_line(self):
-        """读取一句话主题"""
+        """读取一句话主题数据（支持新旧格式）"""
         data = self.read_json_file(FILE_PATHS["theme_one_line"])
-        return data.get("theme", "")
+        
+        # 如果文件不存在或为空，返回None
+        if not data:
+            return None
+        
+        # 如果是新格式（包含novel_name和theme的字典），直接返回
+        if isinstance(data, dict) and ("novel_name" in data or "theme" in data):
+            return data
+        
+        # 如果是旧格式（只有theme字段的字典），转换为新格式
+        if isinstance(data, dict) and "theme" in data:
+            return data
+        
+        # 如果是字符串格式（更旧的版本），转换为新格式
+        if isinstance(data, str):
+            return data
+        
+        # 其他情况返回空字符串
+        return ""
     
-    def write_theme_one_line(self, theme):
-        """写入一句话主题"""
-        data = {
-            "theme": theme,
-            "created_at": datetime.now().isoformat()
-        }
-        return self.write_json_file(FILE_PATHS["theme_one_line"], data)
+    def write_theme_one_line(self, data):
+        """写入一句话主题数据（支持字符串和字典格式）"""
+        if isinstance(data, str):
+            # 如果传入的是字符串，保存为主题内容
+            save_data = {
+                "theme": data,
+                "created_at": datetime.now().isoformat()
+            }
+        elif isinstance(data, dict):
+            # 如果传入的是字典，保持原有结构并添加时间戳
+            save_data = data.copy()
+            save_data["created_at"] = datetime.now().isoformat()
+        else:
+            return False
+        
+        return self.write_json_file(FILE_PATHS["theme_one_line"], save_data)
     
     def read_theme_paragraph(self):
         """读取段落主题"""

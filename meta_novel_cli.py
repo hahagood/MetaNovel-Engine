@@ -29,27 +29,109 @@ def ensure_meta_dir():
 
 
 def handle_theme_one_line():
-    """Handles creating or updating the one-sentence theme."""
+    """Handles creating or updating the one-sentence theme and novel name."""
     ensure_meta_dir()
     
-    current_theme = data_manager.read_theme_one_line()
-    if current_theme:
-        print(f"当前主题: {current_theme}")
-
-    new_theme = questionary.text(
-        "请输入您的一句话主题:",
-        default=current_theme
-    ).ask()
-
-    if new_theme is not None and new_theme.strip() and new_theme != current_theme:
-        if data_manager.write_theme_one_line(new_theme):
-            print(f"主题已更新为: {new_theme}\n")
-        else:
-            print("保存主题时出错。\n")
-    elif new_theme is None:
-        print("操作已取消。\n")
+    # 获取当前数据
+    current_data = data_manager.read_theme_one_line()
+    current_novel_name = get_novel_name()
+    
+    # 处理不同格式的主题数据
+    if isinstance(current_data, dict):
+        current_theme = current_data.get("theme", "")
+    elif isinstance(current_data, str):
+        current_theme = current_data
     else:
-        print("主题未更改。\n")
+        current_theme = ""
+    
+    # 显示当前状态
+    print(f"\n--- 当前状态 ---")
+    print(f"小说名称: {current_novel_name}")
+    if current_theme:
+        print(f"一句话主题: {current_theme}")
+    else:
+        print("一句话主题: (尚未设置)")
+    print("------------------\n")
+    
+    # 提供操作选项
+    action = questionary.select(
+        "请选择您要进行的操作：",
+        choices=[
+            "1. 设置小说名称",
+            "2. 设置一句话主题",
+            "3. 同时设置名称和主题",
+            "4. 返回主菜单"
+        ],
+        use_indicator=True
+    ).ask()
+    
+    if action is None or action.startswith("4."):
+        print("返回主菜单。\n")
+        return
+    elif action.startswith("1."):
+        # 只设置小说名称
+        set_novel_name()
+    elif action.startswith("2."):
+        # 只设置一句话主题
+        new_theme = questionary.text(
+            "请输入您的一句话主题:",
+            default=current_theme
+        ).ask()
+        
+        if new_theme is not None and new_theme.strip():
+            # 保存主题，保持现有的小说名称
+            new_data = {
+                "novel_name": current_novel_name,
+                "theme": new_theme.strip()
+            }
+            if data_manager.write_theme_one_line(new_data):
+                print(f"✅ 主题已更新为: {new_theme}\n")
+            else:
+                print("❌ 保存主题时出错。\n")
+        elif new_theme is None:
+            print("操作已取消。\n")
+        else:
+            print("主题不能为空。\n")
+    elif action.startswith("3."):
+        # 同时设置名称和主题
+        new_novel_name = questionary.text(
+            "请输入小说名称:",
+            default=current_novel_name if current_novel_name != "未命名小说" else ""
+        ).ask()
+        
+        if new_novel_name is None:
+            print("操作已取消。\n")
+            return
+        
+        new_novel_name = new_novel_name.strip()
+        if not new_novel_name:
+            print("小说名称不能为空。\n")
+            return
+        
+        new_theme = questionary.text(
+            "请输入您的一句话主题:",
+            default=current_theme
+        ).ask()
+        
+        if new_theme is None:
+            print("操作已取消。\n")
+            return
+        
+        new_theme = new_theme.strip()
+        if not new_theme:
+            print("主题不能为空。\n")
+            return
+        
+        # 保存名称和主题
+        new_data = {
+            "novel_name": new_novel_name,
+            "theme": new_theme
+        }
+        if data_manager.write_theme_one_line(new_data):
+            print(f"✅ 小说名称已设置为: {new_novel_name}")
+            print(f"✅ 主题已设置为: {new_theme}\n")
+        else:
+            print("❌ 保存时出错。\n")
 
 
 def handle_theme_paragraph():
@@ -57,8 +139,20 @@ def handle_theme_paragraph():
     ensure_meta_dir()
 
     # 首先检查一句话主题是否存在
-    one_line_theme = data_manager.read_theme_one_line()
-    if not one_line_theme:
+    one_line_data = data_manager.read_theme_one_line()
+    if not one_line_data:
+        print("\n请先使用选项 [1] 确立一句话主题。")
+        return
+    
+    # 获取实际的主题内容
+    if isinstance(one_line_data, dict):
+        one_line_theme = one_line_data.get("theme", "")
+    elif isinstance(one_line_data, str):
+        one_line_theme = one_line_data
+    else:
+        one_line_theme = ""
+    
+    if not one_line_theme.strip():
         print("\n请先使用选项 [1] 确立一句话主题。")
         return
 
@@ -111,7 +205,7 @@ def handle_theme_paragraph():
             return
 
     # 生成新的段落主题（无论是首次生成还是重新生成）
-    if not one_line_theme:
+    if not one_line_theme.strip():
         print("\n一句话主题为空，请先使用选项 [1] 确立主题。")
         return
             
@@ -304,7 +398,14 @@ def handle_story_outline():
 def generate_story_outline():
     """Generate a new story outline based on existing themes and characters."""
     # 读取主题信息
-    one_line_theme = data_manager.read_theme_one_line()
+    one_line_data = data_manager.read_theme_one_line()
+    if isinstance(one_line_data, dict):
+        one_line_theme = one_line_data.get("theme", "")
+    elif isinstance(one_line_data, str):
+        one_line_theme = one_line_data
+    else:
+        one_line_theme = ""
+        
     paragraph_theme = data_manager.read_theme_paragraph()
     
     # 读取角色信息（如果有的话）
@@ -484,7 +585,14 @@ def generate_chapter_outline():
     """Generate chapter outline based on story outline."""
     # 读取故事大纲和其他信息
     story_outline = data_manager.read_story_outline()
-    one_line_theme = data_manager.read_theme_one_line()
+    one_line_data = data_manager.read_theme_one_line()
+    if isinstance(one_line_data, dict):
+        one_line_theme = one_line_data.get("theme", "")
+    elif isinstance(one_line_data, str):
+        one_line_theme = one_line_data
+    else:
+        one_line_theme = ""
+        
     characters_info = data_manager.get_characters_info_string()
     
     print("基于故事大纲生成分章细纲...")
@@ -1789,6 +1897,83 @@ def reset_retry_config():
     input("\n按回车键继续...")
 
 
+def get_novel_name():
+    """获取当前小说名称"""
+    try:
+        theme_data = data_manager.read_theme_one_line()
+        if isinstance(theme_data, dict):
+            return theme_data.get("novel_name", "未命名小说")
+        elif isinstance(theme_data, str) and theme_data.strip():
+            # 尝试从主题文本中提取小说名
+            lines = theme_data.strip().split('\n')
+            first_line = lines[0] if lines else theme_data
+            if '《' in first_line and '》' in first_line:
+                return first_line[first_line.find('《')+1:first_line.find('》')]
+            else:
+                return "未命名小说"
+        else:
+            return "未命名小说"
+    except:
+        return "未命名小说"
+
+
+def set_novel_name():
+    """设置小说名称"""
+    current_name = get_novel_name()
+    print(f"\n当前小说名: {current_name}")
+    
+    new_name = questionary.text(
+        "请输入新的小说名称:",
+        default=current_name if current_name != "未命名小说" else ""
+    ).ask()
+    
+    if new_name is None:
+        print("操作已取消。\n")
+        return False
+    
+    new_name = new_name.strip()
+    if not new_name:
+        print("小说名称不能为空。\n")
+        return False
+    
+    if new_name == current_name:
+        print("名称未更改。\n")
+        return True
+    
+    # 保存小说名称到主题文件
+    try:
+        # 读取现有主题数据
+        theme_data = data_manager.read_theme_one_line()
+        
+        if isinstance(theme_data, str):
+            # 如果是字符串，转换为字典格式
+            new_theme_data = {
+                "novel_name": new_name,
+                "theme": theme_data
+            }
+        elif isinstance(theme_data, dict):
+            # 如果已经是字典，更新小说名
+            new_theme_data = theme_data.copy()
+            new_theme_data["novel_name"] = new_name
+        else:
+            # 如果没有主题数据，创建新的
+            new_theme_data = {
+                "novel_name": new_name,
+                "theme": ""
+            }
+        
+        # 保存更新后的数据
+        if data_manager.write_theme_one_line(new_theme_data):
+            print(f"✅ 小说名称已设置为: {new_name}\n")
+            return True
+        else:
+            print("❌ 设置小说名称失败\n")
+            return False
+    except Exception as e:
+        print(f"❌ 设置小说名称失败: {e}\n")
+        return False
+
+
 def show_project_status():
     """显示项目完成状态"""
     # 检查各个步骤的完成情况
@@ -1826,11 +2011,15 @@ def main():
         show_project_status()
         console.print()  # 空行
         
+        # 获取当前小说名称，用于第一项显示
+        current_novel_name = get_novel_name()
+        first_item = f"📝 1. 确立一句话主题 - 《{current_novel_name}》" if current_novel_name != "未命名小说" else "📝 1. 确立一句话主题 - 开始您的创作之旅"
+        
         # 直接使用questionary选择，不显示重复的美化菜单
         choice = questionary.select(
             "🎯 请选择您要进行的操作:",
             choices=[
-                "📝 1. 确立一句话主题 - 开始您的创作之旅",
+                first_item,
                 "📖 2. 扩展成一段话主题 - 将主题扩展为详细描述", 
                 "🌍 3. 世界设定 - 构建角色、场景和道具",
                 "📋 4. 编辑故事大纲 - 规划整体故事结构",
