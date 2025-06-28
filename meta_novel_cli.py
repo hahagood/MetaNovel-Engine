@@ -1261,7 +1261,7 @@ def handle_novel_generation():
             "3. 查看章节正文",
             "4. 修改章节正文",
             "5. 删除章节正文",
-            "6. 导出完整小说",
+            "6. 分章节导出",
             "7. 返回主菜单"
         ]
         
@@ -1289,8 +1289,8 @@ def handle_novel_generation():
             # 删除章节正文
             delete_novel_chapter(chapters, novel_chapters)
         elif action.startswith("6."):
-            # 导出完整小说
-            export_complete_novel(chapters, novel_chapters)
+            # 分章节导出
+            handle_novel_export(chapters, novel_chapters)
 
 
 def generate_all_novel_chapters(chapters, summaries):
@@ -1656,28 +1656,221 @@ def delete_novel_chapter(chapters, novel_data):
         print("操作已取消。\n")
 
 
-def export_complete_novel(chapters, novel_data):
-    """Export complete novel to a text file."""
-    novel_chapters = novel_data.get('chapters', {})
+def handle_novel_export(chapters, novel_data):
+    """Handle novel export with multiple options."""
+    # 处理数据格式：如果 novel_data 直接是章节字典，直接使用；否则从 'chapters' 键获取
+    if isinstance(novel_data, dict) and 'chapters' in novel_data:
+        novel_chapters = novel_data['chapters']
+    else:
+        novel_chapters = novel_data
+    
     if not novel_chapters:
         print("\n当前没有小说正文可导出。\n")
         return
     
-    # 获取小说名（基于主题）
-    novel_name = "未命名小说"
+    while True:
+        # 显示当前小说状态
+        total_chapters = len([ch for ch in novel_chapters.keys() if ch.startswith('chapter_')])
+        total_words = sum(ch.get('word_count', len(ch.get('content', ''))) for ch in novel_chapters.values())
+        
+        print(f"\n--- 小说导出管理 ---")
+        print(f"可导出章节: {total_chapters} 章")
+        print(f"总字数: {total_words} 字")
+        
+        # 获取当前小说名称
+        current_novel_name = get_novel_name()
+        print(f"当前小说名: {current_novel_name}")
+        print("------------------------\n")
+        
+        # 导出选项
+        choices = [
+            "1. 导出完整小说",
+            "2. 导出单个章节",
+            "3. 导出章节范围",
+            "4. 返回上级菜单"
+        ]
+        
+        action = questionary.select(
+            "请选择导出操作：",
+            choices=choices,
+            use_indicator=True
+        ).ask()
+        
+        if action is None or action.startswith("4."):
+            break
+        elif action.startswith("1."):
+            # 导出完整小说
+            export_complete_novel(chapters, novel_chapters)
+        elif action.startswith("2."):
+            # 导出单个章节
+            export_single_chapter(chapters, novel_chapters)
+        elif action.startswith("3."):
+            # 导出章节范围
+            export_chapter_range(chapters, novel_chapters)
+
+
+def export_single_chapter(chapters, novel_chapters):
+    """Export a single chapter."""
+    # 获取可导出的章节
+    available_chapters = []
+    for i in range(1, len(chapters) + 1):
+        chapter_key = f"chapter_{i}"
+        if chapter_key in novel_chapters:
+            chapter_title = chapters[i-1].get('title', f'第{i}章')
+            word_count = novel_chapters[chapter_key].get('word_count', len(novel_chapters[chapter_key].get('content', '')))
+            available_chapters.append(f"{i}. {chapter_title} ({word_count}字)")
+    
+    if not available_chapters:
+        print("\n没有可导出的章节。\n")
+        return
+    
+    # 添加返回选项
+    available_chapters.append("返回上级菜单")
+    
+    choice = questionary.select(
+        "请选择要导出的章节：",
+        choices=available_chapters,
+        use_indicator=True
+    ).ask()
+    
+    if not choice or choice == "返回上级菜单":
+        return
+    
+    chapter_num = int(choice.split('.')[0])
+    chapter_key = f"chapter_{chapter_num}"
+    chapter_info = novel_chapters[chapter_key]
+    
+    # 生成文件名
+    novel_name = get_novel_name()
+    chapter_title = chapters[chapter_num-1].get('title', f'第{chapter_num}章')
+    
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{novel_name}_{chapter_title}_{timestamp}.txt"
+    
+    # 写入文件
     try:
-        with FILE_PATHS["theme_one_line"].open('r', encoding='utf-8') as f:
-            theme_data = json.load(f)
-            theme = theme_data.get("theme", "")
-            if theme:
-                # 清理主题作为文件名，移除特殊字符
-                import re
-                novel_name = re.sub(r'[<>:"/\\|?*]', '_', theme)
-                # 限制长度
-                if len(novel_name) > 20:
-                    novel_name = novel_name[:20] + "..."
-    except:
-        pass
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(f"{novel_name}\n")
+            f.write("=" * 50 + "\n")
+            f.write(f"导出时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"导出章节: {chapter_title}\n")
+            f.write(f"字数: {chapter_info.get('word_count', len(chapter_info.get('content', '')))} 字\n")
+            f.write("=" * 50 + "\n\n")
+            f.write(f"{chapter_info['title']}\n")
+            f.write("=" * 30 + "\n\n")
+            f.write(chapter_info['content'])
+        
+        print(f"\n✅ 章节已成功导出到文件: {filename}")
+        print(f"小说名: {novel_name}")
+        print(f"章节: {chapter_title}")
+        print(f"字数: {chapter_info.get('word_count', len(chapter_info.get('content', '')))} 字\n")
+    except Exception as e:
+        print(f"\n❌ 导出失败: {e}\n")
+
+
+def export_chapter_range(chapters, novel_chapters):
+    """Export a range of chapters."""
+    # 获取可导出的章节号
+    available_chapter_nums = []
+    for i in range(1, len(chapters) + 1):
+        chapter_key = f"chapter_{i}"
+        if chapter_key in novel_chapters:
+            available_chapter_nums.append(i)
+    
+    if not available_chapter_nums:
+        print("\n没有可导出的章节。\n")
+        return
+    
+    print(f"\n可导出的章节: {', '.join(map(str, available_chapter_nums))}")
+    
+    # 创建起始章节选择列表
+    start_choices = [f"{i}. 第{i}章" for i in available_chapter_nums]
+    start_choices.append("返回上级菜单")
+    
+    start_choice = questionary.select(
+        "请选择起始章节：",
+        choices=start_choices,
+        use_indicator=True
+    ).ask()
+    
+    if not start_choice or start_choice == "返回上级菜单":
+        return
+    
+    start_chapter = int(start_choice.split('.')[0])
+    
+    # 创建结束章节选择列表（只包含起始章节及之后的章节）
+    end_choices = [f"{i}. 第{i}章" for i in available_chapter_nums if i >= start_chapter]
+    end_choices.append("返回上级菜单")
+    
+    end_choice = questionary.select(
+        "请选择结束章节：",
+        choices=end_choices,
+        use_indicator=True
+    ).ask()
+    
+    if not end_choice or end_choice == "返回上级菜单":
+        return
+    
+    end_chapter = int(end_choice.split('.')[0])
+    
+    # 导出选定范围的章节
+    export_chapters = [i for i in available_chapter_nums if start_chapter <= i <= end_chapter]
+    
+    if not export_chapters:
+        print("\n没有可导出的章节。\n")
+        return
+    
+    # 生成文件名
+    novel_name = get_novel_name()
+    if start_chapter == end_chapter:
+        chapter_range = f"第{start_chapter}章"
+    else:
+        chapter_range = f"第{start_chapter}-{end_chapter}章"
+    
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{novel_name}_{chapter_range}_{timestamp}.txt"
+    
+    # 写入文件
+    try:
+        total_words = 0
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(f"{novel_name}\n")
+            f.write("=" * 50 + "\n")
+            f.write(f"导出时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"导出范围: {chapter_range}\n")
+            f.write(f"章节数: {len(export_chapters)} 章\n")
+            f.write("=" * 50 + "\n")
+            
+            for chapter_num in export_chapters:
+                chapter_key = f"chapter_{chapter_num}"
+                chapter_info = novel_chapters[chapter_key]
+                
+                f.write(f"\n\n{chapter_info['title']}\n")
+                f.write("=" * 30 + "\n\n")
+                f.write(chapter_info['content'])
+                
+                total_words += chapter_info.get('word_count', len(chapter_info.get('content', '')))
+        
+        print(f"\n✅ 章节范围已成功导出到文件: {filename}")
+        print(f"小说名: {novel_name}")
+        print(f"导出范围: {chapter_range}")
+        print(f"章节数: {len(export_chapters)} 章")
+        print(f"总字数: {total_words} 字\n")
+    except Exception as e:
+        print(f"\n❌ 导出失败: {e}\n")
+
+
+def export_complete_novel(chapters, novel_data):
+    """Export complete novel to a text file."""
+    novel_chapters = novel_data.get('chapters', {}) if isinstance(novel_data, dict) and 'chapters' in novel_data else novel_data
+    if not novel_chapters:
+        print("\n当前没有小说正文可导出。\n")
+        return
+    
+    # 获取小说名
+    novel_name = get_novel_name()
     
     # 按章节顺序整理内容，并收集章节信息
     complete_novel = []
