@@ -20,7 +20,7 @@
     "user_prompt_template": "{base_prompt}\n\n用户额外要求：{user_prompt}"
   },
   "chapter_outline": {
-    "base_prompt": "请基于以下信息创建详细的分章细纲：\n\n一句话主题：{one_line_theme}\n\n故事大纲：{story_outline}\n\n角色信息：{characters_info}\n\n请将故事分为若干章节，每章包含：\n1. 章节标题\n2. 主要情节\n3. 关键场景\n4. 人物发展\n5. 情节转折\n\n总字数控制在{chapter_outline_length}。输出格式为JSON，结构如下：\n{{\n  \"第1章\": {{\n    \"title\": \"章节标题\",\n    \"plot\": \"主要情节描述\",\n    \"scenes\": [\"场景1\", \"场景2\"],\n    \"characters\": [\"相关角色\"],\n    \"turning_point\": \"情节转折点\"\n  }},\n  \"第2章\": {{ ... }}\n}}",
+    "base_prompt": "请基于以下信息创建详细的分章细纲：\n\n一句话主题：{one_line_theme}\n\n故事大纲：{story_outline}\n\n角色信息：{characters_info}\n\n请将故事分为若干章节（建议5-10章），每章包含详细的章节大纲。\n\n总字数控制在{chapter_outline_length}。输出格式为JSON，严格按照以下结构：\n{{\n  \"chapters\": [\n    {{\n      \"title\": \"第一章章节标题\",\n      \"outline\": \"详细的章节大纲，包含主要情节、关键场景、人物发展、情节转折等内容\"\n    }},\n    {{\n      \"title\": \"第二章章节标题\",\n      \"outline\": \"详细的章节大纲内容\"\n    }}\n  ]\n}}\n\n请确保返回严格的JSON格式，不要包含任何额外的文字说明。",
     "user_prompt_template": "{base_prompt}\n\n用户额外要求：{user_prompt}"
   },
   "chapter_summary": {
