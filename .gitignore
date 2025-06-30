@@ -166,6 +166,9 @@ cython_debug/
 #  project, it is common to ignore the entire .idea directory.
 .idea/
 
+# Cursor IDE
+.cursorrules
+
 # Project specific
 meta_backup/
 *.txt
