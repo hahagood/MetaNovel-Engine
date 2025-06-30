@@ -24,7 +24,7 @@ from project_ui import handle_project_management
 # 获取当前数据管理器的便捷函数
 def get_data_manager():
     """获取当前项目的数据管理器"""
-    return project_get_data_manager().get_data_manager()
+    return project_data_manager.get_data_manager()
 
 # --- Helper Functions ---
 def ensure_meta_dir():
