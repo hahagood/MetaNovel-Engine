@@ -1,6 +1,6 @@
 # MetaNovel-Engine
 
-![Version](https://img.shields.io/badge/version-v0.0.4-blue.svg)
+![Version](https://img.shields.io/badge/version-v0.0.5-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
@@ -13,6 +13,7 @@ MetaNovel-Engine 是一套完整的AI辅助小说创作工具链，通过结构�
 ### 🎯 核心优势
 
 - **🏗️ 模块化架构**：从单一2700行文件重构为清晰的模块化架构
+- **📁 多项目管理**：支持同时管理多个小说项目，完全独立的数据存储
 - **🎯 渐进式创作**：7个步骤层层递进，从主题构思到完整小说
 - **🤖 智能AI辅助**：支持多种大语言模型，智能重试和异步并发
 - **📊 结构化管理**：JSON格式存储，完整的CRUD操作
@@ -50,7 +51,13 @@ MetaNovel-Engine 是一套完整的AI辅助小说创作工具链，通过结构�
    HTTPS_PROXY=http://127.0.0.1:7890
    ```
 
-3. **运行程序**
+3. **数据迁移（如果有旧版本数据）**
+   ```bash
+   # 如果您之前使用过单项目版本，需要先运行迁移工具
+   python migrate_to_multi_project.py
+   ```
+
+4. **运行程序**
    ```bash
    python meta_novel_cli.py
    ```
@@ -81,25 +88,27 @@ MetaNovel-Engine 是一套完整的AI辅助小说创作工具链，通过结构�
 
 ```
 MetaNovel-Engine/
-├── 🗂️ meta/                    # 创作数据存储
-│   ├── theme_one_line.json     # 一句话主题
-│   ├── theme_paragraph.json    # 段落主题
-│   ├── characters.json         # 角色信息
-│   ├── locations.json          # 场景信息
-│   ├── items.json              # 道具信息
-│   ├── story_outline.json      # 故事大纲
-│   ├── chapter_outline.json    # 分章细纲
-│   ├── chapter_summary.json    # 章节概要
-│   └── novel_text.json         # 小说正文
-├── 🗂️ meta_backup/             # 自动备份
+├── 🗂️ ~/.metanovel/            # 多项目管理目录
+│   ├── config.json             # 全局配置文件
+│   └── projects/               # 项目存储目录
+│       ├── 项目1/
+│       │   ├── meta/           # 项目1的创作数据
+│       │   └── meta_backup/    # 项目1的备份数据
+│       └── 项目2/
+│           ├── meta/           # 项目2的创作数据
+│           └── meta_backup/    # 项目2的备份数据
 ├── 🗂️ tests/                   # 单元测试
 ├── 🔧 config.py                # 配置管理模块
 ├── 💾 data_manager.py          # 数据管理模块
+├── 📁 project_manager.py       # 项目管理模块
+├── 🎯 project_data_manager.py  # 项目数据管理器
+├── 🎨 project_ui.py            # 项目管理界面
 ├── 🤖 llm_service.py           # AI服务模块
 ├── 🔄 retry_utils.py           # 智能重试工具
 ├── 📊 progress_utils.py        # 进度显示工具
 ├── 📝 prompts.json             # AI提示词配置
 ├── 🎮 meta_novel_cli.py        # 主程序
+├── 🚀 migrate_to_multi_project.py # 数据迁移工具
 └── 🧪 run_tests.py             # 测试运行脚本
 ```
 
@@ -109,9 +118,13 @@ MetaNovel-Engine/
 |------|------|
 | `config.py` | 统一配置管理，包含AI模型、网络代理、重试机制等配置 |
 | `data_manager.py` | 数据层抽象，提供完整的CRUD操作接口 |
+| `project_manager.py` | 多项目管理核心，处理项目创建、切换、删除等操作 |
+| `project_data_manager.py` | 项目感知的数据管理器工厂，统一管理多项目数据 |
+| `project_ui.py` | 项目管理用户界面，提供友好的项目操作界面 |
 | `llm_service.py` | AI服务封装，支持同步/异步调用和智能重试 |
 | `retry_utils.py` | 智能重试机制，支持指数退避、错误分类和批量重试 |
 | `progress_utils.py` | 进度显示系统，支持实时状态更新 |
+| `migrate_to_multi_project.py` | 数据迁移工具，帮助用户从单项目模式迁移到多项目模式 |
 
 ## ⚙️ 配置说明
 
@@ -146,6 +159,14 @@ export HTTPS_PROXY="http://127.0.0.1:7890"
 - **错误分类**：自动识别可重试和不可重试的错误
 
 ## 🌟 功能特色
+
+### 📁 多项目管理
+- **项目工作台**：统一的项目管理界面，支持创建、切换、删除项目
+- **独立存储**：每个项目的数据完全独立，存储在 `~/.metanovel/projects/` 目录下
+- **智能切换**：快速在不同项目间切换，自动加载对应的数据管理器
+- **项目详情**：显示项目信息、创作进度、完成状态等详细信息
+- **数据迁移**：提供完整的旧版本数据迁移工具，无缝升级到多项目模式
+- **灵活管理**：支持项目重命名、描述编辑、路径管理等功能
 
 ### 🧠 智能AI辅助
 - **智能依赖检查**：每个步骤都会检查前置条件
@@ -226,6 +247,15 @@ python -m pytest tests/test_data_manager.py -v
 本项目采用MIT License，详见[LICENSE](LICENSE)文件。
 
 ## 📝 版本历史
+
+### v0.0.5 (2025-06-29) - 多项目管理版本
+- 🚀 **多项目管理**：支持同时管理多个小说项目
+- 📁 **项目工作台**：统一的项目管理界面，支持创建、切换、删除项目
+- 🔄 **数据迁移**：提供完整的旧版本数据迁移工具
+- 🏗️ **架构升级**：项目感知的数据管理器，动态路径配置
+- 📊 **项目详情**：详细的项目信息和创作进度跟踪
+- 💾 **独立存储**：每个项目的数据完全独立，互不干扰
+- 🎯 **智能切换**：快速在不同项目间切换，保持创作连续性
 
 ### v0.0.4 (2025-06-28) - 用户体验优化版本
 - ✨ 主菜单第一项动态显示小说名称功能
