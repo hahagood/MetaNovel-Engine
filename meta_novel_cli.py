@@ -1715,6 +1715,33 @@ def delete_novel_chapter(chapters, novel_data):
         print("操作已取消。\n")
 
 
+def get_export_dir():
+    """获取当前项目的导出目录路径"""
+    try:
+        from project_manager import project_manager
+        
+        # 获取当前活动项目路径
+        current_project_path = project_manager.get_active_project_path()
+        if current_project_path:
+            # 使用项目目录下的 exports 子目录
+            export_dir = current_project_path / "exports"
+        else:
+            # 降级方案：如果没有项目路径，使用当前目录
+            from pathlib import Path
+            export_dir = Path.cwd() / "exports"
+        
+        # 确保导出目录存在
+        export_dir.mkdir(exist_ok=True)
+        return export_dir
+        
+    except Exception as e:
+        print(f"⚠️ 获取导出目录时出错，使用当前目录: {e}")
+        from pathlib import Path
+        export_dir = Path.cwd() / "exports"
+        export_dir.mkdir(exist_ok=True)
+        return export_dir
+
+
 def handle_novel_export(chapters, novel_data):
     """Handle novel export with multiple options."""
     # 处理数据格式：如果 novel_data 直接是章节字典，直接使用；否则从 'chapters' 键获取
@@ -1799,7 +1826,7 @@ def export_single_chapter(chapters, novel_chapters):
     chapter_key = f"chapter_{chapter_num}"
     chapter_info = novel_chapters[chapter_key]
     
-    # 生成文件名
+    # 生成文件名和路径
     novel_name = get_novel_name()
     chapter_title = chapters[chapter_num-1].get('title', f'第{chapter_num}章')
     
@@ -1807,9 +1834,13 @@ def export_single_chapter(chapters, novel_chapters):
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{novel_name}_{chapter_title}_{timestamp}.txt"
     
+    # 获取导出目录并生成完整文件路径
+    export_dir = get_export_dir()
+    file_path = export_dir / filename
+    
     # 写入文件
     try:
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(file_path, 'w', encoding='utf-8') as f:
             f.write(f"{novel_name}\n")
             f.write("=" * 50 + "\n")
             f.write(f"导出时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -1820,10 +1851,11 @@ def export_single_chapter(chapters, novel_chapters):
             f.write("=" * 30 + "\n\n")
             f.write(chapter_info['content'])
         
-        print(f"\n✅ 章节已成功导出到文件: {filename}")
+        print(f"\n✅ 章节已成功导出到文件: {file_path}")
         print(f"小说名: {novel_name}")
         print(f"章节: {chapter_title}")
-        print(f"字数: {chapter_info.get('word_count', len(chapter_info.get('content', '')))} 字\n")
+        print(f"字数: {chapter_info.get('word_count', len(chapter_info.get('content', '')))} 字")
+        print(f"文件位置: {export_dir}\n")
     except Exception as e:
         print(f"\n❌ 导出失败: {e}\n")
 
@@ -1880,7 +1912,7 @@ def export_chapter_range(chapters, novel_chapters):
         print("\n没有可导出的章节。\n")
         return
     
-    # 生成文件名
+    # 生成文件名和路径
     novel_name = get_novel_name()
     if start_chapter == end_chapter:
         chapter_range = f"第{start_chapter}章"
@@ -1891,10 +1923,14 @@ def export_chapter_range(chapters, novel_chapters):
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{novel_name}_{chapter_range}_{timestamp}.txt"
     
+    # 获取导出目录并生成完整文件路径
+    export_dir = get_export_dir()
+    file_path = export_dir / filename
+    
     # 写入文件
     try:
         total_words = 0
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(file_path, 'w', encoding='utf-8') as f:
             f.write(f"{novel_name}\n")
             f.write("=" * 50 + "\n")
             f.write(f"导出时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -1912,11 +1948,12 @@ def export_chapter_range(chapters, novel_chapters):
                 
                 total_words += chapter_info.get('word_count', len(chapter_info.get('content', '')))
         
-        print(f"\n✅ 章节范围已成功导出到文件: {filename}")
+        print(f"\n✅ 章节范围已成功导出到文件: {file_path}")
         print(f"小说名: {novel_name}")
         print(f"导出范围: {chapter_range}")
         print(f"章节数: {len(export_chapters)} 章")
-        print(f"总字数: {total_words} 字\n")
+        print(f"总字数: {total_words} 字")
+        print(f"文件位置: {export_dir}\n")
     except Exception as e:
         print(f"\n❌ 导出失败: {e}\n")
 
@@ -1958,14 +1995,18 @@ def export_complete_novel(chapters, novel_data):
     else:
         chapter_range = f"第{min(exported_chapters)}-{max(exported_chapters)}章"
     
-    # 生成文件名
+    # 生成文件名和路径
     import datetime
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{novel_name}_{chapter_range}_{timestamp}.txt"
     
+    # 获取导出目录并生成完整文件路径
+    export_dir = get_export_dir()
+    file_path = export_dir / filename
+    
     # 写入文件
     try:
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(file_path, 'w', encoding='utf-8') as f:
             f.write(f"{novel_name}\n")
             f.write("=" * 50 + "\n")
             f.write(f"导出时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -1975,11 +2016,12 @@ def export_complete_novel(chapters, novel_data):
             f.write("=" * 50 + "\n")
             f.writelines(complete_novel)
         
-        print(f"\n小说已成功导出到文件: {filename}")
+        print(f"\n✅ 小说已成功导出到文件: {file_path}")
         print(f"小说名: {novel_name}")
         print(f"导出范围: {chapter_range}")
         print(f"总字数: {total_words} 字")
-        print(f"章节数: {len(novel_chapters)} 章\n")
+        print(f"章节数: {len(novel_chapters)} 章")
+        print(f"文件位置: {export_dir}\n")
     except Exception as e:
         print(f"\n导出失败: {e}\n")
 
