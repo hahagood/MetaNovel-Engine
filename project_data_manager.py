@@ -15,8 +15,8 @@ class ProjectDataManager:
         """刷新数据管理器实例"""
         active_project = project_manager.get_active_project()
         
-        # 如果活动项目发生变化，重新创建数据管理器
-        if active_project != self._current_project:
+        # 如果活动项目发生变化或者数据管理器尚未创建，重新创建数据管理器
+        if active_project != self._current_project or self._current_data_manager is None:
             self._current_project = active_project
             
             if active_project:
