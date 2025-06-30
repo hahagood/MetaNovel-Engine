@@ -252,6 +252,43 @@ class ProjectManager:
                 description=info.get("description", "")
             )
         return None
+    
+    def update_project_info(self, name: str, display_name: str = None, description: str = None) -> bool:
+        """更新项目信息"""
+        if not self.project_exists(name):
+            print(f"项目 '{name}' 不存在")
+            return False
+        
+        config = self._load_config()
+        if name not in config["projects"]:
+            print(f"项目配置中未找到 '{name}'")
+            return False
+        
+        # 更新配置
+        project_info = config["projects"][name]
+        if display_name is not None:
+            project_info["display_name"] = display_name
+        if description is not None:
+            project_info["description"] = description
+        project_info["updated_at"] = datetime.now().isoformat()
+        
+        # 更新项目目录中的项目信息文件
+        project_path = self.projects_dir / name
+        info_file = project_path / "project_info.json"
+        try:
+            with info_file.open('w', encoding='utf-8') as f:
+                json.dump(project_info, f, ensure_ascii=False, indent=4)
+        except OSError as e:
+            print(f"更新项目信息文件时出错: {e}")
+            return False
+        
+        # 保存全局配置
+        if self._save_config(config):
+            print(f"✅ 项目 '{display_name or name}' 信息已更新")
+            return True
+        else:
+            print("❌ 保存配置时出错")
+            return False
 
 # 全局项目管理器实例
 project_manager = ProjectManager() 

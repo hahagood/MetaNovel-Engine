@@ -2396,9 +2396,73 @@ def show_project_status():
 
 
 
+def handle_creative_workflow():
+    """处理创作流程菜单（7步创作流程）"""
+    while True:
+        # 清屏并显示界面
+        console.clear()
+        
+        # 显示项目状态
+        show_project_status()
+        console.print()  # 空行
+        
+        # 获取当前小说名称，用于第一项显示
+        current_novel_name = get_novel_name()
+        first_item = f"📝 1. 确立一句话主题 - 《{current_novel_name}》" if current_novel_name != "未命名小说" else "📝 1. 确立一句话主题 - 开始您的创作之旅"
+        
+        # 创作流程菜单
+        choice = questionary.select(
+            "🎯 请选择您要进行的操作:",
+            choices=[
+                first_item,
+                "📖 2. 扩展成一段话主题 - 将主题扩展为详细描述", 
+                "🌍 3. 世界设定 - 构建角色、场景和道具",
+                "📋 4. 编辑故事大纲 - 规划整体故事结构",
+                "📚 5. 编辑分章细纲 - 细化每章内容安排",
+                "📄 6. 编辑章节概要 - 生成章节摘要",
+                "📜 7. 生成小说正文 - AI辅助创作正文",
+                "🔧 8. 系统设置 - 配置系统参数",
+                "🔙 9. 返回项目管理 - 切换或管理项目"
+            ],
+            use_indicator=True,
+            style=questionary.Style([
+                ('question', 'bold fg:#ff00ff'),
+                ('answer', 'fg:#ff9d00 bold'),
+                ('pointer', 'fg:#ff9d00 bold'),
+                ('highlighted', 'fg:#ff9d00 bold'),
+                ('selected', 'fg:#cc5454'),
+                ('separator', 'fg:#cc5454'),
+                ('instruction', 'fg:#888888'),
+                ('text', ''),
+                ('disabled', 'fg:#858585 italic')
+            ])
+        ).ask()
+
+        if choice is None or choice.startswith("🔙"):
+            break
+        
+        if choice.startswith("📝"):
+            handle_theme_one_line()
+        elif choice.startswith("📖"):
+            handle_theme_paragraph()
+        elif choice.startswith("🌍"):
+            handle_world_setting()
+        elif choice.startswith("📋"):
+            handle_story_outline()
+        elif choice.startswith("📚"):
+            handle_chapter_outline()
+        elif choice.startswith("📄"):
+            handle_chapter_summary()
+        elif choice.startswith("📜"):
+            handle_novel_generation()
+        elif choice.startswith("🔧"):
+            handle_system_settings()
+        else:
+            print(f"您选择了: {choice} (功能开发中...)\n")
+
 def main():
     """
-    Main function to display the interactive menu.
+    Main function to display the main menu.
     """
     # 显示欢迎信息（只在首次启动时显示）
     first_run = True
@@ -2412,28 +2476,20 @@ def main():
             console.print()  # 空行
             first_run = False
         
-        # 显示项目状态
-        show_project_status()
-        console.print()  # 空行
+        # 显示当前活动项目信息
+        current_project = project_data_manager.get_current_project_display_name()
+        if current_project != "未命名小说":
+            status_text = f"[green]当前项目: {current_project}[/green]"
+            console.print(Panel(status_text, title="📁 项目状态", border_style="blue"))
+            console.print()
         
-        # 获取当前项目名称，用于第一项显示
-        current_project_name = project_data_manager.get_current_project_display_name()
-        first_item = f"📝 1. 确立一句话主题 - 《{current_project_name}》" if current_project_name != "未命名小说" else "📝 1. 确立一句话主题 - 开始您的创作之旅"
-        
-        # 直接使用questionary选择，不显示重复的美化菜单
+        # 主菜单
         choice = questionary.select(
-            "🎯 请选择您要进行的操作:",
+            "🚀 MetaNovel Engine - 主菜单",
             choices=[
-                first_item,
-                "📖 2. 扩展成一段话主题 - 将主题扩展为详细描述", 
-                "🌍 3. 世界设定 - 构建角色、场景和道具",
-                "📋 4. 编辑故事大纲 - 规划整体故事结构",
-                "📚 5. 编辑分章细纲 - 细化每章内容安排",
-                "📄 6. 编辑章节概要 - 生成章节摘要",
-                "📜 7. 生成小说正文 - AI辅助创作正文",
-                "📁 8. 项目管理 - 管理多个小说项目",
-                "🔧 9. 系统设置 - 配置系统参数",
-                "👋 0. 退出 - 结束本次创作"
+                "📁 项目管理 - 管理和切换小说项目",
+                "🔧 系统设置 - 配置系统参数",
+                "👋 退出 - 结束程序"
             ],
             use_indicator=True,
             style=questionary.Style([
@@ -2453,21 +2509,6 @@ def main():
             console.clear()
             ui.print_goodbye()
             break
-        
-        if choice.startswith("📝"):
-            handle_theme_one_line()
-        elif choice.startswith("📖"):
-            handle_theme_paragraph()
-        elif choice.startswith("🌍"):
-            handle_world_setting()
-        elif choice.startswith("📋"):
-            handle_story_outline()
-        elif choice.startswith("📚"):
-            handle_chapter_outline()
-        elif choice.startswith("📄"):
-            handle_chapter_summary()
-        elif choice.startswith("📜"):
-            handle_novel_generation()
         elif choice.startswith("📁"):
             handle_project_management()
         elif choice.startswith("🔧"):
