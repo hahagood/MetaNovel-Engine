@@ -1,13 +1,22 @@
 import json
 from pathlib import Path
-from config import FILE_PATHS, ensure_directories
+from config import FILE_PATHS, ensure_directories, get_project_paths
 from datetime import datetime
+from typing import Optional, Dict
 
 class DataManager:
     """数据管理类，封装所有文件读写操作"""
     
-    def __init__(self):
-        ensure_directories()
+    def __init__(self, project_path: Optional[Path] = None):
+        """
+        初始化数据管理器
+        
+        Args:
+            project_path: 项目路径，如果为None则使用默认路径（单项目模式）
+        """
+        self.project_path = project_path
+        self.file_paths = get_project_paths(project_path)
+        ensure_directories(project_path)
     
     def read_json_file(self, file_path):
         """读取JSON文件"""
@@ -72,7 +81,7 @@ class DataManager:
     # ===== 主题相关 =====
     def read_theme_one_line(self):
         """读取一句话主题数据（支持新旧格式）"""
-        data = self.read_json_file(FILE_PATHS["theme_one_line"])
+        data = self.read_json_file(self.file_paths["theme_one_line"])
         
         # 如果文件不存在或为空，返回None
         if not data:
@@ -108,11 +117,11 @@ class DataManager:
         else:
             return False
         
-        return self.write_json_file(FILE_PATHS["theme_one_line"], save_data)
+        return self.write_json_file(self.file_paths["theme_one_line"], save_data)
     
     def read_theme_paragraph(self):
         """读取段落主题"""
-        data = self.read_json_file(FILE_PATHS["theme_paragraph"])
+        data = self.read_json_file(self.file_paths["theme_paragraph"])
         return data.get("theme_paragraph", "")
     
     def write_theme_paragraph(self, theme_paragraph):
@@ -121,21 +130,21 @@ class DataManager:
             "theme_paragraph": theme_paragraph,
             "created_at": datetime.now().isoformat()
         }
-        return self.write_json_file(FILE_PATHS["theme_paragraph"], data)
+        return self.write_json_file(self.file_paths["theme_paragraph"], data)
     
     # ===== 角色相关 =====
     def read_characters(self):
         """读取所有角色"""
-        return self.list_items_in_dict(FILE_PATHS["characters"])
+        return self.list_items_in_dict(self.file_paths["characters"])
     
     def write_characters(self, characters_data):
         """写入角色数据"""
-        return self.write_json_file(FILE_PATHS["characters"], characters_data)
+        return self.write_json_file(self.file_paths["characters"], characters_data)
     
     def add_character(self, name, description):
         """添加角色"""
         return self.add_item_to_dict(
-            FILE_PATHS["characters"],
+            self.file_paths["characters"],
             name,
             {"description": description}
         )
@@ -143,28 +152,28 @@ class DataManager:
     def update_character(self, name, description):
         """更新角色"""
         return self.update_item_in_dict(
-            FILE_PATHS["characters"],
+            self.file_paths["characters"],
             name,
             {"description": description}
         )
 
     def delete_character(self, name):
         """删除角色"""
-        return self.delete_item_from_dict(FILE_PATHS["characters"], name)
+        return self.delete_item_from_dict(self.file_paths["characters"], name)
 
     # ===== 场景相关 =====
     def read_locations(self):
         """读取所有场景"""
-        return self.list_items_in_dict(FILE_PATHS["locations"])
+        return self.list_items_in_dict(self.file_paths["locations"])
     
     def write_locations(self, locations_data):
         """写入场景数据"""
-        return self.write_json_file(FILE_PATHS["locations"], locations_data)
+        return self.write_json_file(self.file_paths["locations"], locations_data)
     
     def add_location(self, name, description):
         """添加场景"""
         return self.add_item_to_dict(
-            FILE_PATHS["locations"],
+            self.file_paths["locations"],
             name,
             {"description": description}
         )
@@ -172,28 +181,28 @@ class DataManager:
     def update_location(self, name, description):
         """更新场景"""
         return self.update_item_in_dict(
-            FILE_PATHS["locations"],
+            self.file_paths["locations"],
             name,
             {"description": description}
         )
 
     def delete_location(self, name):
         """删除场景"""
-        return self.delete_item_from_dict(FILE_PATHS["locations"], name)
+        return self.delete_item_from_dict(self.file_paths["locations"], name)
     
     # ===== 道具相关 =====
     def read_items(self):
         """读取所有道具"""
-        return self.list_items_in_dict(FILE_PATHS["items"])
+        return self.list_items_in_dict(self.file_paths["items"])
     
     def write_items(self, items_data):
         """写入道具数据"""
-        return self.write_json_file(FILE_PATHS["items"], items_data)
+        return self.write_json_file(self.file_paths["items"], items_data)
     
     def add_item(self, name, description):
         """添加道具"""
         return self.add_item_to_dict(
-            FILE_PATHS["items"],
+            self.file_paths["items"],
             name,
             {"description": description}
         )
@@ -201,19 +210,19 @@ class DataManager:
     def update_item(self, name, description):
         """更新道具"""
         return self.update_item_in_dict(
-            FILE_PATHS["items"],
+            self.file_paths["items"],
             name,
             {"description": description}
         )
 
     def delete_item(self, name):
         """删除道具"""
-        return self.delete_item_from_dict(FILE_PATHS["items"], name)
+        return self.delete_item_from_dict(self.file_paths["items"], name)
     
     # ===== 故事大纲相关 =====
     def read_story_outline(self):
         """读取故事大纲"""
-        data = self.read_json_file(FILE_PATHS["story_outline"])
+        data = self.read_json_file(self.file_paths["story_outline"])
         return data.get("outline", "")
     
     def write_story_outline(self, outline):
@@ -223,12 +232,12 @@ class DataManager:
             "created_at": datetime.now().isoformat(),
             "word_count": len(outline)
         }
-        return self.write_json_file(FILE_PATHS["story_outline"], data)
+        return self.write_json_file(self.file_paths["story_outline"], data)
     
     # ===== 分章细纲相关 =====
     def read_chapter_outline(self):
         """读取分章细纲"""
-        data = self.read_json_file(FILE_PATHS["chapter_outline"])
+        data = self.read_json_file(self.file_paths["chapter_outline"])
         return data.get("chapters", [])
     
     def write_chapter_outline(self, chapters):
@@ -238,18 +247,18 @@ class DataManager:
             "total_chapters": len(chapters),
             "created_at": datetime.now().isoformat()
         }
-        return self.write_json_file(FILE_PATHS["chapter_outline"], data)
+        return self.write_json_file(self.file_paths["chapter_outline"], data)
     
     # ===== 章节概要相关 =====
     def read_chapter_summaries(self):
         """读取所有章节概要"""
-        data = self.read_json_file(FILE_PATHS["chapter_summary"])
+        data = self.read_json_file(self.file_paths["chapter_summary"])
         return data.get("summaries", {})
     
     def write_chapter_summaries(self, summaries):
         """写入章节概要"""
         data = {"summaries": summaries}
-        return self.write_json_file(FILE_PATHS["chapter_summary"], data)
+        return self.write_json_file(self.file_paths["chapter_summary"], data)
     
     def get_chapter_summary(self, chapter_num):
         """获取单个章节概要"""
@@ -276,13 +285,13 @@ class DataManager:
     # ===== 小说正文相关 =====
     def read_novel_chapters(self):
         """读取所有小说章节"""
-        data = self.read_json_file(FILE_PATHS["novel_text"])
+        data = self.read_json_file(self.file_paths["novel_text"])
         return data.get("chapters", {})
     
     def write_novel_chapters(self, chapters):
         """写入小说章节"""
         data = {"chapters": chapters}
-        return self.write_json_file(FILE_PATHS["novel_text"], data)
+        return self.write_json_file(self.file_paths["novel_text"], data)
     
     def get_novel_chapter(self, chapter_num):
         """获取单个小说章节"""
@@ -363,38 +372,38 @@ class DataManager:
     # ===== 前置条件检查 =====
     def check_prerequisites_for_world_setting(self):
         """检查世界设定的前置条件"""
-        one_line_exists = FILE_PATHS["theme_one_line"].exists()
-        paragraph_exists = FILE_PATHS["theme_paragraph"].exists()
+        one_line_exists = self.file_paths["theme_one_line"].exists()
+        paragraph_exists = self.file_paths["theme_paragraph"].exists()
         return one_line_exists, paragraph_exists
     
     def check_prerequisites_for_story_outline(self):
         """检查故事大纲的前置条件"""
-        one_line_exists = FILE_PATHS["theme_one_line"].exists()
-        paragraph_exists = FILE_PATHS["theme_paragraph"].exists()
+        one_line_exists = self.file_paths["theme_one_line"].exists()
+        paragraph_exists = self.file_paths["theme_paragraph"].exists()
         return one_line_exists, paragraph_exists
     
     def check_prerequisites_for_chapter_outline(self):
         """检查分章细纲的前置条件"""
-        return FILE_PATHS["story_outline"].exists()
+        return self.file_paths["story_outline"].exists()
     
     def check_prerequisites_for_chapter_summary(self):
         """检查章节概要的前置条件"""
-        return FILE_PATHS["chapter_outline"].exists()
+        return self.file_paths["chapter_outline"].exists()
     
     def check_prerequisites_for_novel_generation(self):
         """检查小说生成的前置条件"""
-        return FILE_PATHS["chapter_summary"].exists()
+        return self.file_paths["chapter_summary"].exists()
     
     # ===== 小说正文相关 =====
     def read_novel_chapters(self):
         """读取小说正文数据"""
-        data = self.read_json_file(FILE_PATHS["novel_text"])
+        data = self.read_json_file(self.file_paths["novel_text"])
         return data.get("chapters", {})
     
     def write_novel_chapters(self, chapters_data):
         """写入小说正文数据"""
         data = {"chapters": chapters_data}
-        return self.write_json_file(FILE_PATHS["novel_text"], data)
+        return self.write_json_file(self.file_paths["novel_text"], data)
     
     def set_novel_chapter(self, chapter_num, title, content):
         """设置单个章节的正文"""

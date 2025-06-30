@@ -11,7 +11,7 @@ import re
 import datetime
 import asyncio
 from llm_service import llm_service
-from data_manager import data_manager
+from project_data_manager import project_data_manager
 from progress_utils import AsyncProgressManager, run_with_progress
 from retry_utils import batch_retry_manager
 from config import RETRY_CONFIG
@@ -19,6 +19,12 @@ from entity_manager import handle_characters, handle_locations, handle_items
 from ui_utils import ui, console
 from rich.panel import Panel
 from rich.text import Text
+from project_ui import handle_project_management
+
+# 获取当前数据管理器的便捷函数
+def get_data_manager():
+    """获取当前项目的数据管理器"""
+    return project_data_manager.get_data_manager()
 
 # --- Helper Functions ---
 def ensure_meta_dir():
@@ -33,7 +39,7 @@ def handle_theme_one_line():
     ensure_meta_dir()
     
     # 获取当前数据
-    current_data = data_manager.read_theme_one_line()
+    current_data = get_data_manager().read_theme_one_line()
     current_novel_name = get_novel_name()
     
     # 处理不同格式的主题数据
@@ -84,7 +90,7 @@ def handle_theme_one_line():
                 "novel_name": current_novel_name,
                 "theme": new_theme.strip()
             }
-            if data_manager.write_theme_one_line(new_data):
+            if get_data_manager().write_theme_one_line(new_data):
                 print(f"✅ 主题已更新为: {new_theme}\n")
             else:
                 print("❌ 保存主题时出错。\n")
@@ -127,7 +133,7 @@ def handle_theme_one_line():
             "novel_name": new_novel_name,
             "theme": new_theme
         }
-        if data_manager.write_theme_one_line(new_data):
+        if get_data_manager().write_theme_one_line(new_data):
             print(f"✅ 小说名称已设置为: {new_novel_name}")
             print(f"✅ 主题已设置为: {new_theme}\n")
         else:
@@ -139,7 +145,7 @@ def handle_theme_paragraph():
     ensure_meta_dir()
 
     # 首先检查一句话主题是否存在
-    one_line_data = data_manager.read_theme_one_line()
+    one_line_data = get_data_manager().read_theme_one_line()
     if not one_line_data:
         print("\n请先使用选项 [1] 确立一句话主题。")
         return
@@ -157,7 +163,7 @@ def handle_theme_paragraph():
         return
 
     # 检查是否已有段落主题
-    existing_paragraph = data_manager.read_theme_paragraph()
+    existing_paragraph = get_data_manager().read_theme_paragraph()
 
     if existing_paragraph:
         # 如果已有段落主题，显示并提供操作选项
@@ -189,7 +195,7 @@ def handle_theme_paragraph():
                 multiline=True
             ).ask()
             if edited_paragraph and edited_paragraph.strip() and edited_paragraph != existing_paragraph:
-                if data_manager.write_theme_paragraph(edited_paragraph):
+                if get_data_manager().write_theme_paragraph(edited_paragraph):
                     print("段落主题已更新。\n")
                 else:
                     print("保存段落主题时出错。\n")
@@ -263,7 +269,7 @@ def handle_theme_paragraph():
         return
     elif action.startswith("1."):
         # 直接保存
-        if data_manager.write_theme_paragraph(generated_paragraph):
+        if get_data_manager().write_theme_paragraph(generated_paragraph):
             print("段落主题已保存。\n")
         else:
             print("保存段落主题时出错。\n")
@@ -276,7 +282,7 @@ def handle_theme_paragraph():
         ).ask()
 
         if edited_paragraph and edited_paragraph.strip():
-            if data_manager.write_theme_paragraph(edited_paragraph):
+            if get_data_manager().write_theme_paragraph(edited_paragraph):
                 print("段落主题已保存。\n")
             else:
                 print("保存段落主题时出错。\n")
@@ -289,7 +295,7 @@ def handle_world_setting():
     ensure_meta_dir()
     
     # 检查前置条件
-    one_line_exists, paragraph_exists = data_manager.check_prerequisites_for_world_setting()
+    one_line_exists, paragraph_exists = get_data_manager().check_prerequisites_for_world_setting()
     
     if not one_line_exists or not paragraph_exists:
         print("\n请先完成前面的步骤：")
@@ -341,7 +347,7 @@ def handle_story_outline():
     ensure_meta_dir()
     
     # 检查前置条件
-    one_line_exists, paragraph_exists = data_manager.check_prerequisites_for_story_outline()
+    one_line_exists, paragraph_exists = get_data_manager().check_prerequisites_for_story_outline()
     
     if not one_line_exists or not paragraph_exists:
         print("\n请先完成前面的步骤：")
@@ -354,7 +360,7 @@ def handle_story_outline():
     
     while True:
         # 每次循环都重新读取大纲数据
-        current_outline = data_manager.read_story_outline()
+        current_outline = get_data_manager().read_story_outline()
         
         # 显示当前大纲状态
         if current_outline:
@@ -404,7 +410,7 @@ def handle_story_outline():
 def generate_story_outline():
     """Generate a new story outline based on existing themes and characters."""
     # 读取主题信息
-    one_line_data = data_manager.read_theme_one_line()
+    one_line_data = get_data_manager().read_theme_one_line()
     if isinstance(one_line_data, dict):
         one_line_theme = one_line_data.get("theme", "")
     elif isinstance(one_line_data, str):
@@ -412,10 +418,10 @@ def generate_story_outline():
     else:
         one_line_theme = ""
         
-    paragraph_theme = data_manager.read_theme_paragraph()
+    paragraph_theme = get_data_manager().read_theme_paragraph()
     
     # 读取角色信息（如果有的话）
-    characters_info = data_manager.get_characters_info_string()
+    characters_info = get_data_manager().get_characters_info_string()
     
     print(f"基于主题和角色信息生成故事大纲...")
     
@@ -467,7 +473,7 @@ def generate_story_outline():
         return
     elif action.startswith("1."):
         # 直接保存
-        if data_manager.write_story_outline(generated_outline):
+        if get_data_manager().write_story_outline(generated_outline):
             print("故事大纲已保存。\n")
         else:
             print("保存故事大纲时出错。\n")
@@ -480,7 +486,7 @@ def generate_story_outline():
         ).ask()
 
         if edited_outline and edited_outline.strip():
-            if data_manager.write_story_outline(edited_outline):
+            if get_data_manager().write_story_outline(edited_outline):
                 print("故事大纲已保存。\n")
             else:
                 print("保存故事大纲时出错。\n")
@@ -490,7 +496,7 @@ def generate_story_outline():
 
 def edit_outline():
     """Edit existing story outline."""
-    current_outline = data_manager.read_story_outline()
+    current_outline = get_data_manager().read_story_outline()
     print("\n--- 当前故事大纲 ---")
     print(current_outline)
     print("------------------------\n")
@@ -502,7 +508,7 @@ def edit_outline():
     ).ask()
     
     if edited_outline and edited_outline.strip() and edited_outline != current_outline:
-        if data_manager.write_story_outline(edited_outline):
+        if get_data_manager().write_story_outline(edited_outline):
             print("故事大纲已更新。\n")
         else:
             print("更新故事大纲时出错。\n")
@@ -517,7 +523,7 @@ def handle_chapter_outline():
     ensure_meta_dir()
     
     # 检查前置条件
-    story_outline_exists = data_manager.check_prerequisites_for_chapter_outline()
+    story_outline_exists = get_data_manager().check_prerequisites_for_chapter_outline()
     
     if not story_outline_exists:
         print("\n请先完成步骤4: 编辑故事大纲\n")
@@ -525,7 +531,7 @@ def handle_chapter_outline():
     
     while True:
         # 每次循环都重新读取数据
-        chapters = data_manager.read_chapter_outline()
+        chapters = get_data_manager().read_chapter_outline()
         
         # 显示当前章节列表
         if chapters:
@@ -590,8 +596,8 @@ def handle_chapter_outline():
 def generate_chapter_outline():
     """Generate chapter outline based on story outline."""
     # 读取故事大纲和其他信息
-    story_outline = data_manager.read_story_outline()
-    one_line_data = data_manager.read_theme_one_line()
+    story_outline = get_data_manager().read_story_outline()
+    one_line_data = get_data_manager().read_theme_one_line()
     if isinstance(one_line_data, dict):
         one_line_theme = one_line_data.get("theme", "")
     elif isinstance(one_line_data, str):
@@ -599,7 +605,7 @@ def generate_chapter_outline():
     else:
         one_line_theme = ""
         
-    characters_info = data_manager.get_characters_info_string()
+    characters_info = get_data_manager().get_characters_info_string()
     
     print("基于故事大纲生成分章细纲...")
     
@@ -671,7 +677,7 @@ def generate_chapter_outline():
         if isinstance(chapter_outline_data, dict):
             chapters_list = chapter_outline_data.get('chapters', [])
             if chapters_list:
-                if data_manager.write_chapter_outline(chapters_list):
+                if get_data_manager().write_chapter_outline(chapters_list):
                     print("分章细纲已保存。\n")
                 else:
                     print("保存分章细纲时出错。\n")
@@ -731,7 +737,7 @@ def generate_chapter_outline():
                 modified_chapters.append({"title": title.strip(), "outline": outline.strip()})
         
         if modified_chapters:
-            if data_manager.write_chapter_outline(modified_chapters):
+            if get_data_manager().write_chapter_outline(modified_chapters):
                 print("分章细纲已保存。\n")
             else:
                 print("保存分章细纲时出错。\n")
@@ -753,10 +759,10 @@ def add_chapter():
     
     new_chapter = {"title": title.strip(), "outline": outline.strip()}
     
-    chapters = data_manager.read_chapter_outline()
+    chapters = get_data_manager().read_chapter_outline()
     chapters.append(new_chapter)
     
-    if data_manager.write_chapter_outline(chapters):
+    if get_data_manager().write_chapter_outline(chapters):
         print(f"章节 '{title}' 已添加。\n")
     else:
         print("添加章节时出错。\n")
@@ -764,7 +770,7 @@ def add_chapter():
 
 def view_chapter():
     """View chapter details."""
-    chapters = data_manager.read_chapter_outline()
+    chapters = get_data_manager().read_chapter_outline()
     if not chapters:
         print("\n当前没有章节信息。\n")
         return
@@ -786,7 +792,7 @@ def view_chapter():
 
 def edit_chapter():
     """Edit chapter information."""
-    chapters = data_manager.read_chapter_outline()
+    chapters = get_data_manager().read_chapter_outline()
     if not chapters:
         print("\n当前没有章节信息可编辑。\n")
         return
@@ -821,7 +827,7 @@ def edit_chapter():
     
     # 更新章节信息
     chapters[chapter_index] = {"title": new_title.strip(), "outline": new_outline.strip()}
-    if data_manager.write_chapter_outline(chapters):
+    if get_data_manager().write_chapter_outline(chapters):
         print("章节信息已更新。\n")
     else:
         print("更新章节信息时出错。\n")
@@ -829,7 +835,7 @@ def edit_chapter():
 
 def delete_chapter():
     """Delete a chapter."""
-    chapters = data_manager.read_chapter_outline()
+    chapters = get_data_manager().read_chapter_outline()
     if not chapters:
         print("\n当前没有章节信息可删除。\n")
         return
@@ -850,7 +856,7 @@ def delete_chapter():
     confirm = questionary.confirm(f"确定要删除章节 '{chapter_title}' 吗？").ask()
     if confirm:
         chapters.pop(chapter_index)
-        if data_manager.write_chapter_outline(chapters):
+        if get_data_manager().write_chapter_outline(chapters):
             print(f"章节 '{chapter_title}' 已删除。\n")
         else:
             print("删除章节时出错。\n")
@@ -863,14 +869,14 @@ def handle_chapter_summary():
     ensure_meta_dir()
     
     # 检查前置条件
-    chapter_outline_exists = data_manager.check_prerequisites_for_chapter_summary()
+    chapter_outline_exists = get_data_manager().check_prerequisites_for_chapter_summary()
     
     if not chapter_outline_exists:
         print("\n请先完成步骤5: 编辑分章细纲\n")
         return
     
     # 读取分章细纲
-    chapters = data_manager.read_chapter_outline()
+    chapters = get_data_manager().read_chapter_outline()
     
     if not chapters:
         print("\n分章细纲为空，请先完成步骤5。\n")
@@ -878,7 +884,7 @@ def handle_chapter_summary():
     
     while True:
         # 每次循环都重新读取数据
-        summaries = data_manager.read_chapter_summaries()
+        summaries = get_data_manager().read_chapter_summaries()
         
         # 显示当前章节概要状态
         print(f"\n--- 章节概要状态 (共{len(chapters)}章) ---")
@@ -977,7 +983,7 @@ def generate_all_summaries(chapters):
         use_async = False
     
     # 读取相关信息
-    context_info = data_manager.get_context_info()
+    context_info = get_data_manager().get_context_info()
     
     if use_async:
         # 异步并发生成
@@ -993,7 +999,7 @@ def generate_all_summaries(chapters):
                 
                 # 保存结果
                 if results:
-                    if data_manager.write_chapter_summaries(results):
+                    if get_data_manager().write_chapter_summaries(results):
                         progress.finish(f"成功生成 {len(results)} 个章节概要")
                         
                         if failed_chapters:
@@ -1032,7 +1038,7 @@ def generate_all_summaries(chapters):
         
         # 保存结果
         if summaries:
-            if data_manager.write_chapter_summaries(summaries):
+            if get_data_manager().write_chapter_summaries(summaries):
                 print(f"\n✅ 成功生成 {len(summaries)} 个章节概要")
                 
                 if failed_chapters:
@@ -1047,7 +1053,7 @@ def generate_all_summaries(chapters):
 def generate_single_summary(chapters):
     """Generate summary for a single chapter."""
     # 读取现有概要数据
-    summaries = data_manager.read_chapter_summaries()
+    summaries = get_data_manager().read_chapter_summaries()
     
     # 选择章节
     chapter_choices = []
@@ -1094,7 +1100,7 @@ def generate_single_summary(chapters):
         return
     
     # 读取相关信息
-    context_info = data_manager.get_context_info()
+    context_info = get_data_manager().get_context_info()
     
     print(f"\n正在生成第{chapter_num}章概要...")
     summary = llm_service.generate_chapter_summary(chapter, chapter_num, context_info, user_prompt)
@@ -1120,7 +1126,7 @@ def generate_single_summary(chapters):
             return
         elif action.startswith("1."):
             # 直接保存
-            if data_manager.set_chapter_summary(chapter_num, chapter.get('title', f'第{chapter_num}章'), summary):
+            if get_data_manager().set_chapter_summary(chapter_num, chapter.get('title', f'第{chapter_num}章'), summary):
                 print(f"第{chapter_num}章概要已保存。\n")
             else:
                 print("保存章节概要时出错。\n")
@@ -1133,7 +1139,7 @@ def generate_single_summary(chapters):
             ).ask()
 
             if edited_summary and edited_summary.strip():
-                if data_manager.set_chapter_summary(chapter_num, chapter.get('title', f'第{chapter_num}章'), edited_summary):
+                if get_data_manager().set_chapter_summary(chapter_num, chapter.get('title', f'第{chapter_num}章'), edited_summary):
                     print(f"第{chapter_num}章概要已保存。\n")
                 else:
                     print("保存章节概要时出错。\n")
@@ -1148,7 +1154,7 @@ def generate_single_summary(chapters):
 
 def view_chapter_summary(chapters):
     """View chapter summary details."""
-    summaries = data_manager.read_chapter_summaries()
+    summaries = get_data_manager().read_chapter_summaries()
     if not summaries:
         print("\n当前没有章节概要。\n")
         return
@@ -1183,7 +1189,7 @@ def view_chapter_summary(chapters):
 
 def edit_chapter_summary(chapters):
     """Edit chapter summary."""
-    summaries = data_manager.read_chapter_summaries()
+    summaries = get_data_manager().read_chapter_summaries()
     if not summaries:
         print("\n当前没有章节概要可编辑。\n")
         return
@@ -1220,7 +1226,7 @@ def edit_chapter_summary(chapters):
     ).ask()
     
     if edited_summary and edited_summary.strip() and edited_summary != summary_info['summary']:
-        if data_manager.set_chapter_summary(chapter_num, summary_info['title'], edited_summary):
+        if get_data_manager().set_chapter_summary(chapter_num, summary_info['title'], edited_summary):
             print(f"第{chapter_num}章概要已更新。\n")
         else:
             print("更新章节概要时出错。\n")
@@ -1232,7 +1238,7 @@ def edit_chapter_summary(chapters):
 
 def delete_chapter_summary(chapters):
     """Delete chapter summary."""
-    summaries = data_manager.read_chapter_summaries()
+    summaries = get_data_manager().read_chapter_summaries()
     if not summaries:
         print("\n当前没有章节概要可删除。\n")
         return
@@ -1260,7 +1266,7 @@ def delete_chapter_summary(chapters):
     
     confirm = questionary.confirm(f"确定要删除第{chapter_num}章 '{title}' 的概要吗？").ask()
     if confirm:
-        if data_manager.delete_chapter_summary(chapter_num):
+        if get_data_manager().delete_chapter_summary(chapter_num):
             print(f"第{chapter_num}章概要已删除。\n")
         else:
             print("删除章节概要时出错。\n")
@@ -1273,25 +1279,25 @@ def handle_novel_generation():
     ensure_meta_dir()
     
     # 检查前置条件
-    chapter_summary_exists = data_manager.check_prerequisites_for_novel_generation()
+    chapter_summary_exists = get_data_manager().check_prerequisites_for_novel_generation()
     
     if not chapter_summary_exists:
         print("\n请先完成步骤6: 编辑章节概要\n")
         return
     
     # 读取章节概要
-    summaries = data_manager.read_chapter_summaries()
+    summaries = get_data_manager().read_chapter_summaries()
     
     if not summaries:
         print("\n章节概要为空，请先完成步骤6。\n")
         return
     
     # 读取分章细纲以获取章节顺序
-    chapters = data_manager.read_chapter_outline()
+    chapters = get_data_manager().read_chapter_outline()
     
     while True:
         # 每次循环都重新读取数据
-        novel_chapters = data_manager.read_novel_chapters()
+        novel_chapters = get_data_manager().read_novel_chapters()
         
         # 显示当前小说正文状态
         print(f"\n--- 小说正文状态 (共{len(summaries)}章) ---")
@@ -1403,7 +1409,7 @@ def generate_all_novel_chapters(chapters, summaries):
         use_async = False
     
     # 读取相关信息
-    context_info = data_manager.get_context_info()
+    context_info = get_data_manager().get_context_info()
     
     if use_async:
         # 异步并发生成
@@ -1419,7 +1425,7 @@ def generate_all_novel_chapters(chapters, summaries):
                 
                 # 保存结果
                 if results:
-                    if data_manager.write_novel_chapters(results):
+                    if get_data_manager().write_novel_chapters(results):
                         total_words = sum(ch.get('word_count', 0) for ch in results.values())
                         progress.finish(f"成功生成 {len(results)} 个章节正文，总计 {total_words} 字")
                         
@@ -1467,7 +1473,7 @@ def generate_all_novel_chapters(chapters, summaries):
         
         # 保存结果
         if novel_chapters:
-            if data_manager.write_novel_chapters(novel_chapters):
+            if get_data_manager().write_novel_chapters(novel_chapters):
                 total_words = sum(ch.get('word_count', 0) for ch in novel_chapters.values())
                 print(f"\n✅ 成功生成 {len(novel_chapters)} 个章节正文，总计 {total_words} 字")
                 
@@ -1529,7 +1535,7 @@ def generate_single_novel_chapter(chapters, summaries, novel_data):
         return
     
     # 读取相关信息
-    context_info = data_manager.get_context_info()
+    context_info = get_data_manager().get_context_info()
     
     print(f"\n正在生成第{chapter_num}章正文...")
     chapter_content = llm_service.generate_novel_chapter(
@@ -1559,7 +1565,7 @@ def generate_single_novel_chapter(chapters, summaries, novel_data):
             return
         elif action.startswith("1."):
             # 直接保存
-            if data_manager.set_novel_chapter(chapter_num, chapter.get('title', f'第{chapter_num}章'), chapter_content):
+            if get_data_manager().set_novel_chapter(chapter_num, chapter.get('title', f'第{chapter_num}章'), chapter_content):
                 print(f"第{chapter_num}章正文已保存 ({len(chapter_content)}字)。\n")
             else:
                 print("保存章节正文时出错。\n")
@@ -1572,7 +1578,7 @@ def generate_single_novel_chapter(chapters, summaries, novel_data):
             ).ask()
 
             if edited_content and edited_content.strip():
-                if data_manager.set_novel_chapter(chapter_num, chapter.get('title', f'第{chapter_num}章'), edited_content):
+                if get_data_manager().set_novel_chapter(chapter_num, chapter.get('title', f'第{chapter_num}章'), edited_content):
                     print(f"第{chapter_num}章正文已保存 ({len(edited_content)}字)。\n")
                 else:
                     print("保存章节正文时出错。\n")
@@ -1660,7 +1666,7 @@ def edit_novel_chapter(chapters, novel_data):
     ).ask()
     
     if edited_content and edited_content.strip() and edited_content != chapter_info['content']:
-        if data_manager.set_novel_chapter(chapter_num, chapter_info['title'], edited_content):
+        if get_data_manager().set_novel_chapter(chapter_num, chapter_info['title'], edited_content):
             print(f"第{chapter_num}章正文已更新 ({len(edited_content)}字)。\n")
         else:
             print("更新章节正文时出错。\n")
@@ -1701,7 +1707,7 @@ def delete_novel_chapter(chapters, novel_data):
     
     confirm = questionary.confirm(f"确定要删除第{chapter_num}章 '{title}' 的正文吗？").ask()
     if confirm:
-        if data_manager.delete_novel_chapter(chapter_num):
+        if get_data_manager().delete_novel_chapter(chapter_num):
             print(f"第{chapter_num}章正文已删除。\n")
         else:
             print("删除章节正文时出错。\n")
@@ -2146,7 +2152,15 @@ def reset_retry_config():
 def get_novel_name():
     """获取当前小说名称"""
     try:
-        theme_data = data_manager.read_theme_one_line()
+        # 优先使用项目显示名称
+        project_name = project_data_manager.get_current_project_display_name()
+        
+        # 如果项目名称不是默认值，返回项目名称
+        if project_name != "未命名小说":
+            return project_name
+        
+        # 否则尝试从主题数据中获取
+        theme_data = get_data_manager().read_theme_one_line()
         if isinstance(theme_data, dict):
             return theme_data.get("novel_name", "未命名小说")
         elif isinstance(theme_data, str) and theme_data.strip():
@@ -2189,7 +2203,7 @@ def set_novel_name():
     # 保存小说名称到主题文件
     try:
         # 读取现有主题数据
-        theme_data = data_manager.read_theme_one_line()
+        theme_data = get_data_manager().read_theme_one_line()
         
         if isinstance(theme_data, str):
             # 如果是字符串，转换为字典格式
@@ -2209,7 +2223,7 @@ def set_novel_name():
             }
         
         # 保存更新后的数据
-        if data_manager.write_theme_one_line(new_theme_data):
+        if get_data_manager().write_theme_one_line(new_theme_data):
             print(f"✅ 小说名称已设置为: {new_name}\n")
             return True
         else:
@@ -2226,7 +2240,7 @@ def show_project_status():
     status_details = {}
     
     # 1. 一句话主题
-    theme_one_line = data_manager.read_theme_one_line()
+    theme_one_line = get_data_manager().read_theme_one_line()
     if theme_one_line:
         # 获取小说名和主题内容
         novel_name = get_novel_name()
@@ -2249,7 +2263,7 @@ def show_project_status():
         }
     
     # 2. 段落主题
-    theme_paragraph = data_manager.read_theme_paragraph()
+    theme_paragraph = get_data_manager().read_theme_paragraph()
     if theme_paragraph and theme_paragraph.strip():
         word_count = len(theme_paragraph)
         status_details["theme_paragraph"] = {
@@ -2263,9 +2277,9 @@ def show_project_status():
         }
     
     # 3. 世界设定
-    characters = data_manager.read_characters()
-    locations = data_manager.read_locations() 
-    items = data_manager.read_items()
+    characters = get_data_manager().read_characters()
+    locations = get_data_manager().read_locations() 
+    items = get_data_manager().read_items()
     
     char_count = len(characters) if characters else 0
     loc_count = len(locations) if locations else 0
@@ -2296,7 +2310,7 @@ def show_project_status():
         }
     
     # 4. 故事大纲
-    story_outline = data_manager.read_story_outline()
+    story_outline = get_data_manager().read_story_outline()
     if story_outline and story_outline.strip():
         word_count = len(story_outline)
         status_details["story_outline"] = {
@@ -2310,7 +2324,7 @@ def show_project_status():
         }
     
     # 5. 分章细纲
-    chapters = data_manager.read_chapter_outline()
+    chapters = get_data_manager().read_chapter_outline()
     if chapters and len(chapters) > 0:
         chapter_count = len(chapters)
         total_outline_words = sum(len(ch.get('outline', '')) for ch in chapters)
@@ -2327,7 +2341,7 @@ def show_project_status():
         }
     
     # 6. 章节概要
-    summaries = data_manager.read_chapter_summaries()
+    summaries = get_data_manager().read_chapter_summaries()
     if summaries and len(summaries) > 0:
         total_chapters = len(chapters) if chapters else 0
         completed_summaries = len(summaries)
@@ -2353,7 +2367,7 @@ def show_project_status():
         }
     
     # 7. 小说正文
-    novel_chapters = data_manager.read_novel_chapters()
+    novel_chapters = get_data_manager().read_novel_chapters()
     if novel_chapters and len(novel_chapters) > 0:
         total_chapters = len(chapters) if chapters else 0
         completed_novels = len(novel_chapters)
@@ -2382,9 +2396,70 @@ def show_project_status():
 
 
 
+def handle_creative_workflow():
+    """处理创作流程菜单（7步创作流程）"""
+    while True:
+        # 清屏并显示界面
+        console.clear()
+        
+        # 显示项目状态
+        show_project_status()
+        console.print()  # 空行
+        
+        # 获取当前小说名称，用于第一项显示
+        current_novel_name = get_novel_name()
+        first_item = f"📝 1. 确立一句话主题 - 《{current_novel_name}》" if current_novel_name != "未命名小说" else "📝 1. 确立一句话主题 - 开始您的创作之旅"
+        
+        # 创作流程菜单
+        choice = questionary.select(
+            "🎯 请选择您要进行的操作:",
+            choices=[
+                first_item,
+                "📖 2. 扩展成一段话主题 - 将主题扩展为详细描述", 
+                "🌍 3. 世界设定 - 构建角色、场景和道具",
+                "📋 4. 编辑故事大纲 - 规划整体故事结构",
+                "📚 5. 编辑分章细纲 - 细化每章内容安排",
+                "📄 6. 编辑章节概要 - 生成章节摘要",
+                "📜 7. 生成小说正文 - AI辅助创作正文",
+                "🔙 8. 返回项目管理 - 切换或管理项目"
+            ],
+            use_indicator=True,
+            style=questionary.Style([
+                ('question', 'bold fg:#ff00ff'),
+                ('answer', 'fg:#ff9d00 bold'),
+                ('pointer', 'fg:#ff9d00 bold'),
+                ('highlighted', 'fg:#ff9d00 bold'),
+                ('selected', 'fg:#cc5454'),
+                ('separator', 'fg:#cc5454'),
+                ('instruction', 'fg:#888888'),
+                ('text', ''),
+                ('disabled', 'fg:#858585 italic')
+            ])
+        ).ask()
+
+        if choice is None or choice.startswith("🔙"):
+            break
+        
+        if choice.startswith("📝"):
+            handle_theme_one_line()
+        elif choice.startswith("📖"):
+            handle_theme_paragraph()
+        elif choice.startswith("🌍"):
+            handle_world_setting()
+        elif choice.startswith("📋"):
+            handle_story_outline()
+        elif choice.startswith("📚"):
+            handle_chapter_outline()
+        elif choice.startswith("📄"):
+            handle_chapter_summary()
+        elif choice.startswith("📜"):
+            handle_novel_generation()
+        else:
+            print(f"您选择了: {choice} (功能开发中...)\n")
+
 def main():
     """
-    Main function to display the interactive menu.
+    Main function to display the main menu.
     """
     # 显示欢迎信息（只在首次启动时显示）
     first_run = True
@@ -2398,27 +2473,20 @@ def main():
             console.print()  # 空行
             first_run = False
         
-        # 显示项目状态
-        show_project_status()
-        console.print()  # 空行
+        # 显示当前活动项目信息
+        current_project = project_data_manager.get_current_project_display_name()
+        if current_project != "未命名小说":
+            status_text = f"[green]当前项目: {current_project}[/green]"
+            console.print(Panel(status_text, title="📁 项目状态", border_style="blue"))
+            console.print()
         
-        # 获取当前小说名称，用于第一项显示
-        current_novel_name = get_novel_name()
-        first_item = f"📝 1. 确立一句话主题 - 《{current_novel_name}》" if current_novel_name != "未命名小说" else "📝 1. 确立一句话主题 - 开始您的创作之旅"
-        
-        # 直接使用questionary选择，不显示重复的美化菜单
+        # 主菜单
         choice = questionary.select(
-            "🎯 请选择您要进行的操作:",
+            "🚀 MetaNovel Engine - 主菜单",
             choices=[
-                first_item,
-                "📖 2. 扩展成一段话主题 - 将主题扩展为详细描述", 
-                "🌍 3. 世界设定 - 构建角色、场景和道具",
-                "📋 4. 编辑故事大纲 - 规划整体故事结构",
-                "📚 5. 编辑分章细纲 - 细化每章内容安排",
-                "📄 6. 编辑章节概要 - 生成章节摘要",
-                "📜 7. 生成小说正文 - AI辅助创作正文",
-                "🔧 8. 系统设置 - 配置系统参数",
-                "👋 9. 退出 - 结束本次创作"
+                "📁 项目管理 - 管理和切换小说项目",
+                "🔧 系统设置 - 配置系统参数",
+                "👋 退出 - 结束程序"
             ],
             use_indicator=True,
             style=questionary.Style([
@@ -2438,21 +2506,8 @@ def main():
             console.clear()
             ui.print_goodbye()
             break
-        
-        if choice.startswith("📝"):
-            handle_theme_one_line()
-        elif choice.startswith("📖"):
-            handle_theme_paragraph()
-        elif choice.startswith("🌍"):
-            handle_world_setting()
-        elif choice.startswith("📋"):
-            handle_story_outline()
-        elif choice.startswith("📚"):
-            handle_chapter_outline()
-        elif choice.startswith("📄"):
-            handle_chapter_summary()
-        elif choice.startswith("📜"):
-            handle_novel_generation()
+        elif choice.startswith("📁"):
+            handle_project_management()
         elif choice.startswith("🔧"):
             handle_system_settings()
         else:

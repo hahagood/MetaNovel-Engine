@@ -1,11 +1,13 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from typing import Dict, Optional
 
 # 加载.env文件中的环境变量
 load_dotenv()
 
 # --- 基础配置 ---
+# 注意：这些是默认配置，多项目模式下会被动态路径覆盖
 META_DIR = Path("meta")
 META_BACKUP_DIR = Path("meta_backup")
 
@@ -31,6 +33,7 @@ AI_CONFIG = {
 }
 
 # --- 文件路径配置 ---
+# 注意：这是默认配置，多项目模式下使用get_project_paths()生成动态路径
 FILE_PATHS = {
     "theme_one_line": META_DIR / "theme_one_line.json",
     "theme_paragraph": META_DIR / "theme_paragraph.json", 
@@ -42,6 +45,39 @@ FILE_PATHS = {
     "chapter_summary": META_DIR / "chapter_summary.json",
     "novel_text": META_DIR / "novel_text.json"
 }
+
+def get_project_paths(project_path: Optional[Path] = None) -> Dict[str, Path]:
+    """
+    根据项目路径生成动态文件路径配置
+    
+    Args:
+        project_path: 项目路径，如果为None则使用默认路径
+        
+    Returns:
+        Dict[str, Path]: 文件路径配置字典
+    """
+    if project_path is None:
+        # 使用默认路径（单项目模式）
+        meta_dir = META_DIR
+        backup_dir = META_BACKUP_DIR
+    else:
+        # 使用项目路径（多项目模式）
+        meta_dir = project_path / "meta"
+        backup_dir = project_path / "meta_backup"
+    
+    return {
+        "meta_dir": meta_dir,
+        "backup_dir": backup_dir,
+        "theme_one_line": meta_dir / "theme_one_line.json",
+        "theme_paragraph": meta_dir / "theme_paragraph.json",
+        "characters": meta_dir / "characters.json",
+        "locations": meta_dir / "locations.json",
+        "items": meta_dir / "items.json",
+        "story_outline": meta_dir / "story_outline.json",
+        "chapter_outline": meta_dir / "chapter_outline.json",
+        "chapter_summary": meta_dir / "chapter_summary.json",
+        "novel_text": meta_dir / "novel_text.json"
+    }
 
 # --- 生成内容配置 ---
 GENERATION_CONFIG = {
@@ -91,7 +127,13 @@ def validate_config():
         return False
     return True
 
-def ensure_directories():
-    """确保必要的目录存在"""
-    META_DIR.mkdir(exist_ok=True)
-    META_BACKUP_DIR.mkdir(exist_ok=True) 
+def ensure_directories(project_path: Optional[Path] = None):
+    """
+    确保必要的目录存在
+    
+    Args:
+        project_path: 项目路径，如果为None则使用默认路径
+    """
+    paths = get_project_paths(project_path)
+    paths["meta_dir"].mkdir(parents=True, exist_ok=True)
+    paths["backup_dir"].mkdir(parents=True, exist_ok=True) 
