@@ -25,9 +25,9 @@ def handle_project_management():
         
         # 菜单选项
         choices = [
-            "1. 📋 查看所有项目",
-            "2. ➕ 创建新项目", 
-            "3. 🎯 选择项目开始创作",
+            "1. 🎯 选择项目开始创作",
+            "2. 📋 查看所有项目",
+            "3. ➕ 创建新项目", 
             "4. 📝 编辑项目信息",
             "5. ❌ 删除项目",
             "6. 📊 项目详情",
@@ -43,11 +43,11 @@ def handle_project_management():
         if action is None or action.startswith("7."):
             break
         elif action.startswith("1."):
-            list_all_projects()
-        elif action.startswith("2."):
-            create_new_project()
-        elif action.startswith("3."):
             switch_project()
+        elif action.startswith("2."):
+            list_all_projects()
+        elif action.startswith("3."):
+            create_new_project()
         elif action.startswith("4."):
             edit_project()
         elif action.startswith("5."):
