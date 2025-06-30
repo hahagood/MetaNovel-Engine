@@ -30,7 +30,7 @@ MetaNovel-Engine 是一套完整的AI辅助小说创作工具链，通过结构�
 
 1. **克隆并安装**
    ```bash
-   git clone https://github.com/your-username/MetaNovel-Engine.git
+   git clone https://github.com/hahagood/MetaNovel-Engine.git
    cd MetaNovel-Engine
    pip install -r requirements.txt
    ```
