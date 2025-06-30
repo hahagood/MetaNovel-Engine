@@ -39,6 +39,42 @@ def get_app_data_dir() -> Path:
         # 也可以考虑XDG标准，但为了向后兼容，保持现有方案
         return Path.home() / ".metanovel"
 
+
+def get_user_documents_dir() -> Path:
+    """
+    根据操作系统获取用户文档目录
+    
+    Returns:
+        Path: 跨平台的用户文档目录路径
+        
+    各平台路径：
+    - Windows: %USERPROFILE%/Documents
+    - macOS: ~/Documents
+    - Linux: ~/Documents 或 ~/文档 (根据系统语言)
+    """
+    system = platform.system().lower()
+    
+    if system == "windows":
+        # Windows: 使用 USERPROFILE/Documents
+        user_profile = os.environ.get('USERPROFILE')
+        if user_profile:
+            documents_dir = Path(user_profile) / "Documents"
+        else:
+            # 降级方案
+            documents_dir = Path.home() / "Documents"
+            
+    else:
+        # macOS 和 Linux: 使用 ~/Documents
+        documents_dir = Path.home() / "Documents"
+        
+        # Linux特殊处理：如果是中文系统，可能是"文档"目录
+        if system == "linux":
+            chinese_docs = Path.home() / "文档"
+            if chinese_docs.exists() and chinese_docs.is_dir():
+                documents_dir = chinese_docs
+    
+    return documents_dir
+
 # --- 基础配置 ---
 # 注意：这些是默认配置，多项目模式下会被动态路径覆盖
 META_DIR = Path("meta")
@@ -146,6 +182,13 @@ RETRY_CONFIG = {
     "retry_delay_jitter_range": float(os.getenv("JITTER_RANGE", "0.1"))  # 抖动范围（秒）
 }
 
+# --- 导出配置 ---
+EXPORT_CONFIG = {
+    "use_custom_path": False,  # 是否使用自定义导出路径
+    "custom_export_path": "",  # 自定义导出路径
+    "default_export_path": get_user_documents_dir() / "MetaNovel"  # 默认导出路径
+}
+
 def setup_proxy():
     """设置代理配置"""
     if PROXY_CONFIG["enabled"]:
@@ -159,6 +202,79 @@ def validate_config():
         print("请设置环境变量或创建.env文件")
         return False
     return True
+
+def get_export_base_dir() -> Path:
+    """
+    获取导出基础目录
+    
+    Returns:
+        Path: 导出基础目录路径
+    """
+    if EXPORT_CONFIG["use_custom_path"] and EXPORT_CONFIG["custom_export_path"]:
+        custom_path = Path(EXPORT_CONFIG["custom_export_path"])
+        if custom_path.is_absolute():
+            return custom_path
+        else:
+            # 相对路径：相对于用户文档目录
+            return get_user_documents_dir() / custom_path
+    else:
+        # 使用默认路径
+        return EXPORT_CONFIG["default_export_path"]
+
+
+def set_custom_export_path(path: str) -> bool:
+    """
+    设置自定义导出路径
+    
+    Args:
+        path: 导出路径（可以是绝对路径或相对路径）
+        
+    Returns:
+        bool: 设置成功返回True
+    """
+    try:
+        # 验证路径是否有效
+        test_path = Path(path)
+        if not test_path.is_absolute():
+            # 相对路径：相对于用户文档目录
+            test_path = get_user_documents_dir() / path
+        
+        # 尝试创建目录以验证权限
+        test_path.mkdir(parents=True, exist_ok=True)
+        
+        # 设置配置
+        EXPORT_CONFIG["custom_export_path"] = path
+        EXPORT_CONFIG["use_custom_path"] = True
+        
+        return True
+    except Exception as e:
+        print(f"设置导出路径时出错: {e}")
+        return False
+
+
+def reset_export_path():
+    """重置导出路径为默认值"""
+    EXPORT_CONFIG["use_custom_path"] = False
+    EXPORT_CONFIG["custom_export_path"] = ""
+
+
+def get_export_path_info() -> Dict[str, str]:
+    """
+    获取导出路径信息
+    
+    Returns:
+        Dict: 包含导出路径信息的字典
+    """
+    base_dir = get_export_base_dir()
+    
+    return {
+        "current_path": str(base_dir),
+        "is_custom": EXPORT_CONFIG["use_custom_path"],
+        "custom_path": EXPORT_CONFIG["custom_export_path"],
+        "default_path": str(EXPORT_CONFIG["default_export_path"]),
+        "documents_dir": str(get_user_documents_dir())
+    }
+
 
 def ensure_directories(project_path: Optional[Path] = None):
     """

@@ -1719,26 +1719,29 @@ def get_export_dir():
     """获取当前项目的导出目录路径"""
     try:
         from project_manager import project_manager
+        from config import get_export_base_dir
         
-        # 获取当前活动项目路径
-        current_project_path = project_manager.get_active_project_path()
-        if current_project_path:
-            # 使用项目目录下的 exports 子目录
-            export_dir = current_project_path / "exports"
+        # 获取导出基础目录（可配置）
+        export_base_dir = get_export_base_dir()
+        
+        # 获取当前活动项目名称
+        active_project = project_manager.get_active_project()
+        if active_project:
+            # 多项目模式：使用 导出基础目录/项目名
+            export_dir = export_base_dir / active_project
         else:
-            # 降级方案：如果没有项目路径，使用当前目录
-            from pathlib import Path
-            export_dir = Path.cwd() / "exports"
+            # 单项目模式：使用 导出基础目录/Default
+            export_dir = export_base_dir / "Default"
         
         # 确保导出目录存在
-        export_dir.mkdir(exist_ok=True)
+        export_dir.mkdir(parents=True, exist_ok=True)
         return export_dir
         
     except Exception as e:
         print(f"⚠️ 获取导出目录时出错，使用当前目录: {e}")
         from pathlib import Path
         export_dir = Path.cwd() / "exports"
-        export_dir.mkdir(exist_ok=True)
+        export_dir.mkdir(parents=True, exist_ok=True)
         return export_dir
 
 
@@ -2037,12 +2040,15 @@ def handle_system_settings():
                 "1. 查看重试设置",
                 "2. 修改重试设置",
                 "3. 重置重试设置",
-                "4. 返回主菜单"
+                "4. 查看导出路径设置",
+                "5. 修改导出路径设置",
+                "6. 重置导出路径设置",
+                "7. 返回主菜单"
             ],
             use_indicator=True
         ).ask()
 
-        if choice is None or choice.startswith("4."):
+        if choice is None or choice.startswith("7."):
             break
         elif choice.startswith("1."):
             show_retry_config()
@@ -2050,6 +2056,12 @@ def handle_system_settings():
             modify_retry_config()
         elif choice.startswith("3."):
             reset_retry_config()
+        elif choice.startswith("4."):
+            show_export_config()
+        elif choice.startswith("5."):
+            modify_export_config()
+        elif choice.startswith("6."):
+            reset_export_config()
 
 def show_retry_config():
     """Display current retry configuration."""
@@ -2189,6 +2201,100 @@ def reset_retry_config():
         print("❌ 操作已取消")
     
     input("\n按回车键继续...")
+
+
+def show_export_config():
+    """Display current export path configuration."""
+    from config import get_export_path_info
+    
+    info = get_export_path_info()
+    
+    print("\n--- 导出路径配置 ---")
+    print(f"📁 当前导出路径: {info['current_path']}")
+    print(f"🏠 用户文档目录: {info['documents_dir']}")
+    print(f"📋 默认导出路径: {info['default_path']}")
+    
+    if info['is_custom']:
+        print(f"⚙️ 自定义路径: {info['custom_path']} (已启用)")
+        print("📌 当前使用自定义导出路径")
+    else:
+        print("📌 当前使用默认导出路径")
+    
+    print("\n💡 说明:")
+    print("- 默认路径：保存在用户文档目录的 MetaNovel 文件夹中")
+    print("- 自定义路径：可以是绝对路径或相对于文档目录的路径")
+    print("- 项目文件：每个项目会在导出目录下创建独立的文件夹")
+    print("=" * 50)
+    
+    input("\n按回车键继续...")
+
+
+def modify_export_config():
+    """Modify export path configuration."""
+    from config import set_custom_export_path, get_export_path_info
+    
+    info = get_export_path_info()
+    
+    print("\n--- 修改导出路径设置 ---")
+    print(f"📁 当前导出路径: {info['current_path']}")
+    print(f"🏠 用户文档目录: {info['documents_dir']}")
+    
+    choices = [
+        "1. 设置自定义导出路径",
+        "2. 使用默认导出路径",
+        "3. 返回上级菜单"
+    ]
+    
+    choice = questionary.select(
+        "请选择操作:",
+        choices=choices,
+        use_indicator=True
+    ).ask()
+    
+    if choice is None or choice.startswith("3."):
+        return
+    elif choice.startswith("1."):
+        # 设置自定义导出路径
+        print("\n📝 设置自定义导出路径")
+        print("💡 提示:")
+        print("- 可以输入绝对路径，如: /home/user/MyExports")
+        print("- 也可以输入相对路径，如: MyNovelExports (相对于文档目录)")
+        print("- Windows示例: D:\\MyExports 或 MyNovelExports")
+        print("- 程序会自动创建目录并验证权限")
+        
+        new_path = questionary.text(
+            "请输入导出路径:",
+            default=info['custom_path'] if info['is_custom'] else ""
+        ).ask()
+        
+        if new_path and new_path.strip():
+            if set_custom_export_path(new_path.strip()):
+                print(f"\n✅ 导出路径已设置为: {new_path}")
+                # 显示更新后的配置
+                show_export_config()
+            else:
+                print(f"\n❌ 设置导出路径失败，请检查路径是否有效且有写入权限")
+        else:
+            print("\n❌ 路径不能为空")
+            
+    elif choice.startswith("2."):
+        # 使用默认导出路径
+        from config import reset_export_path
+        reset_export_path()
+        print(f"\n✅ 已切换到默认导出路径: {info['default_path']}")
+        show_export_config()
+
+
+def reset_export_config():
+    """Reset export path configuration to default."""
+    from config import reset_export_path
+    
+    if questionary.confirm("确定要重置导出路径设置为默认值吗？").ask():
+        reset_export_path()
+        print("\n✅ 导出路径配置已重置为默认值。")
+        show_export_config()
+    else:
+        print("\n❌ 操作已取消。")
 
 
 def get_novel_name():
