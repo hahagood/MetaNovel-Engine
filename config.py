@@ -1,10 +1,43 @@
 import os
+import platform
 from pathlib import Path
 from dotenv import load_dotenv
 from typing import Dict, Optional
 
 # 加载.env文件中的环境变量
 load_dotenv()
+
+def get_app_data_dir() -> Path:
+    """
+    根据操作系统获取应用数据目录
+    
+    Returns:
+        Path: 跨平台的应用数据目录路径
+        
+    各平台路径：
+    - Windows: %LOCALAPPDATA%/MetaNovel (C:/Users/username/AppData/Local/MetaNovel)
+    - macOS: ~/Library/Application Support/MetaNovel
+    - Linux: ~/.metanovel (遵循传统Unix惯例)
+    """
+    system = platform.system().lower()
+    
+    if system == "windows":
+        # Windows: 使用LocalAppData目录
+        appdata_local = os.environ.get('LOCALAPPDATA')
+        if appdata_local:
+            return Path(appdata_local) / "MetaNovel"
+        else:
+            # 降级方案：如果环境变量不存在，使用默认路径
+            return Path.home() / "AppData" / "Local" / "MetaNovel"
+            
+    elif system == "darwin":
+        # macOS: 使用Application Support目录
+        return Path.home() / "Library" / "Application Support" / "MetaNovel"
+        
+    else:
+        # Linux和其他Unix系统: 使用传统的隐藏目录
+        # 也可以考虑XDG标准，但为了向后兼容，保持现有方案
+        return Path.home() / ".metanovel"
 
 # --- 基础配置 ---
 # 注意：这些是默认配置，多项目模式下会被动态路径覆盖

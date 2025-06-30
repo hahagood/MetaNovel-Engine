@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
+from config import get_app_data_dir
 
 @dataclass
 class ProjectInfo:
@@ -23,10 +24,10 @@ class ProjectManager:
         初始化项目管理器
         
         Args:
-            base_dir: 项目存储的基础目录，默认为 ~/.metanovel
+            base_dir: 项目存储的基础目录，默认使用跨平台应用数据目录
         """
         if base_dir is None:
-            self.base_dir = Path.home() / ".metanovel"
+            self.base_dir = get_app_data_dir()
         else:
             self.base_dir = Path(base_dir)
         
