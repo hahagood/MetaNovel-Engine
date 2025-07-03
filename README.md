@@ -38,7 +38,10 @@ MetaNovel-Engine 是一套完整的AI辅助小说创作工具链，通过结构�
 2. **配置API密钥**
    ```bash
    # 复制环境变量模板
+   # Linux/macOS:
    cp .env.example .env
+   # Windows:
+   copy .env.example .env
    
    # 编辑.env文件，填入你的API密钥
    nano .env
