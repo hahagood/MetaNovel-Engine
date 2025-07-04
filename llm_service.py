@@ -306,7 +306,8 @@ class LLMService:
         # 如果没有提供上下文信息，尝试从数据管理器获取
         if not one_line_theme or not story_context:
             # 导入放在方法内部，避免循环导入
-            from data_manager import data_manager
+            from project_data_manager import project_data_manager
+            data_manager = project_data_manager.get_data_manager()
             
             if not one_line_theme:
                 theme_data = data_manager.read_theme_one_line()
@@ -337,7 +338,8 @@ class LLMService:
         # 如果没有提供上下文信息，尝试从数据管理器获取
         if not one_line_theme or not story_context:
             # 导入放在方法内部，避免循环导入
-            from data_manager import data_manager
+            from project_data_manager import project_data_manager
+            data_manager = project_data_manager.get_data_manager()
             
             if not one_line_theme:
                 theme_data = data_manager.read_theme_one_line()
@@ -368,7 +370,8 @@ class LLMService:
         # 如果没有提供上下文信息，尝试从数据管理器获取
         if not one_line_theme or not story_context:
             # 导入放在方法内部，避免循环导入
-            from data_manager import data_manager
+            from project_data_manager import project_data_manager
+            data_manager = project_data_manager.get_data_manager()
             
             if not one_line_theme:
                 theme_data = data_manager.read_theme_one_line()

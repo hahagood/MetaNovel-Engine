@@ -6,7 +6,7 @@ This module provides a generic CRUD interface for managing different entities
 """
 
 import questionary
-from data_manager import data_manager
+from project_data_manager import project_data_manager
 from llm_service import llm_service
 
 
@@ -28,38 +28,42 @@ class EntityConfig:
 
 
 # 预定义实体配置
-ENTITY_CONFIGS = {
-    "characters": EntityConfig(
-        name="角色",
-        plural_name="角色",
-        data_key="characters",
-        reader_func=data_manager.read_characters,
-        adder_func=data_manager.add_character,
-        updater_func=data_manager.update_character,
-        deleter_func=data_manager.delete_character,
-        generator_func=llm_service.generate_character_description
-    ),
-    "locations": EntityConfig(
-        name="场景",
-        plural_name="场景",
-        data_key="locations",
-        reader_func=data_manager.read_locations,
-        adder_func=data_manager.add_location,
-        updater_func=data_manager.update_location,
-        deleter_func=data_manager.delete_location,
-        generator_func=llm_service.generate_location_description
-    ),
-    "items": EntityConfig(
-        name="道具",
-        plural_name="道具",
-        data_key="items",
-        reader_func=data_manager.read_items,
-        adder_func=data_manager.add_item,
-        updater_func=data_manager.update_item,
-        deleter_func=data_manager.delete_item,
-        generator_func=llm_service.generate_item_description
-    )
-}
+def get_entity_configs():
+    """获取实体配置，使用当前活动的项目数据管理器"""
+    data_manager = project_data_manager.get_data_manager()
+    
+    return {
+        "characters": EntityConfig(
+            name="角色",
+            plural_name="角色",
+            data_key="characters",
+            reader_func=data_manager.read_characters,
+            adder_func=data_manager.add_character,
+            updater_func=data_manager.update_character,
+            deleter_func=data_manager.delete_character,
+            generator_func=llm_service.generate_character_description
+        ),
+        "locations": EntityConfig(
+            name="场景",
+            plural_name="场景",
+            data_key="locations",
+            reader_func=data_manager.read_locations,
+            adder_func=data_manager.add_location,
+            updater_func=data_manager.update_location,
+            deleter_func=data_manager.delete_location,
+            generator_func=llm_service.generate_location_description
+        ),
+        "items": EntityConfig(
+            name="道具",
+            plural_name="道具",
+            data_key="items",
+            reader_func=data_manager.read_items,
+            adder_func=data_manager.add_item,
+            updater_func=data_manager.update_item,
+            deleter_func=data_manager.delete_item,
+            generator_func=llm_service.generate_item_description
+        )
+    }
 
 
 class EntityManager:
@@ -333,23 +337,23 @@ class EntityManager:
             print("操作已取消。\n")
 
 
-# 创建预定义的实体管理器实例
-character_manager = EntityManager(ENTITY_CONFIGS["characters"])
-location_manager = EntityManager(ENTITY_CONFIGS["locations"])
-item_manager = EntityManager(ENTITY_CONFIGS["items"])
-
-
 # 提供便捷的接口函数
 def handle_characters():
     """处理角色管理"""
+    entity_configs = get_entity_configs()
+    character_manager = EntityManager(entity_configs["characters"])
     character_manager.handle_entity_management()
 
 
 def handle_locations():
     """处理场景管理"""
+    entity_configs = get_entity_configs()
+    location_manager = EntityManager(entity_configs["locations"])
     location_manager.handle_entity_management()
 
 
 def handle_items():
     """处理道具管理"""
+    entity_configs = get_entity_configs()
+    item_manager = EntityManager(entity_configs["items"])
     item_manager.handle_entity_management() 
