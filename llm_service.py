@@ -301,9 +301,30 @@ class LLMService:
         
         return self._make_request(prompt)
     
-    def generate_character_description(self, char_name, user_prompt=""):
+    def generate_character_description(self, char_name, user_prompt="", one_line_theme="", story_context=""):
         """生成角色描述"""
-        prompt = self._get_prompt("character_description", user_prompt, char_name=char_name)
+        # 如果没有提供上下文信息，尝试从数据管理器获取
+        if not one_line_theme or not story_context:
+            # 导入放在方法内部，避免循环导入
+            from data_manager import data_manager
+            
+            if not one_line_theme:
+                theme_data = data_manager.read_theme_one_line()
+                if isinstance(theme_data, dict):
+                    one_line_theme = theme_data.get("theme", "")
+                elif isinstance(theme_data, str):
+                    one_line_theme = theme_data
+                else:
+                    one_line_theme = ""
+            
+            if not story_context:
+                # 使用段落主题作为故事背景
+                story_context = data_manager.read_theme_paragraph() or ""
+        
+        prompt = self._get_prompt("character_description", user_prompt, 
+                                  char_name=char_name, 
+                                  one_line_theme=one_line_theme,
+                                  story_context=story_context)
         if prompt is None:
             # 后备提示词
             base_prompt = f"请为小说角色 '{char_name}' 创建一个详细的角色描述，包括外貌特征、性格特点、背景故事、能力特长等方面，字数在{GENERATION_CONFIG['character_description_length']}。请直接输出角色描述，不要包含额外说明和标题。"
@@ -311,9 +332,30 @@ class LLMService:
         
         return self._make_request(prompt)
     
-    def generate_location_description(self, loc_name, user_prompt=""):
+    def generate_location_description(self, loc_name, user_prompt="", one_line_theme="", story_context=""):
         """生成场景描述"""
-        prompt = self._get_prompt("location_description", user_prompt, loc_name=loc_name)
+        # 如果没有提供上下文信息，尝试从数据管理器获取
+        if not one_line_theme or not story_context:
+            # 导入放在方法内部，避免循环导入
+            from data_manager import data_manager
+            
+            if not one_line_theme:
+                theme_data = data_manager.read_theme_one_line()
+                if isinstance(theme_data, dict):
+                    one_line_theme = theme_data.get("theme", "")
+                elif isinstance(theme_data, str):
+                    one_line_theme = theme_data
+                else:
+                    one_line_theme = ""
+            
+            if not story_context:
+                # 使用段落主题作为故事背景
+                story_context = data_manager.read_theme_paragraph() or ""
+        
+        prompt = self._get_prompt("location_description", user_prompt, 
+                                  loc_name=loc_name, 
+                                  one_line_theme=one_line_theme,
+                                  story_context=story_context)
         if prompt is None:
             # 后备提示词
             base_prompt = f"请为小说场景 '{loc_name}' 创建一个详细的场景描述，包括地理位置、环境特色、建筑风格、氛围感受、历史背景、重要特征等方面，字数在{GENERATION_CONFIG['location_description_length']}。请直接输出场景描述，不要包含额外说明和标题。"
@@ -321,9 +363,30 @@ class LLMService:
         
         return self._make_request(prompt)
     
-    def generate_item_description(self, item_name, user_prompt=""):
+    def generate_item_description(self, item_name, user_prompt="", one_line_theme="", story_context=""):
         """生成道具描述"""
-        prompt = self._get_prompt("item_description", user_prompt, item_name=item_name)
+        # 如果没有提供上下文信息，尝试从数据管理器获取
+        if not one_line_theme or not story_context:
+            # 导入放在方法内部，避免循环导入
+            from data_manager import data_manager
+            
+            if not one_line_theme:
+                theme_data = data_manager.read_theme_one_line()
+                if isinstance(theme_data, dict):
+                    one_line_theme = theme_data.get("theme", "")
+                elif isinstance(theme_data, str):
+                    one_line_theme = theme_data
+                else:
+                    one_line_theme = ""
+            
+            if not story_context:
+                # 使用段落主题作为故事背景
+                story_context = data_manager.read_theme_paragraph() or ""
+        
+        prompt = self._get_prompt("item_description", user_prompt, 
+                                  item_name=item_name, 
+                                  one_line_theme=one_line_theme,
+                                  story_context=story_context)
         if prompt is None:
             # 后备提示词
             base_prompt = f"请为小说道具 '{item_name}' 创建一个详细的道具描述，包括外观特征、材质工艺、功能用途、历史来源、特殊能力、重要意义等方面，字数在{GENERATION_CONFIG['item_description_length']}。请直接输出道具描述，不要包含额外说明和标题。"
