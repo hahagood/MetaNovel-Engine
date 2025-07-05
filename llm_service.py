@@ -841,7 +841,7 @@ class LLMService:
         
         return self._make_request(prompt, timeout=120)
     
-    def generate_novel_chapter_with_refinement(self, chapter, summary_info, chapter_num, context_info, user_prompt=""):
+    def generate_novel_chapter_with_refinement(self, chapter, summary_info, chapter_num, context_info, user_prompt="", progress_callback=None):
         """生成小说章节正文，包含反思修正流程"""
         # 首先生成初稿
         initial_content = self.generate_novel_chapter(chapter, summary_info, chapter_num, context_info, user_prompt)
