@@ -773,28 +773,42 @@ class LLMService:
         
         if prompt is None:
             # 后备提示词
-            base_prompt = f"""请对以下小说章节进行严格的批判性分析：
+            base_prompt = f"""请对以下小说章节进行批判性分析，以JSON格式输出：
 
 章节标题：{chapter_title}
 章节号：第{chapter_num}章
 
 {chapter_content}
 
-请从以下角度进行批评：
-1. 文学技巧（语言、描写、对话、节奏）
-2. 逻辑合理性（情节、角色行为、因果关系）
-3. 情感真实性（角色情感、内心描写、人物关系）
-4. 故事完整性（章节作用、连接性、角色发展）
-5. 读者体验（阅读流畅性、画面感、吸引力）
+请输出JSON格式：
+{{
+  "issues": [
+    {{
+      "category": "character/plot/language/experience",
+      "problem": "问题描述（简洁）",
+      "suggestion": "改进建议（简洁）"
+    }}
+  ],
+  "strengths": ["优点1", "优点2"],
+  "priority_fixes": ["最需要修正的问题1", "最需要修正的问题2"]
+}}
 
-请保持严格而犀利的批判态度，指出问题并提出改进方向。字数在{GENERATION_CONFIG['novel_critique_length']}。"""
+要求简洁，总体控制在{GENERATION_CONFIG['novel_critique_length']}。只返回JSON，不要其他文字。"""
             
             if user_prompt.strip():
                 prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
             else:
                 prompt = base_prompt
         
-        return self._make_request(prompt, timeout=90)
+        # 使用JSON请求方法
+        result = self._make_json_request(prompt, timeout=90, task_name=f"第{chapter_num}章批评")
+        if result and isinstance(result, dict):
+            # 返回JSON字符串，便于后续处理
+            import json
+            return json.dumps(result, ensure_ascii=False, indent=2)
+        else:
+            # 如果JSON解析失败，返回原始文本
+            return self._make_request(prompt, timeout=90)
     
     def generate_novel_refinement(self, chapter_title, chapter_num, original_content, critique_feedback, context_info, user_prompt=""):
         """基于批评反馈修正小说章节"""
@@ -850,9 +864,19 @@ class LLMService:
         
         # 显示批评反馈（如果配置允许）
         if GENERATION_CONFIG.get('show_critique_to_user', True):
-            print(f"\n--- 第{chapter_num}章批评反馈 ---")
-            print(critique)
-            print("------------------------\n")
+            try:
+                import json
+                critique_data = json.loads(critique)
+                critique_msg = f"第{chapter_num}章批评: 发现{len(critique_data.get('issues', []))}个问题"
+                if critique_data.get('priority_fixes'):
+                    critique_msg += f", 优先修正: {critique_data['priority_fixes'][0]}"
+                if progress_callback:
+                    progress_callback(critique_msg)
+            except:
+                # 如果不是JSON格式，显示简化版本
+                critique_msg = f"第{chapter_num}章批评反馈：{critique[:100]}..."
+                if progress_callback:
+                    progress_callback(critique_msg)
         
         # 检查修正模式
         refinement_mode = GENERATION_CONFIG.get('refinement_mode', 'auto')
@@ -891,21 +915,27 @@ class LLMService:
         
         if prompt is None:
             # 后备提示词
-            base_prompt = f"""请对以下小说章节进行严格的批判性分析：
+            base_prompt = f"""请对以下小说章节进行批判性分析，以JSON格式输出：
 
 章节标题：{chapter_title}
 章节号：第{chapter_num}章
 
 {chapter_content}
 
-请从以下角度进行批评：
-1. 文学技巧（语言、描写、对话、节奏）
-2. 逻辑合理性（情节、角色行为、因果关系）
-3. 情感真实性（角色情感、内心描写、人物关系）
-4. 故事完整性（章节作用、连接性、角色发展）
-5. 读者体验（阅读流畅性、画面感、吸引力）
+请输出JSON格式：
+{{
+  "issues": [
+    {{
+      "category": "character/plot/language/experience",
+      "problem": "问题描述（简洁）",
+      "suggestion": "改进建议（简洁）"
+    }}
+  ],
+  "strengths": ["优点1", "优点2"],
+  "priority_fixes": ["最需要修正的问题1", "最需要修正的问题2"]
+}}
 
-请保持严格而犀利的批判态度，指出问题并提出改进方向。字数在{GENERATION_CONFIG['novel_critique_length']}。"""
+要求简洁，总体控制在{GENERATION_CONFIG['novel_critique_length']}。只返回JSON，不要其他文字。"""
             
             if user_prompt.strip():
                 prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
@@ -913,12 +943,25 @@ class LLMService:
                 prompt = base_prompt
         
         task_name = f"第{chapter_num}章批评"
-        return await self._make_async_request(
+        # 使用JSON请求方法
+        result = await self._make_json_request_async(
             prompt, 
             timeout=90, 
             task_name=task_name,
             progress_callback=progress_callback
         )
+        if result and isinstance(result, dict):
+            # 返回JSON字符串，便于后续处理
+            import json
+            return json.dumps(result, ensure_ascii=False, indent=2)
+        else:
+            # 如果JSON解析失败，返回原始文本
+            return await self._make_async_request(
+                prompt, 
+                timeout=90, 
+                task_name=task_name,
+                progress_callback=progress_callback
+            )
     
     async def generate_novel_refinement_async(self, chapter_title, chapter_num, original_content, critique_feedback, context_info, user_prompt="", progress_callback=None):
         """异步基于批评反馈修正小说章节"""
@@ -987,9 +1030,19 @@ class LLMService:
         
         # 显示批评反馈（如果配置允许）
         if GENERATION_CONFIG.get('show_critique_to_user', True):
-            critique_msg = f"第{chapter_num}章批评反馈：{critique[:200]}..."
-            if progress_callback:
-                progress_callback(critique_msg)
+            try:
+                import json
+                critique_data = json.loads(critique)
+                critique_msg = f"第{chapter_num}章批评: 发现{len(critique_data.get('issues', []))}个问题"
+                if critique_data.get('priority_fixes'):
+                    critique_msg += f", 优先修正: {critique_data['priority_fixes'][0]}"
+                if progress_callback:
+                    progress_callback(critique_msg)
+            except:
+                # 如果不是JSON格式，显示简化版本
+                critique_msg = f"第{chapter_num}章批评反馈：{critique[:100]}..."
+                if progress_callback:
+                    progress_callback(critique_msg)
         
         # 检查修正模式
         refinement_mode = GENERATION_CONFIG.get('refinement_mode', 'auto')
