@@ -1,6 +1,6 @@
 # MetaNovel-Engine
 
-![Version](https://img.shields.io/badge/version-v0.0.6-blue.svg)
+![Version](https://img.shields.io/badge/version-v0.0.7-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
@@ -295,6 +295,10 @@ python -m pytest tests/test_data_manager.py -v
 本项目采用MIT License，详见[LICENSE](LICENSE)文件。
 
 ## 📝 版本历史
+
+### v0.0.7 (2025-07-06) - 小说生成与菜单优化
+- 📝 **小说生成提示词优化**：增加了反思和修正步骤，提升生成质量
+- 🎨 **菜单结构优化**：统一了各级菜单的返回/退出逻辑，增强用户体验
 
 ### v0.0.6 (2025-07-04) - 智能优化版本
 - 🔧 **数据管理器路径修复**：解决世界设定数据保存到错误位置的问题
