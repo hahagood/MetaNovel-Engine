@@ -1535,14 +1535,20 @@ def generate_all_novel_chapters(chapters, summaries):
 
 def generate_single_novel_chapter(chapters, summaries, novel_data):
     """Generate novel text for a single chapter."""
+    # 处理数据格式兼容性：如果传入的直接是章节字典，直接使用；否则从'chapters'键获取
+    if isinstance(novel_data, dict) and 'chapters' in novel_data:
+        novel_chapters = novel_data['chapters']
+    else:
+        novel_chapters = novel_data
+    
     # 选择章节
     chapter_choices = []
     for i in range(1, len(chapters) + 1):
         chapter_key = f"chapter_{i}"
         if chapter_key in summaries:
             title = chapters[i-1].get('title', f'第{i}章')
-            status = "已完成" if chapter_key in novel_data.get('chapters', {}) else "未完成"
-            word_count = novel_data.get('chapters', {}).get(chapter_key, {}).get('word_count', 0)
+            status = "已完成" if chapter_key in novel_chapters else "未完成"
+            word_count = novel_chapters.get(chapter_key, {}).get('word_count', 0)
             word_info = f" ({word_count}字)" if word_count > 0 else ""
             chapter_choices.append(f"{i}. {title} ({status}){word_info}")
     
@@ -1560,7 +1566,7 @@ def generate_single_novel_chapter(chapters, summaries, novel_data):
     chapter = chapters[chapter_num - 1]
     
     # 如果已存在正文，询问是否覆盖
-    if chapter_key in novel_data.get('chapters', {}):
+    if chapter_key in novel_chapters:
         overwrite = questionary.confirm(f"第{chapter_num}章已有正文，是否覆盖？").ask()
         if not overwrite:
             print("操作已取消。\n")
@@ -1669,7 +1675,12 @@ def generate_single_novel_chapter(chapters, summaries, novel_data):
 
 def view_novel_chapter(chapters, novel_data):
     """View novel chapter content."""
-    novel_chapters = novel_data.get('chapters', {})
+    # 处理数据格式兼容性：如果传入的直接是章节字典，直接使用；否则从'chapters'键获取
+    if isinstance(novel_data, dict) and 'chapters' in novel_data:
+        novel_chapters = novel_data['chapters']
+    else:
+        novel_chapters = novel_data
+    
     if not novel_chapters:
         print("\n当前没有小说正文。\n")
         return
@@ -1706,7 +1717,12 @@ def view_novel_chapter(chapters, novel_data):
 
 def edit_novel_chapter(chapters, novel_data):
     """Edit novel chapter content."""
-    novel_chapters = novel_data.get('chapters', {})
+    # 处理数据格式兼容性：如果传入的直接是章节字典，直接使用；否则从'chapters'键获取
+    if isinstance(novel_data, dict) and 'chapters' in novel_data:
+        novel_chapters = novel_data['chapters']
+    else:
+        novel_chapters = novel_data
+    
     if not novel_chapters:
         print("\n当前没有小说正文可编辑。\n")
         return
@@ -1756,7 +1772,12 @@ def edit_novel_chapter(chapters, novel_data):
 
 def delete_novel_chapter(chapters, novel_data):
     """Delete novel chapter content."""
-    novel_chapters = novel_data.get('chapters', {})
+    # 处理数据格式兼容性：如果传入的直接是章节字典，直接使用；否则从'chapters'键获取
+    if isinstance(novel_data, dict) and 'chapters' in novel_data:
+        novel_chapters = novel_data['chapters']
+    else:
+        novel_chapters = novel_data
+    
     if not novel_chapters:
         print("\n当前没有小说正文可删除。\n")
         return
