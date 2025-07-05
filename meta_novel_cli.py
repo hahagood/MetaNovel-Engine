@@ -841,13 +841,16 @@ def delete_chapter():
         return
     
     chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
+    # 添加返回选项
+    chapter_choices.append("返回上级菜单")
+    
     choice = questionary.select(
         "请选择要删除的章节：",
         choices=chapter_choices,
         use_indicator=True
     ).ask()
     
-    if not choice:
+    if not choice or choice == "返回上级菜单":
         return
     
     chapter_index = int(choice.split('.')[0]) - 1
@@ -1251,13 +1254,16 @@ def delete_chapter_summary(chapters):
             title = chapter.get('title', f'第{i}章')
             available_chapters.append(f"{i}. {title}")
     
+    # 添加返回选项
+    available_chapters.append("返回上级菜单")
+    
     choice = questionary.select(
         "请选择要删除的章节概要：",
         choices=available_chapters,
         use_indicator=True
     ).ask()
     
-    if not choice:
+    if not choice or choice == "返回上级菜单":
         return
     
     chapter_num = int(choice.split('.')[0])
@@ -1698,13 +1704,16 @@ def view_novel_chapter(chapters, novel_data):
         print("\n当前没有小说正文。\n")
         return
     
+    # 添加返回选项
+    available_chapters.append("返回上级菜单")
+    
     choice = questionary.select(
         "请选择要查看的章节正文：",
         choices=available_chapters,
         use_indicator=True
     ).ask()
     
-    if choice:
+    if choice and choice != "返回上级菜单":
         chapter_num = int(choice.split('.')[0])
         chapter_key = f"chapter_{chapter_num}"
         chapter_info = novel_chapters[chapter_key]
@@ -1736,13 +1745,16 @@ def edit_novel_chapter(chapters, novel_data):
             word_count = novel_chapters[chapter_key].get('word_count', 0)
             available_chapters.append(f"{i}. {title} ({word_count}字)")
     
+    # 添加返回选项
+    available_chapters.append("返回上级菜单")
+    
     choice = questionary.select(
         "请选择要修改的章节正文：",
         choices=available_chapters,
         use_indicator=True
     ).ask()
     
-    if not choice:
+    if not choice or choice == "返回上级菜单":
         return
     
     chapter_num = int(choice.split('.')[0])
@@ -1791,13 +1803,16 @@ def delete_novel_chapter(chapters, novel_data):
             word_count = novel_chapters[chapter_key].get('word_count', 0)
             available_chapters.append(f"{i}. {title} ({word_count}字)")
     
+    # 添加返回选项
+    available_chapters.append("返回上级菜单")
+    
     choice = questionary.select(
         "请选择要删除的章节正文：",
         choices=available_chapters,
         use_indicator=True
     ).ask()
     
-    if not choice:
+    if not choice or choice == "返回上级菜单":
         return
     
     chapter_num = int(choice.split('.')[0])

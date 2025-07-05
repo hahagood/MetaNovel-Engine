@@ -318,13 +318,16 @@ class EntityManager:
             return
             
         entity_names = list(entities_data.keys())
+        # 添加返回选项
+        entity_names.append("返回上级菜单")
+        
         entity_name = questionary.select(
             f"请选择要删除的{self.config.name}：",
             choices=entity_names,
             use_indicator=True
         ).ask()
         
-        if not entity_name:
+        if not entity_name or entity_name == "返回上级菜单":
             return
         
         confirm = questionary.confirm(f"确定要删除{self.config.name} '{entity_name}' 吗？").ask()
