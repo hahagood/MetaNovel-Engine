@@ -704,6 +704,314 @@ class LLMService:
             failed_chapters = [i for i, _, _ in tasks]
         
         return results, failed_chapters
+    
+    async def generate_all_novels_with_refinement_async(self, chapters, summaries, context_info, user_prompt="", progress_callback=None):
+        """异步批量生成所有章节正文，包含反思修正流程"""
+        if not self.is_async_available():
+            return {}, []
+        
+        # 创建所有任务
+        tasks = []
+        for i in range(1, len(chapters) + 1):
+            chapter_key = f"chapter_{i}"
+            if chapter_key in summaries:
+                chapter = chapters[i-1]
+                summary_info = summaries[chapter_key]
+                task = self.generate_novel_chapter_with_refinement_async(
+                    chapter, summary_info, i, context_info, user_prompt, progress_callback
+                )
+                tasks.append((i, chapter, task))
+        
+        results = {}
+        failed_chapters = []
+        
+        # 使用 asyncio.gather 真正并发执行所有任务
+        try:
+            if progress_callback:
+                progress_callback("开始并发智能生成所有章节正文...")
+            
+            # 创建任务列表，只包含协程对象
+            task_coroutines = [task for _, _, task in tasks]
+            
+            # 并发执行所有任务
+            contents = await asyncio.gather(*task_coroutines, return_exceptions=True)
+            
+            # 处理结果
+            for (i, chapter, _), content in zip(tasks, contents):
+                if isinstance(content, Exception):
+                    failed_chapters.append(i)
+                    if progress_callback:
+                        progress_callback(f"第{i}章智能生成异常: {content}")
+                elif content:
+                    results[f"chapter_{i}"] = {
+                        "title": chapter.get('title', f'第{i}章'),
+                        "content": content,
+                        "word_count": len(content)
+                    }
+                    if progress_callback:
+                        progress_callback(f"第{i}章智能生成完成 ({len(content)}字)")
+                else:
+                    failed_chapters.append(i)
+                    if progress_callback:
+                        progress_callback(f"第{i}章智能生成失败")
+                        
+        except Exception as e:
+            if progress_callback:
+                progress_callback(f"批量智能生成过程中出现异常: {e}")
+            # 如果整体失败，将所有待生成的章节标记为失败
+            failed_chapters = [i for i, _, _ in tasks]
+        
+        return results, failed_chapters
+    
+    def generate_novel_critique(self, chapter_title, chapter_num, chapter_content, context_info, user_prompt=""):
+        """生成小说章节批评"""
+        prompt = self._get_prompt("novel_critique", user_prompt, 
+                                  chapter_title=chapter_title,
+                                  chapter_num=chapter_num,
+                                  chapter_content=chapter_content,
+                                  context_info=context_info)
+        
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"""请对以下小说章节进行严格的批判性分析：
+
+章节标题：{chapter_title}
+章节号：第{chapter_num}章
+
+{chapter_content}
+
+请从以下角度进行批评：
+1. 文学技巧（语言、描写、对话、节奏）
+2. 逻辑合理性（情节、角色行为、因果关系）
+3. 情感真实性（角色情感、内心描写、人物关系）
+4. 故事完整性（章节作用、连接性、角色发展）
+5. 读者体验（阅读流畅性、画面感、吸引力）
+
+请保持严格而犀利的批判态度，指出问题并提出改进方向。字数在{GENERATION_CONFIG['novel_critique_length']}。"""
+            
+            if user_prompt.strip():
+                prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
+            else:
+                prompt = base_prompt
+        
+        return self._make_request(prompt, timeout=90)
+    
+    def generate_novel_refinement(self, chapter_title, chapter_num, original_content, critique_feedback, context_info, user_prompt=""):
+        """基于批评反馈修正小说章节"""
+        prompt = self._get_prompt("novel_refinement", user_prompt, 
+                                  chapter_title=chapter_title,
+                                  chapter_num=chapter_num,
+                                  original_content=original_content,
+                                  critique_feedback=critique_feedback,
+                                  context_info=context_info)
+        
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"""请基于批评反馈对以下小说章节进行修正：
+
+章节标题：{chapter_title}
+章节号：第{chapter_num}章
+
+原始正文：
+{original_content}
+
+批评反馈：
+{critique_feedback}
+
+请根据批评反馈进行针对性修正，改善被批评的问题，同时保持原有的优点。修正后的章节应该更加流畅自然，更能吸引读者。字数控制在{GENERATION_CONFIG['novel_chapter_length']}。请直接输出修正后的完整章节正文，不要包含标题和说明。"""
+            
+            if user_prompt.strip():
+                prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
+            else:
+                prompt = base_prompt
+        
+        return self._make_request(prompt, timeout=120)
+    
+    def generate_novel_chapter_with_refinement(self, chapter, summary_info, chapter_num, context_info, user_prompt=""):
+        """生成小说章节正文，包含反思修正流程"""
+        # 首先生成初稿
+        initial_content = self.generate_novel_chapter(chapter, summary_info, chapter_num, context_info, user_prompt)
+        
+        if not initial_content:
+            return None
+        
+        # 检查是否启用反思修正
+        if not GENERATION_CONFIG.get('enable_refinement', True):
+            return initial_content
+        
+        chapter_title = chapter.get('title', f'第{chapter_num}章')
+        
+        # 生成批评反馈
+        critique = self.generate_novel_critique(chapter_title, chapter_num, initial_content, context_info)
+        
+        if not critique:
+            print(f"第{chapter_num}章批评生成失败，返回初稿")
+            return initial_content
+        
+        # 显示批评反馈（如果配置允许）
+        if GENERATION_CONFIG.get('show_critique_to_user', True):
+            print(f"\n--- 第{chapter_num}章批评反馈 ---")
+            print(critique)
+            print("------------------------\n")
+        
+        # 检查修正模式
+        refinement_mode = GENERATION_CONFIG.get('refinement_mode', 'auto')
+        
+        if refinement_mode == 'disabled':
+            return initial_content
+        elif refinement_mode == 'manual':
+            # 手动模式：询问用户是否要修正
+            try:
+                import questionary
+                should_refine = questionary.confirm(f"是否要基于批评反馈修正第{chapter_num}章？").ask()
+                if not should_refine:
+                    return initial_content
+            except ImportError:
+                # 如果questionary不可用，默认进行修正
+                pass
+        
+        # 生成修正版本
+        refined_content = self.generate_novel_refinement(chapter_title, chapter_num, initial_content, critique, context_info, user_prompt)
+        
+        if not refined_content:
+            print(f"第{chapter_num}章修正失败，返回初稿")
+            return initial_content
+        
+        print(f"第{chapter_num}章已完成反思修正流程")
+        return refined_content
+    
+    # 异步版本的新方法
+    async def generate_novel_critique_async(self, chapter_title, chapter_num, chapter_content, context_info, user_prompt="", progress_callback=None):
+        """异步生成小说章节批评"""
+        prompt = self._get_prompt("novel_critique", user_prompt, 
+                                  chapter_title=chapter_title,
+                                  chapter_num=chapter_num,
+                                  chapter_content=chapter_content,
+                                  context_info=context_info)
+        
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"""请对以下小说章节进行严格的批判性分析：
+
+章节标题：{chapter_title}
+章节号：第{chapter_num}章
+
+{chapter_content}
+
+请从以下角度进行批评：
+1. 文学技巧（语言、描写、对话、节奏）
+2. 逻辑合理性（情节、角色行为、因果关系）
+3. 情感真实性（角色情感、内心描写、人物关系）
+4. 故事完整性（章节作用、连接性、角色发展）
+5. 读者体验（阅读流畅性、画面感、吸引力）
+
+请保持严格而犀利的批判态度，指出问题并提出改进方向。字数在{GENERATION_CONFIG['novel_critique_length']}。"""
+            
+            if user_prompt.strip():
+                prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
+            else:
+                prompt = base_prompt
+        
+        task_name = f"第{chapter_num}章批评"
+        return await self._make_async_request(
+            prompt, 
+            timeout=90, 
+            task_name=task_name,
+            progress_callback=progress_callback
+        )
+    
+    async def generate_novel_refinement_async(self, chapter_title, chapter_num, original_content, critique_feedback, context_info, user_prompt="", progress_callback=None):
+        """异步基于批评反馈修正小说章节"""
+        prompt = self._get_prompt("novel_refinement", user_prompt, 
+                                  chapter_title=chapter_title,
+                                  chapter_num=chapter_num,
+                                  original_content=original_content,
+                                  critique_feedback=critique_feedback,
+                                  context_info=context_info)
+        
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"""请基于批评反馈对以下小说章节进行修正：
+
+章节标题：{chapter_title}
+章节号：第{chapter_num}章
+
+原始正文：
+{original_content}
+
+批评反馈：
+{critique_feedback}
+
+请根据批评反馈进行针对性修正，改善被批评的问题，同时保持原有的优点。修正后的章节应该更加流畅自然，更能吸引读者。字数控制在{GENERATION_CONFIG['novel_chapter_length']}。请直接输出修正后的完整章节正文，不要包含标题和说明。"""
+            
+            if user_prompt.strip():
+                prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
+            else:
+                prompt = base_prompt
+        
+        task_name = f"第{chapter_num}章修正"
+        return await self._make_async_request(
+            prompt, 
+            timeout=120, 
+            task_name=task_name,
+            progress_callback=progress_callback
+        )
+    
+    async def generate_novel_chapter_with_refinement_async(self, chapter, summary_info, chapter_num, context_info, user_prompt="", progress_callback=None):
+        """异步生成小说章节正文，包含反思修正流程"""
+        # 首先生成初稿
+        if progress_callback:
+            progress_callback(f"第{chapter_num}章：生成初稿...")
+        
+        initial_content = await self.generate_novel_chapter_async(chapter, summary_info, chapter_num, context_info, user_prompt, progress_callback)
+        
+        if not initial_content:
+            return None
+        
+        # 检查是否启用反思修正
+        if not GENERATION_CONFIG.get('enable_refinement', True):
+            return initial_content
+        
+        chapter_title = chapter.get('title', f'第{chapter_num}章')
+        
+        # 生成批评反馈
+        if progress_callback:
+            progress_callback(f"第{chapter_num}章：生成批评反馈...")
+        
+        critique = await self.generate_novel_critique_async(chapter_title, chapter_num, initial_content, context_info, "", progress_callback)
+        
+        if not critique:
+            if progress_callback:
+                progress_callback(f"第{chapter_num}章：批评生成失败，返回初稿")
+            return initial_content
+        
+        # 显示批评反馈（如果配置允许）
+        if GENERATION_CONFIG.get('show_critique_to_user', True):
+            critique_msg = f"第{chapter_num}章批评反馈：{critique[:200]}..."
+            if progress_callback:
+                progress_callback(critique_msg)
+        
+        # 检查修正模式
+        refinement_mode = GENERATION_CONFIG.get('refinement_mode', 'auto')
+        
+        if refinement_mode == 'disabled':
+            return initial_content
+        
+        # 生成修正版本
+        if progress_callback:
+            progress_callback(f"第{chapter_num}章：基于批评反馈修正...")
+        
+        refined_content = await self.generate_novel_refinement_async(chapter_title, chapter_num, initial_content, critique, context_info, user_prompt, progress_callback)
+        
+        if not refined_content:
+            if progress_callback:
+                progress_callback(f"第{chapter_num}章：修正失败，返回初稿")
+            return initial_content
+        
+        if progress_callback:
+            progress_callback(f"第{chapter_num}章：反思修正流程完成")
+        
+        return refined_content
 
 # 创建全局LLM服务实例
 llm_service = LLMService() 

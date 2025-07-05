@@ -157,7 +157,11 @@ GENERATION_CONFIG = {
     "story_outline_length": "500-800字左右",
     "chapter_outline_length": "800-1200字左右",
     "chapter_summary_length": "300-500字左右",
-    "novel_chapter_length": "2000-4000字左右"
+    "novel_chapter_length": "2000-4000字左右",
+    "novel_critique_length": "500-800字左右",
+    "enable_refinement": bool(os.getenv("ENABLE_REFINEMENT", "true").lower() == "true"),
+    "show_critique_to_user": bool(os.getenv("SHOW_CRITIQUE_TO_USER", "true").lower() == "true"),
+    "refinement_mode": os.getenv("REFINEMENT_MODE", "auto")  # auto, manual, disabled
 }
 
 # --- 智能重试机制配置 ---

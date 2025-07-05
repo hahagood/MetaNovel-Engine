@@ -1361,9 +1361,31 @@ def generate_all_novel_chapters(chapters, summaries):
         print("没有可用的章节概要，请先生成章节概要。")
         return
     
-    # 提供生成模式选择
+    # 询问是否启用反思修正功能
+    from config import GENERATION_CONFIG
+    use_refinement = GENERATION_CONFIG.get('enable_refinement', True)
+    
+    if use_refinement:
+        refinement_choice = questionary.select(
+            "请选择生成模式：",
+            choices=[
+                "1. 🔄 智能生成（推荐）- 生成初稿后进行AI反思修正",
+                "2. 📝 标准生成 - 仅生成初稿，不进行修正",
+                "3. 🔙 返回上级菜单"
+            ],
+            use_indicator=True
+        ).ask()
+        
+        if refinement_choice is None or refinement_choice.startswith("3."):
+            return
+        
+        use_refinement = refinement_choice.startswith("1.")
+    else:
+        use_refinement = False
+    
+    # 提供并发/顺序模式选择
     mode_choice = questionary.select(
-        "请选择生成模式：",
+        "请选择执行模式：",
         choices=[
             "1. 🚀 并发生成（推荐）- 同时生成多个章节，速度更快",
             "2. 📝 顺序生成 - 逐个生成章节，更稳定",
@@ -1378,10 +1400,14 @@ def generate_all_novel_chapters(chapters, summaries):
     use_async = mode_choice.startswith("1.")
     
     confirm_msg = f"这将为 {available_chapters} 个章节生成正文"
-    if use_async:
-        confirm_msg += "（并发模式，速度较快）"
+    if use_refinement:
+        confirm_msg += "（智能反思修正模式）"
     else:
-        confirm_msg += "（顺序模式，较为稳定）"
+        confirm_msg += "（标准模式）"
+    if use_async:
+        confirm_msg += "（并发执行）"
+    else:
+        confirm_msg += "（顺序执行）"
     confirm_msg += "，可能需要较长时间。确定继续吗？"
     
     confirm = questionary.confirm(confirm_msg).ask()
@@ -1415,19 +1441,28 @@ def generate_all_novel_chapters(chapters, summaries):
         # 异步并发生成
         async def async_generate():
             progress = AsyncProgressManager()
-            progress.start(available_chapters, "准备开始并发生成小说正文...")
+            mode_desc = "智能生成" if use_refinement else "标准生成"
+            progress.start(available_chapters, f"准备开始并发{mode_desc}小说正文...")
             
             try:
                 callback = progress.create_callback()
-                results, failed_chapters = await llm_service.generate_all_novels_async(
-                    chapters, summaries, context_info, user_prompt, callback
-                )
+                if use_refinement:
+                    results, failed_chapters = await llm_service.generate_all_novels_with_refinement_async(
+                        chapters, summaries, context_info, user_prompt, callback
+                    )
+                else:
+                    results, failed_chapters = await llm_service.generate_all_novels_async(
+                        chapters, summaries, context_info, user_prompt, callback
+                    )
                 
                 # 保存结果
                 if results:
                     if get_data_manager().write_novel_chapters(results):
                         total_words = sum(ch.get('word_count', 0) for ch in results.values())
-                        progress.finish(f"成功生成 {len(results)} 个章节正文，总计 {total_words} 字")
+                        success_msg = f"成功生成 {len(results)} 个章节正文，总计 {total_words} 字"
+                        if use_refinement:
+                            success_msg += " (已完成智能反思修正)"
+                        progress.finish(success_msg)
                         
                         if failed_chapters:
                             print(f"失败的章节: {', '.join(map(str, failed_chapters))}")
@@ -1454,11 +1489,17 @@ def generate_all_novel_chapters(chapters, summaries):
                 continue
                 
             processed += 1
-            print(f"\n正在生成第{i}章正文... ({processed}/{available_chapters})")
+            mode_desc = "智能生成" if use_refinement else "标准生成"
+            print(f"\n正在{mode_desc}第{i}章正文... ({processed}/{available_chapters})")
             
-            chapter_content = llm_service.generate_novel_chapter(
-                chapters[i-1], summaries[chapter_key], i, context_info, user_prompt
-            )
+            if use_refinement:
+                chapter_content = llm_service.generate_novel_chapter_with_refinement(
+                    chapters[i-1], summaries[chapter_key], i, context_info, user_prompt
+                )
+            else:
+                chapter_content = llm_service.generate_novel_chapter(
+                    chapters[i-1], summaries[chapter_key], i, context_info, user_prompt
+                )
             
             if chapter_content:
                 novel_chapters[chapter_key] = {
@@ -1466,7 +1507,10 @@ def generate_all_novel_chapters(chapters, summaries):
                     "content": chapter_content,
                     "word_count": len(chapter_content)
                 }
-                print(f"✅ 第{i}章正文生成完成 ({len(chapter_content)}字)")
+                success_msg = f"✅ 第{i}章正文生成完成 ({len(chapter_content)}字)"
+                if use_refinement:
+                    success_msg += " (已完成智能反思修正)"
+                print(success_msg)
             else:
                 failed_chapters.append(i)
                 print(f"❌ 第{i}章正文生成失败")
@@ -1475,7 +1519,10 @@ def generate_all_novel_chapters(chapters, summaries):
         if novel_chapters:
             if get_data_manager().write_novel_chapters(novel_chapters):
                 total_words = sum(ch.get('word_count', 0) for ch in novel_chapters.values())
-                print(f"\n✅ 成功生成 {len(novel_chapters)} 个章节正文，总计 {total_words} 字")
+                success_msg = f"\n✅ 成功生成 {len(novel_chapters)} 个章节正文，总计 {total_words} 字"
+                if use_refinement:
+                    success_msg += " (已完成智能反思修正)"
+                print(success_msg)
                 
                 if failed_chapters:
                     print(f"失败的章节: {', '.join(map(str, failed_chapters))}")
@@ -1519,6 +1566,28 @@ def generate_single_novel_chapter(chapters, summaries, novel_data):
             print("操作已取消。\n")
             return
     
+    # 询问是否启用反思修正功能
+    from config import GENERATION_CONFIG
+    use_refinement = GENERATION_CONFIG.get('enable_refinement', True)
+    
+    if use_refinement:
+        refinement_choice = questionary.select(
+            "请选择生成模式：",
+            choices=[
+                "1. 🔄 智能生成（推荐）- 生成初稿后进行AI反思修正",
+                "2. 📝 标准生成 - 仅生成初稿，不进行修正",
+                "3. 🔙 返回上级菜单"
+            ],
+            use_indicator=True
+        ).ask()
+        
+        if refinement_choice is None or refinement_choice.startswith("3."):
+            return
+        
+        use_refinement = refinement_choice.startswith("1.")
+    else:
+        use_refinement = False
+    
     # 获取用户自定义提示词
     print("您可以输入额外的要求或指导来影响AI生成小说正文。")
     user_prompt = questionary.text(
@@ -1537,16 +1606,25 @@ def generate_single_novel_chapter(chapters, summaries, novel_data):
     # 读取相关信息
     context_info = get_data_manager().get_context_info()
     
-    print(f"\n正在生成第{chapter_num}章正文...")
-    chapter_content = llm_service.generate_novel_chapter(
-        chapter, summaries[chapter_key], chapter_num, context_info, user_prompt
-    )
+    if use_refinement:
+        print(f"\n正在为第{chapter_num}章执行智能生成流程...")
+        print("阶段1: 生成初稿...")
+        chapter_content = llm_service.generate_novel_chapter_with_refinement(
+            chapter, summaries[chapter_key], chapter_num, context_info, user_prompt
+        )
+    else:
+        print(f"\n正在生成第{chapter_num}章正文...")
+        chapter_content = llm_service.generate_novel_chapter(
+            chapter, summaries[chapter_key], chapter_num, context_info, user_prompt
+        )
     
     if chapter_content:
         print(f"\n--- 第{chapter_num}章正文预览 (前500字) ---")
         preview = chapter_content[:500] + "..." if len(chapter_content) > 500 else chapter_content
         print(preview)
         print(f"\n总字数: {len(chapter_content)} 字")
+        if use_refinement:
+            print("✨ 已完成智能反思修正流程")
         print("------------------------\n")
         
         # 提供操作选项
