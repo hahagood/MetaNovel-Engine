@@ -776,13 +776,16 @@ def view_chapter():
         return
     
     chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
+    # 添加返回选项
+    chapter_choices.append("返回上级菜单")
+    
     choice = questionary.select(
         "请选择要查看的章节：",
         choices=chapter_choices,
         use_indicator=True
     ).ask()
     
-    if choice:
+    if choice and choice != "返回上级菜单":
         chapter_index = int(choice.split('.')[0]) - 1
         chapter = chapters[chapter_index]
         print(f"\n--- {chapter.get('title', f'第{chapter_index+1}章')} ---")
@@ -798,13 +801,16 @@ def edit_chapter():
         return
     
     chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
+    # 添加返回选项
+    chapter_choices.append("返回上级菜单")
+    
     choice = questionary.select(
         "请选择要修改的章节：",
         choices=chapter_choices,
         use_indicator=True
     ).ask()
     
-    if not choice:
+    if not choice or choice == "返回上级菜单":
         return
     
     chapter_index = int(choice.split('.')[0]) - 1
@@ -1174,13 +1180,16 @@ def view_chapter_summary(chapters):
         print("\n当前没有章节概要。\n")
         return
     
+    # 添加返回选项
+    available_chapters.append("返回上级菜单")
+    
     choice = questionary.select(
         "请选择要查看的章节概要：",
         choices=available_chapters,
         use_indicator=True
     ).ask()
     
-    if choice:
+    if choice and choice != "返回上级菜单":
         chapter_num = int(choice.split('.')[0])
         chapter_key = f"chapter_{chapter_num}"
         summary_info = summaries[chapter_key]
@@ -1205,13 +1214,16 @@ def edit_chapter_summary(chapters):
             title = chapter.get('title', f'第{i}章')
             available_chapters.append(f"{i}. {title}")
     
+    # 添加返回选项
+    available_chapters.append("返回上级菜单")
+    
     choice = questionary.select(
         "请选择要修改的章节概要：",
         choices=available_chapters,
         use_indicator=True
     ).ask()
     
-    if not choice:
+    if not choice or choice == "返回上级菜单":
         return
     
     chapter_num = int(choice.split('.')[0])

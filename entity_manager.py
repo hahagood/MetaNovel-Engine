@@ -260,13 +260,16 @@ class EntityManager:
             return
             
         entity_names = list(entities_data.keys())
+        # 添加返回选项
+        entity_names.append("返回上级菜单")
+        
         entity_name = questionary.select(
             f"请选择要查看的{self.config.name}：",
             choices=entity_names,
             use_indicator=True
         ).ask()
         
-        if entity_name:
+        if entity_name and entity_name != "返回上级菜单":
             entity_info = entities_data[entity_name]
             print(f"\n--- {self.config.name}详情：{entity_name} ---")
             print(entity_info.get(self.config.description_key, '无描述'))
@@ -280,13 +283,16 @@ class EntityManager:
             return
             
         entity_names = list(entities_data.keys())
+        # 添加返回选项
+        entity_names.append("返回上级菜单")
+        
         entity_name = questionary.select(
             f"请选择要修改的{self.config.name}：",
             choices=entity_names,
             use_indicator=True
         ).ask()
         
-        if not entity_name:
+        if not entity_name or entity_name == "返回上级菜单":
             return
         
         current_description = entities_data[entity_name].get(self.config.description_key, '')
