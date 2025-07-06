@@ -2052,11 +2052,9 @@ def show_retry_config():
     input("\n按回车键继续...")
 
 def modify_retry_config():
-    """Modify retry configuration settings."""
-    print("\n⚙️  修改重试配置")
-    print("=" * 30)
+    """Modify retry configuration values."""
+    from config import RETRY_CONFIG
     
-    # 选择要修改的配置项
     modifiable_configs = [
         ("重试次数", 'max_retries', RETRY_CONFIG, int, lambda x: x >= 0),
         ("重试延迟（秒）", 'delay', RETRY_CONFIG, float, lambda x: x > 0),
@@ -2089,10 +2087,8 @@ def modify_retry_config():
         try:
             new_value = type_converter(new_value_str)
             if validator(new_value):
-                if update_retry_config({key: new_value}):
-                    ui.print_success(f"{desc} 已更新为: {new_value}\n")
-                else:
-                    ui.print_error(f"更新配置 '{desc}' 失败。\n")
+                RETRY_CONFIG[key] = new_value
+                ui.print_success(f"{desc} 已更新为: {new_value}\n")
             else:
                 ui.print_warning(f"输入的值 '{new_value}' 无效，请重新输入。\n")
         except ValueError:
