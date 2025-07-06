@@ -15,7 +15,7 @@ from llm_service import llm_service
 from project_data_manager import project_data_manager
 from progress_utils import AsyncProgressManager, run_with_progress
 from retry_utils import batch_retry_manager
-from config import RETRY_CONFIG, update_retry_config
+from config import RETRY_CONFIG
 from entity_manager import handle_characters, handle_locations, handle_items
 from ui_utils import ui, console
 from rich.panel import Panel
@@ -2053,8 +2053,6 @@ def show_retry_config():
 
 def modify_retry_config():
     """Modify retry configuration values."""
-    from config import RETRY_CONFIG
-    
     modifiable_configs = [
         ("重试次数", 'max_retries', RETRY_CONFIG, int, lambda x: x >= 0),
         ("重试延迟（秒）", 'delay', RETRY_CONFIG, float, lambda x: x > 0),
