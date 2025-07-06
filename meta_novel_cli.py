@@ -250,7 +250,13 @@ def handle_theme_paragraph():
         # 修改后保存
         edited_paragraph = ui.prompt("请修改您的段落主题:", default=generated_paragraph)
 
-        if edited_paragraph and edited_paragraph.strip():            if get_data_manager().write_theme_paragraph(edited_paragraph):                ui.print_success("段落主题已保存.\n")            else:                ui.print_error("保存段落主题时出错.\n")        else:            ui.print_warning("操作已取消或内容为空，未保存.\n")
+        if edited_paragraph and edited_paragraph.strip():
+            if get_data_manager().write_theme_paragraph(edited_paragraph):
+                ui.print_success("段落主题已保存.\n")
+            else:
+                ui.print_error("保存段落主题时出错.\n")
+        else:
+            ui.print_warning("操作已取消或内容为空，未保存.\n")
 
 
 def handle_world_setting():
