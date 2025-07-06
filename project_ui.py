@@ -26,8 +26,8 @@ def handle_project_management():
             "🔁  切换其他项目",
             "📋  查看所有项目",
             "➕  创建新项目",
-            "✏️ 编辑项目信息",
-            "🗑️ 删除项目",
+            "📝  编辑项目信息",
+            "❌  删除项目",
             "📊  项目详情",
             "🔙  返回主菜单"
         ]
@@ -312,7 +312,7 @@ def edit_project():
         console.print("[red]未找到选中的项目[/red]")
         return
     
-    console.print(Panel(f"✏️ 正在编辑项目: {selected_project.display_name}", border_style="yellow"))
+    console.print(Panel(f"📝 正在编辑项目: {selected_project.display_name}", border_style="yellow"))
     
     # 编辑显示名称
     new_display_name = ui.prompt(
