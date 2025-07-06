@@ -166,7 +166,29 @@ def handle_theme_paragraph():
             "返回主菜单"
         ])
 
-        if action is None or action == "4":            ui.print_info("返回主菜单。\n")            return        elif action == "1":            ui.print_info("当前内容已在上方显示。\n")            return        elif action == "2":            edited_paragraph = ui.prompt("请修改您的段落主题:", default=existing_paragraph)            if edited_paragraph and edited_paragraph.strip() and edited_paragraph != existing_paragraph:                if get_data_manager().write_theme_paragraph(edited_paragraph):                    ui.print_success("段落主题已更新.\n")                else:                    ui.print_error("保存段落主题时出错.\n")            elif edited_paragraph is None:                ui.print_warning("操作已取消.\n")            else:                ui.print_warning("内容未更改.\n")            return        elif action == "3":            # 继续执行重新生成逻辑            ui.print_info("\n正在重新生成段落主题...")        else:            return
+        if action is None or action == "4":
+            ui.print_info("返回主菜单。\n")
+            return
+        elif action == "1":
+            ui.print_info("当前内容已在上方显示。\n")
+            return
+        elif action == "2":
+            edited_paragraph = ui.prompt("请修改您的段落主题:", default=existing_paragraph)
+            if edited_paragraph and edited_paragraph.strip() and edited_paragraph != existing_paragraph:
+                if get_data_manager().write_theme_paragraph(edited_paragraph):
+                    ui.print_success("段落主题已更新.\n")
+                else:
+                    ui.print_error("保存段落主题时出错.\n")
+            elif edited_paragraph is None:
+                ui.print_warning("操作已取消.\n")
+            else:
+                ui.print_warning("内容未更改.\n")
+            return
+        elif action == "3":
+            # 继续执行重新生成逻辑
+            ui.print_info("\n正在重新生成段落主题...")
+        else:
+            return
 
     # 生成新的段落主题（无论是首次生成还是重新生成）
     if not one_line_theme.strip():
