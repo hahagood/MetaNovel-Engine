@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 from project_manager import project_manager
+from ui_utils import ui
 
 def check_legacy_data():
     """检查是否存在旧版本的数据"""
@@ -77,11 +78,9 @@ def migrate_legacy_data():
     
     # 获取项目名称
     project_name = get_legacy_project_name()
-    ui.print_info(f"
-📝 检测到的项目名称: {project_name}")
+    ui.print_info(f"📝 检测到的项目名称: {project_name}")
     
     # 询问用户是否进行迁移
-    from ui_utils import ui
     if not ui.confirm(
         f"是否将现有数据迁移到新项目 '{project_name}' 中？",
         default=True
@@ -102,8 +101,7 @@ def migrate_legacy_data():
     final_name = final_name.strip()
     
     # 创建新项目
-    ui.print_info(f"
-🏗️ 创建新项目: {final_name}")
+    ui.print_info(f"🏗️ 创建新项目: {final_name}")
     if not project_manager.create_project(final_name, final_name, "从旧版本迁移的项目"):
         ui.print_error("❌ 创建项目失败")
         return False
@@ -139,8 +137,7 @@ def migrate_legacy_data():
         # 设置为活动项目
         project_manager.set_active_project(final_name)
         
-        ui.print_success(f"
-✅ 数据迁移完成！项目 '{final_name}' 已设为活动项目")
+        ui.print_success(f"✅ 数据迁移完成！项目 '{final_name}' 已设为活动项目")
         
         # 询问是否删除旧数据
         if ui.confirm(

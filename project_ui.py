@@ -153,7 +153,7 @@ def switch_project():
     choice_index_str = ui.display_menu("请选择要进入的项目：", choices)
     choice_index = int(choice_index_str) - 1
 
-    if choice_index < 0 or choice_index >= len(choices) -1:
+    if choice_index < 0 or choice_index >= len(choices) - 1:
         return
 
     selected_display_name = choices[choice_index].replace(" (当前)", "")
@@ -165,6 +165,8 @@ def switch_project():
                 # 导入并调用创作流程菜单
                 from meta_novel_cli import handle_creative_workflow
                 handle_creative_workflow()
+                # After returning from the creative workflow, we should return to the main menu.
+                return
             else:
                 console.print("[red]❌ 切换项目失败[/red]")
             break

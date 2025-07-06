@@ -33,7 +33,6 @@ def ensure_meta_dir():
     pass
 
 
-
 def handle_theme_one_line():
     """Handles creating or updating the one-sentence theme and novel name."""
     ensure_meta_dir()
@@ -342,7 +341,25 @@ def handle_story_outline():
                 "返回主菜单"
             ])
             
-            if action is None or action == "4":                break            elif action == "1":                ui.print_info("\n--- 完整故事大纲 ---")                ui.print_info(current_outline)                ui.print_info("------------------------\n")                                # 等待用户确认后继续循环                ui.prompt("按任意键继续...")                continue            elif action == "2":                edit_outline()                continue            elif action == "3":                ui.print_info("\n正在重新生成故事大纲...")                generate_story_outline()                continue            else:                break
+            if action is None or action == "4":
+                break
+            elif action == "1":
+                ui.print_info("\n--- 完整故事大纲 ---")
+                ui.print_info(current_outline)
+                ui.print_info("------------------------\n")
+                
+                # 等待用户确认后继续循环
+                ui.prompt("按任意键继续...")
+                continue
+            elif action == "2":
+                edit_outline()
+                continue
+            elif action == "3":
+                ui.print_info("\n正在重新生成故事大纲...")
+                generate_story_outline()
+                continue
+            else:
+                break
         else:
             ui.print_info("\n当前没有故事大纲，让我们来生成一个。\n")
             # 生成新的故事大纲
@@ -404,7 +421,26 @@ def generate_story_outline():
         "放弃此次生成"
     ])
 
-    if action is None or action == "3":        ui.print_warning("已放弃此次生成。\n")        return    elif action == "1":        # 直接保存        if get_data_manager().write_story_outline(generated_outline):            ui.print_success("故事大纲已保存。\n")        else:            ui.print_error("保存故事大纲时出错。\n")    elif action == "2":        # 修改后保存        edited_outline = ui.prompt("请修改故事大纲:", default=generated_outline)        if edited_outline and edited_outline.strip():            if get_data_manager().write_story_outline(edited_outline):                ui.print_success("故事大纲已保存.\n")            else:                ui.print_error("保存故事大纲时出错.\n")        else:            ui.print_warning("操作已取消或内容为空，未保存.\n")
+    if action is None or action == "3":
+        ui.print_warning("已放弃此次生成。\n")
+        return
+    elif action == "1":
+        # 直接保存
+        if get_data_manager().write_story_outline(generated_outline):
+            ui.print_success("故事大纲已保存。\n")
+        else:
+            ui.print_error("保存故事大纲时出错。\n")
+    elif action == "2":
+        # 修改后保存
+        edited_outline = ui.prompt("请修改故事大纲:", default=generated_outline)
+
+        if edited_outline and edited_outline.strip():
+            if get_data_manager().write_story_outline(edited_outline):
+                ui.print_success("故事大纲已保存.\n")
+            else:
+                ui.print_error("保存故事大纲时出错.\n")
+        else:
+            ui.print_warning("操作已取消或内容为空，未保存.\n")
 
 
 def edit_outline():
@@ -455,47 +491,47 @@ def handle_chapter_outline():
             ui.print_info("\n当前没有分章细纲。\n")
         
         # 操作选项
-        choices = [
-            "生成分章细纲",
-            "添加新章节",
-            "查看章节详情",
-            "修改章节信息", 
-            "删除章节",
-            "返回主菜单"
-        ]
+        choices = {
+            "1": "生成分章细纲",
+            "2": "添加新章节",
+            "3": "查看章节详情",
+            "4": "修改章节信息", 
+            "5": "删除章节",
+            "6": "返回主菜单"
+        }
         
         if not chapters:
             # 如果没有章节，只显示生成和返回选项
-            choices = [
-                "生成分章细纲",
-                "返回主菜单"
-            ]
+            choices = {
+                "1": "生成分章细纲",
+                "2": "返回主菜单"
+            }
         
-        action = ui.display_menu("请选择您要进行的操作：", choices)
+        action = ui.display_menu("请选择您要进行的操作：", list(choices.values()))
         
         if action is None:
             break
-        elif action == "1":
-            # 生成分章细纲
-            generate_chapter_outline()
-        elif action == "2" and chapters:
-            # 添加新章节
-            add_chapter()
-        elif action == "2" and not chapters:
-            # 返回主菜单（当没有章节时）
-            break
-        elif action == "3":
-            # 查看章节详情
-            view_chapter()
-        elif action == "4":
-            # 修改章节信息
-            edit_chapter()
-        elif action == "5":
-            # 删除章节
-            delete_chapter()
-        elif action == "6" or action == "2":
-            # 返回主菜单
-            break
+
+        action_key = action.split('.')[0]
+
+        if not chapters:
+            if action_key == '1':
+                generate_chapter_outline()
+            elif action_key == '2':
+                break
+        else:
+            if action_key == '1':
+                generate_chapter_outline()
+            elif action_key == '2':
+                add_chapter()
+            elif action_key == '3':
+                view_chapter()
+            elif action_key == '4':
+                edit_chapter()
+            elif action_key == '5':
+                delete_chapter()
+            elif action_key == '6':
+                break
 
 
 def generate_chapter_outline():
@@ -523,7 +559,11 @@ def generate_chapter_outline():
         return
     
     # 如果用户不想继续，提供确认选项
-    if not user_prompt.strip():        confirm = ui.confirm("确定要继续生成分章细纲吗？")        if not confirm:            ui.print_warning("操作已取消.\n")            return
+    if not user_prompt.strip():
+        confirm = ui.confirm("确定要继续生成分章细纲吗？")
+        if not confirm:
+            ui.print_warning("操作已取消。\n")
+            return
 
     if user_prompt.strip():
         ui.print_info(f"用户指导：{user_prompt.strip()}")
@@ -547,8 +587,7 @@ def generate_chapter_outline():
             ui.print_info(chapter_outline_data)
         else:
             for i, chapter in enumerate(chapters, 1):
-                ui.print_info(f"
-第{i}章: {chapter.get('title', '无标题')}")
+                ui.print_info(f"\n第{i}章: {chapter.get('title', '无标题')}")
                 ui.print_info(f"大纲: {chapter.get('outline', '无大纲')}")
     else:
         # 如果不是字典格式，直接显示原始内容
@@ -598,8 +637,8 @@ def generate_chapter_outline():
         if chapters:
             for i, chapter in enumerate(chapters, 1):
                 ui.print_info(f"--- 第{i}章 ---")
-            ui.print_info(f"当前标题: {chapter.get('title', '无标题')}")
-            ui.print_info(f"当前大纲: {chapter.get('outline', '无大纲')}")
+                ui.print_info(f"当前标题: {chapter.get('title', '无标题')}")
+                ui.print_info(f"当前大纲: {chapter.get('outline', '无大纲')}")
                 
                 keep_chapter = ui.confirm(f"保留第{i}章吗？")
                 if keep_chapter:
@@ -640,10 +679,49 @@ def generate_chapter_outline():
             ui.print_warning("未保存任何章节.\n")
 
 
-def add_chapter():    """Add a new chapter."""    title = ui.prompt("请输入章节标题:")    if not title or not title.strip():        ui.print_warning("章节标题不能为空.\n")        return        outline = ui.prompt("请输入章节大纲:")    if outline is None:        ui.print_warning("操作已取消.\n")        return        new_chapter = {"title": title.strip(), "outline": outline.strip()}        chapters = get_data_manager().read_chapter_outline()    chapters.append(new_chapter)        if get_data_manager().write_chapter_outline(chapters):        ui.print_success(f"章节 '{title}' 已添加.\n")    else:        ui.print_error("添加章节时出错.\n")
+def add_chapter():
+    """Add a new chapter."""
+    title = ui.prompt("请输入章节标题:")
+    if not title or not title.strip():
+        ui.print_warning("章节标题不能为空.\n")
+        return
+    
+    outline = ui.prompt("请输入章节大纲:")
+    if outline is None:
+        ui.print_warning("操作已取消.\n")
+        return
+    
+    new_chapter = {"title": title.strip(), "outline": outline.strip()}
+    chapters = get_data_manager().read_chapter_outline()
+    chapters.append(new_chapter)
+    
+    if get_data_manager().write_chapter_outline(chapters):
+        ui.print_success(f"章节 '{title}' 已添加.\n")
+    else:
+        ui.print_error("添加章节时出错.\n")
 
 
-def view_chapter():    """View chapter details."""    chapters = get_data_manager().read_chapter_outline()    if not chapters:        ui.print_warning("\n当前没有章节信息。\n")        return        chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]    # 添加返回选项    chapter_choices.append("返回上级菜单")        choice_str = ui.display_menu("请选择要查看的章节：", chapter_choices)    choice = int(choice_str)        if choice and choice != len(chapter_choices):        chapter_index = choice - 1        chapter = chapters[chapter_index]        ui.print_info(f"\n--- {chapter.get('title', f'第{chapter_index+1}章')} ---")        ui.print_info(chapter.get('outline', '无大纲'))        ui.print_info("------------------------\n")
+def view_chapter():
+    """View chapter details."""
+    chapters = get_data_manager().read_chapter_outline()
+    if not chapters:
+        ui.print_warning("\n当前没有章节信息。\n")
+        return
+    
+    chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
+    chapter_choices.append("返回上级菜单")
+    
+    choice_str = ui.display_menu("请选择要查看的章节：", chapter_choices)
+    
+    if not choice_str or int(choice_str) > len(chapters):
+        return
+
+    choice = int(choice_str)
+    chapter_index = choice - 1
+    chapter = chapters[chapter_index]
+    ui.print_info(f"\n--- {chapter.get('title', f'第{chapter_index+1}章')} ---")
+    ui.print_info(chapter.get('outline', '无大纲'))
+    ui.print_info("------------------------\n")
 
 
 def edit_chapter():
@@ -654,15 +732,14 @@ def edit_chapter():
         return
     
     chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
-    # 添加返回选项
     chapter_choices.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要修改的章节：", chapter_choices)
-    choice = int(choice_str)
     
-    if not choice or choice == len(chapter_choices):
+    if not choice_str or int(choice_str) > len(chapters):
         return
-    
+
+    choice = int(choice_str)
     chapter_index = choice - 1
     chapter = chapters[chapter_index]
     
@@ -689,7 +766,34 @@ def edit_chapter():
         ui.print_error("更新章节信息时出错。\n")
 
 
-def delete_chapter():    """Delete a chapter."""    chapters = get_data_manager().read_chapter_outline()    if not chapters:        ui.print_warning("\n当前没有章节信息可删除.\n")        return        chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]    # 添加返回选项    chapter_choices.append("返回上级菜单")        choice_str = ui.display_menu("请选择要删除的章节：", chapter_choices)    choice = int(choice)        if not choice or choice == len(chapter_choices):        return        chapter_index = choice - 1    chapter_title = chapters[chapter_index].get('title', f'第{chapter_index+1}章')        confirm = ui.confirm(f"确定要删除章节 '{chapter_title}' 吗？")    if confirm:        chapters.pop(chapter_index)        if get_data_manager().write_chapter_outline(chapters):            ui.print_success(f"章节 '{chapter_title}' 已删除.\n")        else:            ui.print_error("删除章节时出错.\n")    else:        ui.print_warning("操作已取消.\n")
+def delete_chapter():
+    """Delete a chapter."""
+    chapters = get_data_manager().read_chapter_outline()
+    if not chapters:
+        ui.print_warning("\n当前没有章节信息可删除.\n")
+        return
+    
+    chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
+    chapter_choices.append("返回上级菜单")
+    
+    choice_str = ui.display_menu("请选择要删除的章节：", chapter_choices)
+    
+    if not choice_str or int(choice_str) > len(chapters):
+        return
+
+    choice = int(choice_str)
+    chapter_index = choice - 1
+    chapter_title = chapters[chapter_index].get('title', f'第{chapter_index+1}章')
+    
+    confirm = ui.confirm(f"确定要删除章节 '{chapter_title}' 吗？")
+    if confirm:
+        chapters.pop(chapter_index)
+        if get_data_manager().write_chapter_outline(chapters):
+            ui.print_success(f"章节 '{chapter_title}' 已删除.\n")
+        else:
+            ui.print_error("删除章节时出错.\n")
+    else:
+        ui.print_warning("操作已取消.\n")
 
 
 def handle_chapter_summary():
@@ -806,26 +910,36 @@ def generate_all_summaries(chapters):
         # 异步并发生成
         async def async_generate():
             progress = AsyncProgressManager()
-            progress.start(len(chapters), "准备开始并发生成...")
+            mode_desc = "智能生成" if use_refinement else "标准生成"
+            progress.start(available_chapters, f"准备开始并发{mode_desc}小说正文...")
             
             try:
                 callback = progress.create_callback()
-                results, failed_chapters = await llm_service.generate_all_summaries_async(
-                    chapters, context_info, user_prompt, callback
-                )
+                if use_refinement:
+                    results, failed_chapters = await llm_service.generate_all_novels_with_refinement_async(
+                        chapters, summaries, context_info, user_prompt, callback
+                    )
+                else:
+                    results, failed_chapters = await llm_service.generate_all_novels_async(
+                        chapters, summaries, context_info, user_prompt, callback
+                    )
                 
                 # 保存结果
                 if results:
-                    if get_data_manager().write_chapter_summaries(results):
-                        progress.finish(f"成功生成 {len(results)} 个章节概要")
+                    if get_data_manager().write_novel_chapters(results):
+                        total_words = sum(ch.get('word_count', 0) for ch in results.values())
+                        success_msg = f"成功生成 {len(results)} 个章节正文，总计 {total_words} 字"
+                        if use_refinement:
+                            success_msg += " (已完成智能反思修正)"
+                        progress.finish(success_msg)
                         
                         if failed_chapters:
                             print(f"失败的章节: {', '.join(map(str, failed_chapters))}")
                             print("您可以稍后单独重新生成失败的章节。")
                     else:
-                        progress.finish("保存章节概要时出错")
+                        progress.finish("保存小说正文时出错")
                 else:
-                    progress.finish("所有章节概要生成均失败")
+                    progress.finish("所有章节正文生成均失败")
                     
             except Exception as e:
                 progress.finish(f"生成过程中出现异常: {e}")
@@ -834,38 +948,58 @@ def generate_all_summaries(chapters):
         asyncio.run(async_generate())
     else:
         # 同步顺序生成
-        summaries = {}
+        novel_chapters = {}
         failed_chapters = []
         
-        for i, chapter in enumerate(chapters, 1):
+        processed = 0
+        for i in range(1, len(chapters) + 1):
             chapter_key = f"chapter_{i}"
-            print(f"
-正在生成第{i}章概要... ({i}/{len(chapters)})")
+            if chapter_key not in summaries:
+                continue
+                
+            processed += 1
+            mode_desc = "智能生成" if use_refinement else "标准生成"
+            ui.print_info(f"\n正在{mode_desc}第{i}章正文... ({processed}/{available_chapters})")
             
-            summary = llm_service.generate_chapter_summary(chapter, i, context_info, user_prompt)
+            if use_refinement:
+                chapter_content = llm_service.generate_novel_chapter_with_refinement(
+                    chapters[i-1], summaries[chapter_key], i, context_info, user_prompt
+                )
+            else:
+                chapter_content = llm_service.generate_novel_chapter(
+                    chapters[i-1], summaries[chapter_key], i, context_info, user_prompt
+                )
             
-            if summary:
-                summaries[chapter_key] = {
-                    "title": chapter.get('title', f'第{i}章'),
-                    "summary": summary
+            if chapter_content:
+                novel_chapters[chapter_key] = {
+                    "title": chapters[i-1].get('title', f'第{i}章'),
+                    "content": chapter_content,
+                    "word_count": len(chapter_content)
                 }
-                ui.print_success(f"✅ 第{i}章概要生成完成")
+                success_msg = f"✅ 第{i}章正文生成完成 ({len(chapter_content)}字)"
+                if use_refinement:
+                    success_msg += " (已完成智能反思修正)"
+                print(success_msg)
             else:
                 failed_chapters.append(i)
-                ui.print_error(f"❌ 第{i}章概要生成失败")
+                ui.print_error(f"❌ 第{i}章正文生成失败")
         
         # 保存结果
-        if summaries:
-            if get_data_manager().write_chapter_summaries(summaries):
-                ui.print_success(f"\n✅ 成功生成 {len(summaries)} 个章节概要")
+        if novel_chapters:
+            if get_data_manager().write_novel_chapters(novel_chapters):
+                total_words = sum(ch.get('word_count', 0) for ch in novel_chapters.values())
+                success_msg = f"\n✅ 成功生成 {len(novel_chapters)} 个章节正文，总计 {total_words} 字"
+                if use_refinement:
+                    success_msg += " (已完成智能反思修正)"
+                ui.print_success(success_msg)
                 
                 if failed_chapters:
                     ui.print_warning(f"失败的章节: {', '.join(map(str, failed_chapters))}")
                     ui.print_info("您可以稍后单独重新生成失败的章节。")
             else:
-                ui.print_error("❌ 保存章节概要时出错")
+                ui.print_error("❌ 保存小说正文时出错")
         else:
-            ui.print_error("\n❌ 所有章节概要生成均失败")
+            ui.print_error("\n❌ 所有章节正文生成均失败")
 
 
 def generate_single_summary(chapters):
@@ -875,7 +1009,7 @@ def generate_single_summary(chapters):
     
     # 选择章节
     chapter_choices = []
-    for i, chapter in enumerate(chapters, 1):
+    for i in range(1, len(chapters) + 1):
         chapter_key = f"chapter_{i}"
         title = chapter.get('title', f'第{i}章')
         status = "已完成" if chapter_key in summaries else "未完成"
@@ -913,8 +1047,7 @@ def generate_single_summary(chapters):
     # 读取相关信息
     context_info = get_data_manager().get_context_info()
     
-    ui.print_info(f"
-正在生成第{chapter_num}章概要...")
+    ui.print_info(f"\n正在生成第{chapter_num}章概要...")
     summary = llm_service.generate_chapter_summary(chapter, chapter_num, context_info, user_prompt)
     
     if summary:
@@ -942,10 +1075,15 @@ def generate_single_summary(chapters):
             # 修改后保存
             edited_summary = ui.prompt("请修改章节概要:", default=summary)
 
-            if edited_summary and edited_summary.strip():                if get_data_manager().set_chapter_summary(chapter_num, chapter.get('title', f'第{chapter_num}章'), edited_summary):                    ui.print_success(f"第{chapter_num}章概要已保存.\n")                else:                    ui.print_error("保存章节概要时出错.\n")            else:                ui.print_warning("操作已取消或内容为空，未保存.\n")
+            if edited_summary and edited_summary.strip():
+                if get_data_manager().set_chapter_summary(chapter_num, chapter.get('title', f'第{chapter_num}章'), edited_summary):
+                    ui.print_success(f"第{chapter_num}章概要已保存.\n")
+                else:
+                    ui.print_error("保存章节概要时出错.\n")
+            else:
+                ui.print_warning("操作已取消或内容为空，未保存.\n")
     else:
         ui.print_error(f"第{chapter_num}章概要生成失败。\n")
-
 
 
 
@@ -959,12 +1097,14 @@ def view_chapter_summary(chapters):
     
     # 只显示有概要的章节
     available_chapters = []
-    for i, chapter in enumerate(chapters, 1):
+    chapter_map = {}
+    for i in range(1, len(chapters) + 1):
         chapter_key = f"chapter_{i}"
         if chapter_key in summaries:
-            title = chapter.get('title', f'第{i}章')
+            title = chapters[i-1].get('title', f'第{i}章')
             available_chapters.append(f"{i}. {title}")
-    
+            chapter_map[len(available_chapters)] = i
+
     if not available_chapters:
         ui.print_warning("\n当前没有章节概要。\n")
         return
@@ -974,15 +1114,17 @@ def view_chapter_summary(chapters):
     
     choice_str = ui.display_menu("请选择要查看的章节概要：", available_chapters)
     
-    if choice_str and (int(choice_str) -1) != len(available_chapters):
-        chapter_num = int(choice_str.split('.')[0])
-        chapter_key = f"chapter_{chapter_num}"
-        summary_info = summaries[chapter_key]
-        
-        ui.print_info(f"
---- {summary_info['title']} ---")
-        ui.print_info(summary_info['summary'])
-        ui.print_info("------------------------\n")
+    if not choice_str or int(choice_str) > len(chapter_map):
+        return
+
+    choice = int(choice_str)
+    chapter_num = chapter_map[choice]
+    chapter_key = f"chapter_{chapter_num}"
+    summary_info = summaries[chapter_key]
+    
+    ui.print_info(f"\n--- {summary_info['title']} ---")
+    ui.print_info(summary_info['summary'])
+    ui.print_info("------------------------\n")
 
 
 def edit_chapter_summary(chapters):
@@ -994,21 +1136,28 @@ def edit_chapter_summary(chapters):
     
     # 只显示有概要的章节
     available_chapters = []
-    for i, chapter in enumerate(chapters, 1):
+    chapter_map = {}
+    for i in range(1, len(chapters) + 1):
         chapter_key = f"chapter_{i}"
         if chapter_key in summaries:
-            title = chapter.get('title', f'第{i}章')
+            title = chapters[i-1].get('title', f'第{i}章')
             available_chapters.append(f"{i}. {title}")
-    
+            chapter_map[len(available_chapters)] = i
+
+    if not available_chapters:
+        ui.print_warning("\n当前没有章节概要可编辑。\n")
+        return
+
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要修改的章节概要：", available_chapters)
     
-    if not choice_str or (int(choice_str)-1) == len(available_chapters):
+    if not choice_str or int(choice_str) > len(chapter_map):
         return
-    
-    chapter_num = int(choice_str.split('.')[0])
+
+    choice = int(choice_str)
+    chapter_num = chapter_map[choice]
     chapter_key = f"chapter_{chapter_num}"
     summary_info = summaries[chapter_key]
     
@@ -1038,21 +1187,28 @@ def delete_chapter_summary(chapters):
     
     # 只显示有概要的章节
     available_chapters = []
-    for i, chapter in enumerate(chapters, 1):
+    chapter_map = {}
+    for i in range(1, len(chapters) + 1):
         chapter_key = f"chapter_{i}"
         if chapter_key in summaries:
-            title = chapter.get('title', f'第{i}章')
+            title = chapters[i-1].get('title', f'第{i}章')
             available_chapters.append(f"{i}. {title}")
-    
+            chapter_map[len(available_chapters)] = i
+
+    if not available_chapters:
+        ui.print_warning("\n当前没有章节概要可删除。\n")
+        return
+
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要删除的章节概要：", available_chapters)
     
-    if not choice_str or (int(choice_str)-1) == len(available_chapters):
+    if not choice_str or int(choice_str) > len(chapter_map):
         return
-    
-    chapter_num = int(choice_str.split('.')[0])
+
+    choice = int(choice_str)
+    chapter_num = chapter_map[choice]
     chapter_key = f"chapter_{chapter_num}"
     title = summaries[chapter_key]['title']
     
@@ -1107,12 +1263,13 @@ def handle_novel_generation():
         
         # 操作选项
         choices = [
-            choices = [
-            choices = [
-            "导出完整小说",
-            "导出单个章节",
-            "导出章节范围",
-            "返回上级菜单"
+            "生成所有章节正文",
+            "生成单个章节正文",
+            "查看章节正文",
+            "修改章节正文",
+            "删除章节正文",
+            "分章节导出",
+            "返回主菜单"
         ]
         
         action = ui.display_menu("请选择您要进行的操作：", choices)
@@ -1266,8 +1423,7 @@ def generate_all_novel_chapters(chapters, summaries):
                 
             processed += 1
             mode_desc = "智能生成" if use_refinement else "标准生成"
-            ui.print_info(f"
-正在{mode_desc}第{i}章正文... ({processed}/{available_chapters})")
+            ui.print_info(f"\n正在{mode_desc}第{i}章正文... ({processed}/{available_chapters})")
             
             if use_refinement:
                 chapter_content = llm_service.generate_novel_chapter_with_refinement(
@@ -1379,8 +1535,7 @@ def generate_single_novel_chapter(chapters, summaries, novel_data):
     context_info = get_data_manager().get_context_info()
     
     if use_refinement:
-        ui.print_info(f"
-正在为第{chapter_num}章执行智能生成流程...")
+        ui.print_info(f"\n正在为第{chapter_num}章执行智能生成流程...")
         ui.print_info("阶段1: 生成初稿...")
         chapter_content = llm_service.generate_novel_chapter_with_refinement(
             chapter, summaries[chapter_key], chapter_num, context_info, user_prompt
@@ -1446,13 +1601,15 @@ def view_novel_chapter(chapters, novel_data):
     
     # 只显示有正文的章节
     available_chapters = []
+    chapter_map = {}
     for i in range(1, len(chapters) + 1):
         chapter_key = f"chapter_{i}"
         if chapter_key in novel_chapters:
             title = chapters[i-1].get('title', f'第{i}章')
             word_count = novel_chapters[chapter_key].get('word_count', 0)
             available_chapters.append(f"{i}. {title} ({word_count}字)")
-    
+            chapter_map[len(available_chapters)] = i
+
     if not available_chapters:
         ui.print_warning("\n当前没有小说正文。\n")
         return
@@ -1462,15 +1619,18 @@ def view_novel_chapter(chapters, novel_data):
     
     choice_str = ui.display_menu("请选择要查看的章节正文：", available_chapters)
     
-    if choice_str and (int(choice_str)-1) != len(available_chapters):
-        chapter_num = int(choice_str.split('.')[0])
-        chapter_key = f"chapter_{chapter_num}"
-        chapter_info = novel_chapters[chapter_key]
-        
-        ui.print_info(f"\n--- {chapter_info['title']} ---")
-        ui.print_info(f"字数: {chapter_info.get('word_count', 0)} 字\n")
-        ui.print_info(chapter_info['content'])
-        ui.print_info("------------------------\n")
+    if not choice_str or int(choice_str) > len(chapter_map):
+        return
+
+    choice = int(choice_str)
+    chapter_num = chapter_map[choice]
+    chapter_key = f"chapter_{chapter_num}"
+    chapter_info = novel_chapters[chapter_key]
+    
+    ui.print_info(f"\n--- {chapter_info['title']} ---")
+    ui.print_info(f"字数: {chapter_info.get('word_count', 0)} 字\n")
+    ui.print_info(chapter_info['content'])
+    ui.print_info("------------------------\n")
 
 
 def edit_novel_chapter(chapters, novel_data):
@@ -1487,22 +1647,29 @@ def edit_novel_chapter(chapters, novel_data):
     
     # 只显示有正文的章节
     available_chapters = []
+    chapter_map = {}
     for i in range(1, len(chapters) + 1):
         chapter_key = f"chapter_{i}"
         if chapter_key in novel_chapters:
             title = chapters[i-1].get('title', f'第{i}章')
             word_count = novel_chapters[chapter_key].get('word_count', 0)
             available_chapters.append(f"{i}. {title} ({word_count}字)")
-    
+            chapter_map[len(available_chapters)] = i
+
+    if not available_chapters:
+        ui.print_warning("\n当前没有小说正文可编辑。\n")
+        return
+
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要修改的章节正文：", available_chapters)
     
-    if not choice_str or (int(choice_str)-1) == len(available_chapters):
+    if not choice_str or int(choice_str) > len(chapter_map):
         return
-    
-    chapter_num = int(choice_str.split('.')[0])
+
+    choice = int(choice_str)
+    chapter_num = chapter_map[choice]
     chapter_key = f"chapter_{chapter_num}"
     chapter_info = novel_chapters[chapter_key]
     
@@ -1537,22 +1704,29 @@ def delete_novel_chapter(chapters, novel_data):
     
     # 只显示有正文的章节
     available_chapters = []
+    chapter_map = {}
     for i in range(1, len(chapters) + 1):
         chapter_key = f"chapter_{i}"
         if chapter_key in novel_chapters:
             title = chapters[i-1].get('title', f'第{i}章')
             word_count = novel_chapters[chapter_key].get('word_count', 0)
             available_chapters.append(f"{i}. {title} ({word_count}字)")
-    
+            chapter_map[len(available_chapters)] = i
+
+    if not available_chapters:
+        ui.print_warning("\n当前没有小说正文可删除。\n")
+        return
+
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要删除的章节正文：", available_chapters)
     
-    if not choice_str or (int(choice_str)-1) == len(available_chapters):
+    if not choice_str or int(choice_str) > len(chapter_map):
         return
-    
-    chapter_num = int(choice_str.split('.')[0])
+
+    choice = int(choice_str)
+    chapter_num = chapter_map[choice]
     chapter_key = f"chapter_{chapter_num}"
     title = novel_chapters[chapter_key]['title']
     
@@ -1649,13 +1823,15 @@ def export_single_chapter(chapters, novel_chapters):
     """Export a single chapter."""
     # 获取可导出的章节
     available_chapters = []
+    chapter_map = {}
     for i in range(1, len(chapters) + 1):
         chapter_key = f"chapter_{i}"
         if chapter_key in novel_chapters:
             chapter_title = chapters[i-1].get('title', f'第{i}章')
             word_count = novel_chapters[chapter_key].get('word_count', len(novel_chapters[chapter_key].get('content', '')))
             available_chapters.append(f"{i}. {chapter_title} ({word_count}字)")
-    
+            chapter_map[len(available_chapters)] = i
+
     if not available_chapters:
         print("\n没有可导出的章节。\n")
         return
@@ -1665,10 +1841,11 @@ def export_single_chapter(chapters, novel_chapters):
     
     choice_str = ui.display_menu("请选择要导出的章节：", available_chapters)
     
-    if not choice_str or (int(choice_str)-1) == len(available_chapters):
+    if not choice_str or int(choice_str) > len(chapter_map):
         return
-    
-    chapter_num = int(choice_str.split('.')[0])
+
+    choice = int(choice_str)
+    chapter_num = chapter_map[choice]
     chapter_key = f"chapter_{chapter_num}"
     chapter_info = novel_chapters[chapter_key]
     
@@ -1710,11 +1887,13 @@ def export_chapter_range(chapters, novel_chapters):
     """Export a range of chapters."""
     # 获取可导出的章节号
     available_chapter_nums = []
+    chapter_map = {}
     for i in range(1, len(chapters) + 1):
         chapter_key = f"chapter_{i}"
         if chapter_key in novel_chapters:
             available_chapter_nums.append(i)
-    
+            chapter_map[i] = len(available_chapter_nums)
+
     if not available_chapter_nums:
         print("\n没有可导出的章节。\n")
         return
@@ -1727,7 +1906,7 @@ def export_chapter_range(chapters, novel_chapters):
     
     start_choice_str = ui.display_menu("请选择起始章节：", start_choices)
     
-    if not start_choice_str or (int(start_choice_str.split('.')[0]) - 1) == len(start_choices) -1:
+    if not start_choice_str or int(start_choice_str.split('.')[0]) > len(available_chapter_nums):
         return
     
     start_chapter = int(start_choice_str.split('.')[0])
@@ -1738,7 +1917,7 @@ def export_chapter_range(chapters, novel_chapters):
     
     end_choice_str = ui.display_menu("请选择结束章节：", end_choices)
     
-    if not end_choice_str or (int(end_choice_str.split('.')[0]) - 1) == len(end_choices) -1:
+    if not end_choice_str or int(end_choice_str.split('.')[0]) > len(end_choices) -1:
         return
     
     end_chapter = int(end_choice_str.split('.')[0])
@@ -1865,7 +2044,6 @@ def export_complete_novel(chapters, novel_data):
 
 
 
-
 def handle_system_settings():
     """Handle system settings including retry configuration."""
     while True:
@@ -1985,8 +2163,18 @@ def modify_retry_config():
     
     input("\n按回车键继续...")
 
-def reset_retry_config():    """Reset retry configuration to defaults."""    print("\n⚙️  重置重试配置")        if ui.confirm("确定要将重试配置重置为默认值吗？"):        from config import reset_retry_config as reset_config        if reset_config():            print("✅ 重试配置已重置为默认值\n")        else:            print("❌ 重置重试配置失败\n")    else:        print("❌ 操作已取消\n")    input("\n按回车键继续...")
-
+def reset_retry_config():
+    """Reset retry configuration to defaults."""
+    print("\n⚙️  重置重试配置")
+    if ui.confirm("确定要将重试配置重置为默认值吗？"):
+        from config import reset_retry_config as reset_config
+        if reset_config():
+            print("✅ 重试配置已重置为默认值\n")
+        else:
+            print("❌ 重置重试配置失败\n")
+    else:
+        print("❌ 操作已取消\n")
+    input("\n按回车键继续...")
 
 def show_export_config():
     """Display current export path configuration."""
@@ -2000,71 +2188,53 @@ def show_export_config():
     print(f"📋 默认导出路径: {info['default_path']}")
     
     if info['is_custom']:
-        print(f"⚙️ 自定义路径: {info['custom_path']} (已启用)")
-        print("📌 当前使用自定义导出路径")
+        print(f"自定义路径: {info['custom_path']}")
     else:
-        print("📌 当前使用默认导出路径")
+        print("自定义路径: (未设置)")
     
-    print("\n💡 说明:")
-    print("- 默认路径：保存在用户文档目录的 MetaNovel 文件夹中")
-    print("- 自定义路径：可以是绝对路径或相对于文档目录的路径")
-    print("- 项目文件：每个项目会在导出目录下创建独立的文件夹")
-    print("=" * 50)
-    
+    print("--------------------")
     input("\n按回车键继续...")
-
 
 def modify_export_config():
     """Modify export path configuration."""
-    from config import set_custom_export_path, get_export_path_info
+    from config import set_custom_export_path, clear_custom_export_path, get_export_path_info
     
     info = get_export_path_info()
     
-    print("\n--- 修改导出路径设置 ---")
-    print(f"📁 当前导出路径: {info['current_path']}")
-    print(f"🏠 用户文档目录: {info['documents_dir']}")
+    print("\n⚙️  修改导出路径配置")
+    print(f"当前导出路径: {info['current_path']}")
+    print("--------------------")
     
     choices = [
         "1. 设置自定义导出路径",
-        "2. 使用默认导出路径",
+        "2. 恢复为默认导出路径",
         "3. 返回上级菜单"
     ]
     
     choice = ui.display_menu("请选择操作：", choices)
     
-    if choice is None or choice.startswith("3."):
+    if choice is None or choice == "3":
         return
-    elif choice.startswith("1."):
-        # 设置自定义导出路径
-        print("\n📝 设置自定义导出路径")
-        print("💡 提示:")
-        print("- 可以输入绝对路径，如: /home/user/MyExports")
-        print("- 也可以输入相对路径，如: MyNovelExports (相对于文档目录)")
-        print("- Windows示例: D:\\MyExports 或 MyNovelExports")
-        print("- 程序会自动创建目录并验证权限")
-        
-        new_path = questionary.text(
-            "请输入导出路径:",
-            default=info['custom_path'] if info['is_custom'] else ""
-        new_path = ui.prompt("请输入新的导出路径:")
+    elif choice == "1":
+        new_path = ui.prompt("请输入导出路径:", default=info['custom_path'] if info['is_custom'] else "")
         
         if new_path and new_path.strip():
             if set_custom_export_path(new_path.strip()):
-                print(f"\n✅ 导出路径已设置为: {new_path}")
-                # 显示更新后的配置
-                show_export_config()
+                print("\n✅ 导出路径已更新。")
             else:
-                print(f"\n❌ 设置导出路径失败，请检查路径是否有效且有写入权限")
+                print("\n❌ 更新导出路径失败。")
         else:
-            print("\n❌ 路径不能为空")
-            
-    elif choice.startswith("2."):
-        # 使用默认导出路径
-        from config import reset_export_path
-        reset_export_path()
-        print(f"\n✅ 已切换到默认导出路径: {info['default_path']}")
-        show_export_config()
-
+            print("\n操作已取消或路径为空，未更改。")
+    elif choice == "2":
+        if ui.confirm("确定要恢复为默认导出路径吗？"):
+            if clear_custom_export_path():
+                print("\n✅ 已恢复为默认导出路径。")
+            else:
+                print("\n❌ 恢复默认导出路径失败。")
+        else:
+            print("\n操作已取消。")
+    
+    input("\n按回车键继续...")
 
 def reset_export_config():
     """Reset export path configuration to default."""
@@ -2075,262 +2245,58 @@ def reset_export_config():
         print("\n✅ 导出路径配置已重置为默认值。")
         show_export_config()
     else:
-        print("\n❌ 操作已取消。")
+        print("\n操作已取消。")
+    
+    input("\n按回车键继续...")
 
 
 def get_novel_name():
     """获取当前小说名称"""
-    try:
-        # 优先使用项目显示名称
-        project_name = project_data_manager.get_current_project_display_name()
-        
-        # 如果项目名称不是默认值，返回项目名称
-        if project_name != "未命名小说":
-            return project_name
-        
-        # 否则尝试从主题数据中获取
-        theme_data = get_data_manager().read_theme_one_line()
-        if isinstance(theme_data, dict):
-            return theme_data.get("novel_name", "未命名小说")
-        elif isinstance(theme_data, str) and theme_data.strip():
-            # 尝试从主题文本中提取小说名
-            lines = theme_data.strip().split('\n')
-            first_line = lines[0] if lines else theme_data
-            if '《' in first_line and '》' in first_line:
-                return first_line[first_line.find('《')+1:first_line.find('》')]
-            else:
-                return "未命名小说"
-        else:
-            return "未命名小说"
-    except:
-        return "未命名小说"
-
+    data = get_data_manager().read_theme_one_line()
+    if data and isinstance(data, dict) and "novel_name" in data:
+        return data["novel_name"]
+    return "未命名小说"
 
 def set_novel_name():
     """设置小说名称"""
     current_name = get_novel_name()
     print(f"\n当前小说名: {current_name}")
     
-        new_name = ui.prompt("请输入新的小说名称:", default=current_name if current_name != "未命名小说" else "")
+    new_name = ui.prompt("请输入新的小说名称:", default=current_name if current_name != "未命名小说" else "")
     
     if new_name is None:
         print("操作已取消。\n")
-        return False
+        return
     
     new_name = new_name.strip()
     if not new_name:
         print("小说名称不能为空。\n")
-        return False
+        return
     
-    if new_name == current_name:
-        print("名称未更改。\n")
-        return True
+    # 读取现有的一句话主题数据
+    current_data = get_data_manager().read_theme_one_line()
+    current_theme = ""
+    if isinstance(current_data, dict) and "theme" in current_data:
+        current_theme = current_data["theme"]
+    elif isinstance(current_data, str):
+        current_theme = current_data
+        
+    # 更新小说名称，保持主题不变
+    updated_data = {
+        "novel_name": new_name,
+        "theme": current_theme
+    }
     
-    # 保存小说名称到主题文件
-    try:
-        # 读取现有主题数据
-        theme_data = get_data_manager().read_theme_one_line()
-        
-        if isinstance(theme_data, str):
-            # 如果是字符串，转换为字典格式
-            new_theme_data = {
-                "novel_name": new_name,
-                "theme": theme_data
-            }
-        elif isinstance(theme_data, dict):
-            # 如果已经是字典，更新小说名
-            new_theme_data = theme_data.copy()
-            new_theme_data["novel_name"] = new_name
-        else:
-            # 如果没有主题数据，创建新的
-            new_theme_data = {
-                "novel_name": new_name,
-                "theme": ""
-            }
-        
-        # 保存更新后的数据
-        if get_data_manager().write_theme_one_line(new_theme_data):
-            print(f"✅ 小说名称已设置为: {new_name}\n")
-            return True
-        else:
-            print("❌ 设置小说名称失败\n")
-            return False
-    except Exception as e:
-        print(f"❌ 设置小说名称失败: {e}\n")
-        return False
-
-
-def show_project_status():
-    """显示项目完成状态"""
-    # 收集详细状态信息
-    status_details = {}
-    
-    # 1. 一句话主题
-    theme_one_line = get_data_manager().read_theme_one_line()
-    if theme_one_line:
-        # 获取小说名和主题内容
-        novel_name = get_novel_name()
-        
-        if isinstance(theme_one_line, dict):
-            theme_content = theme_one_line.get('theme', '')
-        elif isinstance(theme_one_line, str):
-            theme_content = theme_one_line
-        else:
-            theme_content = ''
-        
-        status_details["theme_one_line"] = {
-            "completed": True,
-            "details": f"小说：《{novel_name}》"
-        }
+    if get_data_manager().write_theme_one_line(updated_data):
+        print(f"✅ 小说名称已更新为: {new_name}\n")
     else:
-        status_details["theme_one_line"] = {
-            "completed": False,
-            "details": "尚未设置"
-        }
-    
-    # 2. 段落主题
-    theme_paragraph = get_data_manager().read_theme_paragraph()
-    if theme_paragraph and theme_paragraph.strip():
-        word_count = len(theme_paragraph)
-        status_details["theme_paragraph"] = {
-            "completed": True,
-            "details": f"{word_count}字"
-        }
-    else:
-        status_details["theme_paragraph"] = {
-            "completed": False,
-            "details": "尚未生成"
-        }
-    
-    # 3. 世界设定
-    characters = get_data_manager().read_characters()
-    locations = get_data_manager().read_locations() 
-    items = get_data_manager().read_items()
-    
-    char_count = len(characters) if characters else 0
-    loc_count = len(locations) if locations else 0
-    item_count = len(items) if items else 0
-    
-    if char_count > 0 or loc_count > 0 or item_count > 0:
-        details_parts = []
-        if char_count > 0:
-            # 获取主要角色名（前3个）
-            main_chars = list(characters.keys())[:3]
-            char_names = "、".join(main_chars)
-            if len(characters) > 3:
-                char_names += "等"
-            details_parts.append(f"角色{char_count}个({char_names})")
-        if loc_count > 0:
-            details_parts.append(f"场景{loc_count}个")
-        if item_count > 0:
-            details_parts.append(f"道具{item_count}个")
-        
-        status_details["world_settings"] = {
-            "completed": True,
-            "details": "、".join(details_parts)
-        }
-    else:
-        status_details["world_settings"] = {
-            "completed": False,
-            "details": "尚未创建"
-        }
-    
-    # 4. 故事大纲
-    story_outline = get_data_manager().read_story_outline()
-    if story_outline and story_outline.strip():
-        word_count = len(story_outline)
-        status_details["story_outline"] = {
-            "completed": True,
-            "details": f"{word_count}字"
-        }
-    else:
-        status_details["story_outline"] = {
-            "completed": False,
-            "details": "尚未编写"
-        }
-    
-    # 5. 分章细纲
-    chapters = get_data_manager().read_chapter_outline()
-    if chapters and len(chapters) > 0:
-        chapter_count = len(chapters)
-        total_outline_words = sum(len(ch.get('outline', '')) for ch in chapters)
-        avg_words = total_outline_words // chapter_count if chapter_count > 0 else 0
-        
-        status_details["chapter_outline"] = {
-            "completed": True,
-            "details": f"{chapter_count}章，平均{avg_words}字/章"
-        }
-    else:
-        status_details["chapter_outline"] = {
-            "completed": False,
-            "details": "尚未规划"
-        }
-    
-    # 6. 章节概要
-    summaries = get_data_manager().read_chapter_summaries()
-    if summaries and len(summaries) > 0:
-        total_chapters = len(chapters) if chapters else 0
-        completed_summaries = len(summaries)
-        
-        if total_chapters > 0:
-            completion_rate = int((completed_summaries / total_chapters) * 100)
-            total_summary_words = sum(len(s.get('summary', '')) for s in summaries.values())
-            avg_words = total_summary_words // completed_summaries if completed_summaries > 0 else 0
-            
-            status_details["chapter_summaries"] = {
-                "completed": completion_rate == 100,
-                "details": f"完成度{completion_rate}%，平均{avg_words}字/章"
-            }
-        else:
-            status_details["chapter_summaries"] = {
-                "completed": False,
-                "details": "需先完成分章细纲"
-            }
-    else:
-        status_details["chapter_summaries"] = {
-            "completed": False,
-            "details": "尚未生成"
-        }
-    
-    # 7. 小说正文
-    novel_chapters = get_data_manager().read_novel_chapters()
-    if novel_chapters and len(novel_chapters) > 0:
-        total_chapters = len(chapters) if chapters else 0
-        completed_novels = len(novel_chapters)
-        
-        if total_chapters > 0:
-            completion_rate = int((completed_novels / total_chapters) * 100)
-            total_words = sum(ch.get('word_count', len(ch.get('content', ''))) for ch in novel_chapters.values())
-            avg_words = total_words // completed_novels if completed_novels > 0 else 0
-            
-            status_details["novel_chapters"] = {
-                "completed": completion_rate == 100,
-                "details": f"完成度{completion_rate}%，总计{total_words}字，平均{avg_words}字/章"
-            }
-        else:
-            status_details["novel_chapters"] = {
-                "completed": False,
-                "details": "需先完成前置步骤"
-            }
-    else:
-        status_details["novel_chapters"] = {
-            "completed": False,
-            "details": "尚未开始"
-        }
-    
-    ui.print_project_status(status_details)
-
+        print("❌ 保存小说名称时出错。\n")
 
 
 def handle_creative_workflow():
-    """处理创作流程菜单（7步创作流程）"""
+    """Handles the main creative workflow menu."""
     while True:
-        # 清屏并显示界面
         console.clear()
-        
-        # 显示项目状态
-        show_project_status()
-        console.print()  # 空行
         
         # 获取当前小说名称，用于第一项显示
         current_novel_name = get_novel_name()
@@ -2338,7 +2304,6 @@ def handle_creative_workflow():
         
         # 创作流程菜单
         menu_options = [
-            menu_options = [
             first_item,
             "📖 扩展成一段话主题 - 将主题扩展为详细描述", 
             "🌍 世界设定 - 构建角色、场景和道具",
@@ -2368,32 +2333,30 @@ def handle_creative_workflow():
         elif choice == '7':
             handle_novel_generation()
 
+
 def main():
+    """主函数，程序的入口点。
+    处理项目迁移、主菜单显示和用户交互。
     """
-    Main function to display the main menu.
-    """
-    # 显示欢迎信息（只在首次启动时显示）
-    first_run = True
-    
+    # # 检查并执行旧版本数据迁移
+    # from migrate_to_multi_project import migrate_legacy_data
+    # if not migrate_legacy_data():
+    #     # 如果迁移失败或用户取消，则退出程序
+    #     sys.exit(1)
+
+    # 确保项目数据管理器已初始化
+    # project_data_manager.initialize()
+
     while True:
-        # 清屏并显示界面
         console.clear()
         
-        if first_run:
-            ui.print_welcome()
-            console.print()  # 空行
-            first_run = False
-        
-        # 显示当前活动项目信息
-        current_project = project_data_manager.get_current_project_display_name()
-        if current_project != "未命名小说":
-            status_text = f"[green]当前项目: {current_project}[/green]"
-            console.print(Panel(status_text, title="📁 项目状态", border_style="blue"))
-            console.print()
+        # 显示当前活动项目
+        active_project_name = project_data_manager.get_current_project_display_name()
+        status_text = Text(f"当前项目: [bold green]{active_project_name}[/bold green]", justify="center")
+        console.print(Panel(status_text, title="🚀 MetaNovel Engine", border_style="magenta"))
         
         # 主菜单
         menu_options = [
-            menu_options = [
             "项目管理",
             "系统设置",
             "退出"
