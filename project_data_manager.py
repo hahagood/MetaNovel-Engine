@@ -9,9 +9,9 @@ class ProjectDataManager:
     def __init__(self):
         self._current_data_manager: Optional[DataManager] = None
         self._current_project: Optional[str] = None
-        self._refresh_data_manager()
+        self.refresh_data_manager()
     
-    def _refresh_data_manager(self):
+    def refresh_data_manager(self):
         """刷新数据管理器实例"""
         active_project = project_manager.get_active_project()
         
@@ -29,13 +29,13 @@ class ProjectDataManager:
     
     def get_data_manager(self) -> DataManager:
         """获取当前的数据管理器实例"""
-        self._refresh_data_manager()
+        self.refresh_data_manager()
         return self._current_data_manager
     
     def switch_project(self, project_name: str) -> bool:
         """切换项目"""
         if project_manager.set_active_project(project_name):
-            self._refresh_data_manager()
+            self.refresh_data_manager()
             return True
         return False
     

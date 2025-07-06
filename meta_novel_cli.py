@@ -173,7 +173,7 @@ def handle_theme_paragraph():
             ui.print_info("当前内容已在上方显示。\n")
             return
         elif action == "2":
-            edited_paragraph = ui.prompt("请修改您的段落主题:", default=existing_paragraph)
+            edited_paragraph = ui.prompt("请修改您的段落主题:", default=existing_paragraph, multiline=True)
             if edited_paragraph and edited_paragraph.strip() and edited_paragraph != existing_paragraph:
                 if get_data_manager().write_theme_paragraph(edited_paragraph):
                     ui.print_success("段落主题已更新.\n")
@@ -248,7 +248,7 @@ def handle_theme_paragraph():
             ui.print_error("保存段落主题时出错。\n")
     elif action == "2":
         # 修改后保存
-        edited_paragraph = ui.prompt("请修改您的段落主题:", default=generated_paragraph)
+        edited_paragraph = ui.prompt("请修改您的段落主题:", default=generated_paragraph, multiline=True)
 
         if edited_paragraph and edited_paragraph.strip():
             if get_data_manager().write_theme_paragraph(edited_paragraph):
@@ -433,7 +433,7 @@ def generate_story_outline():
             ui.print_error("保存故事大纲时出错。\n")
     elif action == "2":
         # 修改后保存
-        edited_outline = ui.prompt("请修改故事大纲:", default=generated_outline)
+        edited_outline = ui.prompt("请修改故事大纲:", default=generated_outline, multiline=True)
 
         if edited_outline and edited_outline.strip():
             if get_data_manager().write_story_outline(edited_outline):
@@ -447,11 +447,15 @@ def generate_story_outline():
 def edit_outline():
     """Edit existing story outline."""
     current_outline = get_data_manager().read_story_outline()
-    ui.print_info("\n--- 当前故事大纲 ---")
+    if not current_outline:
+        ui.print_warning("\\n当前没有故事大纲可修改。\\n")
+        return
+
+    ui.print_info("\\n--- 当前故事大纲 ---")
     ui.print_info(current_outline)
-    ui.print_info("------------------------\n")
+    ui.print_info("------------------------\\n")
     
-    edited_outline = ui.prompt("请修改故事大纲:", default=current_outline)
+    edited_outline = ui.prompt("请修改故事大纲:", default=current_outline, multiline=True)
     
     if edited_outline and edited_outline.strip() and edited_outline != current_outline:
         if get_data_manager().write_story_outline(edited_outline):
@@ -647,7 +651,7 @@ def generate_chapter_outline():
                     modify = ui.confirm("需要修改这一章吗？")
                     if modify:
                         new_title = ui.prompt("章节标题:", default=chapter.get('title', ''))
-                        new_outline = ui.prompt("章节大纲:", default=chapter.get('outline', ''))
+                        new_outline = ui.prompt("章节大纲:", default=chapter.get('outline', ''), multiline=True)
                         if new_title is not None and new_outline is not None:
                             modified_chapters.append({"title": new_title, "outline": new_outline})
                         else:
@@ -755,10 +759,10 @@ def edit_chapter():
             new_title = ui.prompt("请输入新标题 (留空不修改):", default=chapter_to_edit.get('title', ''))
             
             ui.print_info(f"当前大纲: {chapter_to_edit.get('outline', '')}")
-            new_outline = ui.prompt("请输入新大纲 (留空不修改):", default=chapter_to_edit.get('outline', ''))
+            new_outline = ui.prompt("请输入新大纲 (留空不修改):", default=chapter_to_edit.get('outline', ''), multiline=True)
 
             if new_title is None or new_outline is None:
-                ui.print_warning("操作已取消。\n")
+                ui.print_warning("操作已取消。\\n")
                 return
 
             # 更新章节信息
@@ -1138,9 +1142,16 @@ def view_chapter_summary(chapters):
         choice_index = int(choice_str) - 1
         if 0 <= choice_index < len(summary_keys_sorted):
             chapter_num = summary_keys_sorted[choice_index]
-            summary = summaries.get(f"chapter_{chapter_num}", "没有找到概要。")
+            summary_data = summaries.get(f"chapter_{chapter_num}")
+            
+            # 从字典中提取summary内容
+            if isinstance(summary_data, dict):
+                summary_text = summary_data.get('summary', "没有找到概要文本。")
+            else:
+                summary_text = summary_data or "没有找到概要。"
+
             ui.print_info(f"\n--- 第{chapter_num}章概要 ---")
-            ui.print_info(summary)
+            ui.print_info(summary_text)
             ui.print_info("------------------------\n")
             ui.pause()
         else:
@@ -1173,16 +1184,26 @@ def edit_chapter_summary(chapters):
         if 0 <= choice_index < len(summary_keys_sorted):
             chapter_num = summary_keys_sorted[choice_index]
             summary_key = f"chapter_{chapter_num}"
-            current_summary = summaries.get(summary_key, "")
+            summary_data = summaries.get(summary_key)
 
-            ui.print_info(f"\n--- 当前概要：第{chapter_num}章 ---")
-            ui.print_info(current_summary)
-            ui.print_info("------------------------\n")
+            # 从字典中提取summary内容
+            if isinstance(summary_data, dict):
+                current_summary = summary_data.get('summary', '')
+                title = summary_data.get('title', f'第{chapter_num}章')
+            else:
+                current_summary = summary_data or ''
+                title = chapter_map.get(chapter_num, {}).get('title', f'第{chapter_num}章')
+
+            ui.print_info(f"\n--- 当前概要：{title} ---")
             
             new_summary = ui.prompt("请输入新的概要:", default=current_summary, multiline=True)
 
             if new_summary is not None and new_summary.strip() != current_summary:
-                summaries[summary_key] = new_summary.strip()
+                # 更新或创建包含title和summary的字典
+                summaries[summary_key] = {
+                    "title": title,
+                    "summary": new_summary.strip()
+                }
                 if get_data_manager().write_chapter_summaries(summaries):
                     ui.print_success("章节概要已更新。\n")
                 else:
@@ -2285,9 +2306,15 @@ def main():
         
         # 显示当前活动项目
         active_project_name = project_data_manager.get_current_project_display_name()
-        status_text = Text(f"当前项目: [bold green]{active_project_name}[/bold green]", justify="center")
+        status_text = Text(f"当前项目: 《{active_project_name}》", justify="center")
         console.print(Panel(status_text, title="🚀 MetaNovel Engine", border_style="magenta"))
         
+        # 在主菜单显示项目进度
+        dm = get_data_manager()
+        if dm:
+            status_details = dm.get_project_status_details()
+            ui.print_project_status(status_details)
+
         # 主菜单
         menu_options = [
             "项目管理",

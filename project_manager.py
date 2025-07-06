@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 from config import get_app_data_dir
+from ui_utils import ui
 
 @dataclass
 class ProjectInfo:

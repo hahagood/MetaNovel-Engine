@@ -425,5 +425,67 @@ class DataManager:
             return self.write_novel_chapters(chapters)
         return False
 
+    def get_project_status_details(self) -> Dict[str, Dict]:
+        """获取项目各阶段的详细完成状态"""
+        status = {}
+
+        # 1. 小说名称与主题
+        theme_data = self.read_theme_one_line()
+        if theme_data and (theme_data.get("theme") or (isinstance(theme_data, str) and theme_data)):
+            status["theme_one_line"] = {"completed": True, "details": "已设置"}
+        else:
+            status["theme_one_line"] = {"completed": False, "details": "未设置"}
+
+        # 2. 段落主题
+        paragraph = self.read_theme_paragraph()
+        if paragraph:
+            status["theme_paragraph"] = {"completed": True, "details": f"已生成，{len(paragraph)}字"}
+        else:
+            status["theme_paragraph"] = {"completed": False, "details": "未生成"}
+
+        # 3. 世界设定
+        characters = self.read_characters()
+        locations = self.read_locations()
+        items = self.read_items()
+        ws_details = []
+        if characters: ws_details.append(f"角色({len(characters)})")
+        if locations: ws_details.append(f"场景({len(locations)})")
+        if items: ws_details.append(f"道具({len(items)})")
+        if ws_details:
+            status["world_settings"] = {"completed": True, "details": "、".join(ws_details)}
+        else:
+            status["world_settings"] = {"completed": False, "details": "未设定"}
+            
+        # 4. 故事大纲
+        outline = self.read_story_outline()
+        if outline:
+            status["story_outline"] = {"completed": True, "details": f"已生成，{len(outline)}字"}
+        else:
+            status["story_outline"] = {"completed": False, "details": "未生成"}
+            
+        # 5. 分章细纲
+        chapters = self.read_chapter_outline()
+        if chapters:
+            status["chapter_outline"] = {"completed": True, "details": f"共 {len(chapters)} 章"}
+        else:
+            status["chapter_outline"] = {"completed": False, "details": "未生成"}
+            
+        # 6. 章节概要
+        summaries = self.read_chapter_summaries()
+        if summaries:
+            status["chapter_summaries"] = {"completed": True, "details": f"已生成 {len(summaries)}/{len(chapters) if chapters else '?'} 章"}
+        else:
+            status["chapter_summaries"] = {"completed": False, "details": "未生成"}
+            
+        # 7. 小说正文
+        novel_chapters = self.read_novel_chapters()
+        if novel_chapters:
+            total_words = sum(ch.get('word_count', 0) for ch in novel_chapters.values())
+            status["novel_chapters"] = {"completed": True, "details": f"已生成 {len(novel_chapters)} 章，共 {total_words} 字"}
+        else:
+            status["novel_chapters"] = {"completed": False, "details": "未生成"}
+            
+        return status
+
 # 创建全局数据管理实例
 data_manager = DataManager() 

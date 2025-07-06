@@ -8,83 +8,63 @@ from project_data_manager import project_data_manager
 from ui_utils import ui, console
 
 def handle_project_management():
-    """处理项目管理主菜单"""
+    """处理项目管理的UI和逻辑"""
     while True:
-        # 获取当前项目信息
+        console.clear()
+        
         current_project = project_manager.get_active_project()
-        current_display_name = project_data_manager.get_current_project_display_name()
-        
-        # 显示当前状态
+        current_display_name = "无"
         if current_project:
-            status_text = f"[green]当前项目: {current_display_name}[/green]"
-        else:
-            status_text = "[yellow]当前无活动项目[/yellow]"
+            info = project_manager.get_project_info(current_project)
+            current_display_name = info.display_name if info else "未知"
         
-        console.print(Panel(status_text, title="📁 项目管理", border_style="blue"))
+        # 将标题作为参数传给display_menu，并移除单独的Panel打印
+        title = f"📁 项目管理 (当前: {current_display_name})"
         
-        # 菜单选项
-        if current_project:
-            menu_options = [
-                "🚀 继续当前项目创作",
-                "🔁 切换其他项目",
-                "📋 查看所有项目",
-                "➕ 创建新项目",
-                "✏️ 编辑项目信息",
-                "🗑️ 删除项目",
-                "📊 项目详情",
-                "🔙 返回主菜单"
-            ]
-        else:
-            menu_options = [
-                "🚀 选择项目开始创作",
-                "📋 查看所有项目",
-                "➕ 创建新项目",
-                "✏️ 编辑项目信息",
-                "🗑️ 删除项目",
-                "📊 项目详情",
-                "🔙 返回主菜单"
-            ]
+        menu_options = [
+            "🚀  继续当前项目创作",
+            "🔁  切换其他项目",
+            "📋  查看所有项目",
+            "➕  创建新项目",
+            "✏️ 编辑项目信息",
+            "🗑️ 删除项目",
+            "📊  项目详情",
+            "🔙  返回主菜单"
+        ]
         
-        choice = ui.display_menu("请选择要进行的操作：", menu_options)
-        
-        if current_project:
-            if choice is None or choice == "8":
+        choice = ui.display_menu(title, menu_options, default_choice="1" if current_project else "3")
+
+        if choice is None:
+            break
+
+        def _handle_creative_workflow_wrapper():
+            from meta_novel_cli import handle_creative_workflow
+            handle_creative_workflow()
+
+        action_map = {
+            "1": _handle_creative_workflow_wrapper,
+            "2": switch_project,
+            "3": list_all_projects,
+            "4": create_new_project,
+            "5": edit_project,
+            "6": delete_project,
+            "7": show_project_details,
+            "8": lambda: "break"  # 用于跳出循环的哨兵
+        }
+
+        # 如果没有当前项目，一些选项是无效的
+        if not current_project and choice in ["1", "2", "7"]:
+            ui.print_warning("此操作需要先选择一个活动项目。")
+            ui.pause()
+            continue
+
+        action = action_map.get(choice)
+        if action:
+            if action() == "break":
                 break
-            elif choice == "1":
-                # 直接进入创作流程
-                from meta_novel_cli import handle_creative_workflow
-                handle_creative_workflow()
-            elif choice == "2":
-                switch_project()
-            elif choice == "3":
-                list_all_projects()
-                ui.pause()
-            elif choice == "4":
-                create_new_project()
-            elif choice == "5":
-                edit_project()
-            elif choice == "6":
-                delete_project()
-            elif choice == "7":
-                show_project_details()
-                ui.pause()
         else:
-            if choice is None or choice == "7":
-                break
-            elif choice == "1":
-                switch_project()
-            elif choice == "2":
-                list_all_projects()
-                ui.pause()
-            elif choice == "3":
-                create_new_project()
-            elif choice == "4":
-                edit_project()
-            elif choice == "5":
-                delete_project()
-            elif choice == "6":
-                show_project_details()
-                ui.pause()
+            ui.print_warning("无效的选择。")
+            ui.pause()
 
 def list_all_projects():
     """列出所有项目"""
@@ -279,7 +259,7 @@ def show_project_details():
         return
     
     # 获取项目对应的显示名称
-    project_display_name = project_info.display_name
+    project_display_name = project_info.display_name or project_info.name
 
     # 创建详情面板
     details = f"""
@@ -292,67 +272,6 @@ def show_project_details():
     """.strip()
     
     console.print(Panel(details, title=f"📊 项目详情 - {project_display_name}", border_style="cyan"))
-    
-    # 获取项目进度信息
-    data_manager = project_data_manager.get_data_manager()
-    
-    # 检查各个阶段的完成情况
-    progress_info = []
-    
-    # 检查主题
-    theme_data = data_manager.read_theme_one_line()
-    if theme_data:
-        progress_info.append("✅ 小说名称与主题")
-    else:
-        progress_info.append("❌ 小说名称与主题")
-    
-    # 检查段落主题
-    paragraph = data_manager.read_theme_paragraph()
-    if paragraph:
-        progress_info.append("✅ 段落主题")
-    else:
-        progress_info.append("❌ 段落主题")
-    
-    # 检查世界设定
-    characters = data_manager.read_characters()
-    locations = data_manager.read_locations()
-    items = data_manager.read_items()
-    if characters or locations or items:
-        progress_info.append("✅ 世界设定")
-    else:
-        progress_info.append("❌ 世界设定")
-    
-    # 检查故事大纲
-    outline = data_manager.read_story_outline()
-    if outline:
-        progress_info.append("✅ 故事大纲")
-    else:
-        progress_info.append("❌ 故事大纲")
-    
-    # 检查分章细纲
-    chapters = data_manager.read_chapter_outline()
-    if chapters:
-        progress_info.append("✅ 分章细纲")
-    else:
-        progress_info.append("❌ 分章细纲")
-    
-    # 检查章节概要
-    summaries = data_manager.read_chapter_summaries()
-    if summaries:
-        progress_info.append("✅ 章节概要")
-    else:
-        progress_info.append("❌ 章节概要")
-    
-    # 检查小说正文
-    novel_chapters = data_manager.read_novel_chapters()
-    if novel_chapters:
-        progress_info.append("✅ 小说正文")
-    else:
-        progress_info.append("❌ 小说正文")
-    
-    # 显示进度信息
-    progress_text = "\n".join(progress_info)
-    console.print(Panel(progress_text, title="📈 创作进度", border_style="green"))
 
 def edit_project():
     """编辑项目信息"""
@@ -395,8 +314,12 @@ def edit_project():
     
     console.print(Panel(f"✏️ 正在编辑项目: {selected_project.display_name}", border_style="yellow"))
     
-    # 获取新信息
-    new_display_name = ui.prompt("输入新的显示名称 (留空不修改)", default=selected_project.display_name)
+    # 编辑显示名称
+    new_display_name = ui.prompt(
+        "请输入新的显示名称",
+        default=selected_project.display_name
+    )
+    
     if new_display_name is None:
         console.print("[yellow]操作已取消[/yellow]")
         return
@@ -423,11 +346,10 @@ def edit_project():
         display_name=update_display_name,
         description=update_description
     ):
-        console.print(f"[green]✅ 项目 '{new_display_name.strip()}' 信息已更新[/green]")
-        
-        # 如果编辑的是当前活动项目，则更新数据管理器的状态
-        if selected_project.name == project_manager.get_active_project():
-            project_data_manager.refresh_current_project_info()
-            console.print("[cyan]当前活动项目信息已刷新[/cyan]")
+        ui.print_success(f"✅ 项目 '{update_display_name or selected_project.name}' 信息已更新")
+        # 刷新数据管理器以确保显示名称立即更新
+        project_data_manager.refresh_data_manager()
     else:
-        console.print("[red]❌ 更新项目信息失败[/red]") 
+        ui.print_error("❌ 更新项目信息失败")
+    
+    ui.pause() 

@@ -1,6 +1,6 @@
 # MetaNovel-Engine
 
-![Version](https://img.shields.io/badge/version-v0.0.7-blue.svg)
+![Version](https://img.shields.io/badge/version-v0.0.9-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
@@ -89,6 +89,16 @@ MetaNovel-Engine 是一套完整的AI辅助小说创作工具链，通过结构�
 本项目采用MIT License，详见[LICENSE](LICENSE)文件。
 
 ## 📝 版本历史
+
+### v0.0.9 (2025-07-07) - UI修复与流程优化
+- 修复了因循环导入导致的 `NameError`，解决了在项目管理中继续创作时程序崩溃的问题。
+- 全面修复了各级菜单中的重复编号和显示问题，统一了交互逻辑。
+- 优化了实体管理、章节管理和项目编辑功能，使其更加稳定。
+
+### v0.0.8 (2025-07-06) - UI交互重构
+- 重构了整个应用的UI交互逻辑，统一了菜单的展现和操作方式。
+- 改进了用户提示和输出格式，提高了界面的清晰度和一致性。
+- 优化了项目切换流程，确保操作后能正确返回主菜单。
 
 ### v0.0.7 (2025-07-06) - 小说生成与菜单优化
 - 优化小说正文生成提示词, 增加了反思和修正步骤。
