@@ -88,24 +88,23 @@ class EntityManager:
             
             if action is None:
                 break
-            elif action.startswith("1."):
-                # 添加新实体
-                self._add_entity()
-            elif action.startswith("2.") and entities_data:
-                # 查看实体详情
-                self._view_entity()
-            elif action.startswith("2.") and not entities_data:
-                # 返回上级菜单（当没有实体时）
-                break
-            elif action.startswith("3."):
-                # 修改实体信息
-                self._edit_entity()
-            elif action.startswith("4."):
-                # 删除实体
-                self._delete_entity()
-            elif action.startswith("5.") or action.startswith("2."):
-                # 返回上级菜单
-                break
+            
+            if len(choices) > 2: # 当有实体数据时
+                if action == "1":
+                    self._add_entity()
+                elif action == "2":
+                    self._view_entity()
+                elif action == "3":
+                    self._edit_entity()
+                elif action == "4":
+                    self._delete_entity()
+                elif action == "5":
+                    break
+            else: # 当没有实体数据时
+                if action == "1":
+                    self._add_entity()
+                elif action == "2":
+                    break
     
     def _display_entity_list(self, entities_data):
         """显示实体列表"""
@@ -123,16 +122,16 @@ class EntityManager:
         """获取菜单选项"""
         if entities_data:
             return [
-                f"1. 添加新{self.config.name}",
-                f"2. 查看{self.config.name}详情",
-                f"3. 修改{self.config.name}信息",
-                f"4. 删除{self.config.name}",
-                "5. 返回上级菜单"
+                f"添加新{self.config.name}",
+                f"查看{self.config.name}详情",
+                f"修改{self.config.name}信息",
+                f"删除{self.config.name}",
+                "返回上级菜单"
             ]
         else:
             return [
-                f"1. 添加新{self.config.name}",
-                "2. 返回上级菜单"
+                f"添加新{self.config.name}",
+                "返回上级菜单"
             ]
     
     def _add_entity(self):
@@ -214,21 +213,21 @@ class EntityManager:
         
         # 提供操作选项
         action = ui.display_menu("请选择您要进行的操作：", [
-                "1. 接受并保存",
-                "2. 修改后保存",
-                "3. 放弃此次生成"
+                "接受并保存",
+                "修改后保存",
+                "放弃此次生成"
             ])
 
-        if action is None or action.startswith("3."):
+        if action is None or action == "3":
             print("已放弃此次生成。\n")
             return
-        elif action.startswith("1."):
+        elif action == "1":
             # 直接保存
             if self.config.adder_func(entity_name, generated_description):
                 print(f"✅ {self.config.name} '{entity_name}' 已保存。\n")
             else:
                 print(f"保存{self.config.name}时出错。\n")
-        elif action.startswith("2."):
+        elif action == "2":
             # 修改后保存
             edited_description = ui.prompt(
                 f"请修改{self.config.name}描述:",
@@ -270,23 +269,23 @@ class EntityManager:
         """编辑实体信息"""
         entities_data = self.config.reader_func()
         if not entities_data:
-            print(f"\n当前没有{self.config.plural_name}信息可编辑。\n")
+            print(f"当前没有{self.config.plural_name}信息，无法编辑。\n")
+            return
+
+        entity_name = ui.prompt(f"请输入要编辑的{self.config.name}的名称:")
+        if not entity_name or not entity_name.strip():
+            print("名称不能为空。\n")
+            return
+        
+        entity_name = entity_name.strip()
+        
+        if entity_name not in entities_data:
+            print(f"{self.config.name} '{entity_name}' 不存在。\n")
             return
             
-        entity_names = list(entities_data.keys())
-        # 添加返回选项
-        entity_names.append("返回上级菜单")
-        
-        entity_name = ui.display_menu(
-            f"请选择要修改的{self.config.name}：",
-            entity_names
-        )
-        
-        if not entity_name or entity_name == "返回上级菜单":
-            return
-        
         current_description = entities_data[entity_name].get(self.config.description_key, '')
-        print(f"\n--- 当前{self.config.name}描述：{entity_name} ---")
+
+        print(f"\n--- 当前{self.config.name}：{entity_name} ---")
         print(current_description)
         print("------------------------\n")
         
@@ -298,7 +297,7 @@ class EntityManager:
         
         if edited_description and edited_description.strip() and edited_description != current_description:
             if self.config.updater_func(entity_name, edited_description):
-                print(f"{self.config.name} '{entity_name}' 已更新。\n")
+                print(f"✅ {self.config.name} '{entity_name}' 已更新。\n")
             else:
                 print(f"更新{self.config.name}时出错。\n")
         elif edited_description is None:
