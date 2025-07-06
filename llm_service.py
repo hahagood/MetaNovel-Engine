@@ -885,14 +885,9 @@ class LLMService:
             return initial_content
         elif refinement_mode == 'manual':
             # 手动模式：询问用户是否要修正
-            try:
-                import questionary
-                should_refine = questionary.confirm(f"是否要基于批评反馈修正第{chapter_num}章？").ask()
-                if not should_refine:
-                    return initial_content
-            except ImportError:
-                # 如果questionary不可用，默认进行修正
-                pass
+            should_refine = ui.confirm(f"是否要基于批评反馈修正第{chapter_num}章？")
+            if not should_refine:
+                return initial_content
         
         # 生成修正版本
         refined_content = self.generate_novel_refinement(chapter_title, chapter_num, initial_content, critique, context_info, user_prompt)

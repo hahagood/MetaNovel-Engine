@@ -256,8 +256,40 @@ class UIUtils:
         console.print(f"\n📈 {progress_text}", style=Colors.HIGHLIGHT)
     
     @staticmethod
+    def display_menu(title: str, options: List[str], default_choice: str = "1") -> str:
+        """
+        显示一个标准化的菜单并返回用户的选择。
+
+        Args:
+            title (str): 菜单标题。
+            options (List[str]): 菜单选项列表。
+            default_choice (str): 默认选项。
+
+        Returns:
+            str: 用户选择的选项的索引（从1开始）。
+        """
+        menu_text = "\n".join([f"  [cyan]{i}.[/cyan] {option}" for i, option in enumerate(options, 1)])
+        
+        panel = Panel(
+            menu_text,
+            title=f"🎯 {title}",
+            title_align="left",
+            border_style="blue",
+            padding=(1, 2)
+        )
+        console.print(panel)
+        
+        choice = Prompt.ask(
+            "请选择操作",
+            choices=[str(i) for i in range(1, len(options) + 1)],
+            default=default_choice
+        )
+        return choice
+
+    @staticmethod
     def print_menu(title: str, options: List[str]):
-        """打印菜单"""
+        """【即将废弃】打印菜单，请改用 display_menu"""
+        UIUtils.print_warning("此 print_menu 方法已过时，请改用 display_menu 以获得更好的交互体验。")
         UIUtils.print_panel(
             "\n".join([f"  {i}. {option}" for i, option in enumerate(options, 1)]),
             title=f"🎯 {title}",

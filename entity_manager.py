@@ -5,7 +5,7 @@ This module provides a generic CRUD interface for managing different entities
 (characters, locations, items) with unified UI logic.
 """
 
-import questionary
+from ui_utils import ui
 from project_data_manager import project_data_manager
 from llm_service import llm_service
 
@@ -84,11 +84,7 @@ class EntityManager:
             # 获取操作选项
             choices = self._get_menu_choices(entities_data)
             
-            action = questionary.select(
-                "请选择您要进行的操作：",
-                choices=choices,
-                use_indicator=True
-            ).ask()
+            action = ui.display_menu("请选择您要进行的操作：", choices)
             
             if action is None:
                 break
@@ -145,7 +141,7 @@ class EntityManager:
         print(f"请输入{self.config.name}信息（可以是名称、JSON格式、或任何描述）")
         print(f"AI会自动理解您的输入并生成标准的{self.config.name}描述。")
         
-        user_input = questionary.text(f"请输入{self.config.name}信息:").ask()
+        user_input = ui.prompt(f"请输入{self.config.name}信息:")
         if not user_input or not user_input.strip():
             print(f"{self.config.name}信息不能为空。\n")
             return
@@ -217,15 +213,11 @@ class EntityManager:
         print("------------------------\n")
         
         # 提供操作选项
-        action = questionary.select(
-            "请选择您要进行的操作：",
-            choices=[
+        action = ui.display_menu("请选择您要进行的操作：", [
                 "1. 接受并保存",
                 "2. 修改后保存",
                 "3. 放弃此次生成"
-            ],
-            use_indicator=True
-        ).ask()
+            ])
 
         if action is None or action.startswith("3."):
             print("已放弃此次生成。\n")
@@ -233,20 +225,20 @@ class EntityManager:
         elif action.startswith("1."):
             # 直接保存
             if self.config.adder_func(entity_name, generated_description):
-                print(f"{self.config.name} '{entity_name}' 已保存。\n")
+                print(f"✅ {self.config.name} '{entity_name}' 已保存。\n")
             else:
                 print(f"保存{self.config.name}时出错。\n")
         elif action.startswith("2."):
             # 修改后保存
-            edited_description = questionary.text(
+            edited_description = ui.prompt(
                 f"请修改{self.config.name}描述:",
                 default=generated_description,
                 multiline=True
-            ).ask()
+            )
 
             if edited_description and edited_description.strip():
                 if self.config.adder_func(entity_name, edited_description):
-                    print(f"{self.config.name} '{entity_name}' 已保存。\n")
+                    print(f"✅ {self.config.name} '{entity_name}' 已保存。\n")
                 else:
                     print(f"保存{self.config.name}时出错。\n")
             else:
@@ -263,11 +255,10 @@ class EntityManager:
         # 添加返回选项
         entity_names.append("返回上级菜单")
         
-        entity_name = questionary.select(
+        entity_name = ui.display_menu(
             f"请选择要查看的{self.config.name}：",
-            choices=entity_names,
-            use_indicator=True
-        ).ask()
+            entity_names
+        )
         
         if entity_name and entity_name != "返回上级菜单":
             entity_info = entities_data[entity_name]
@@ -286,11 +277,10 @@ class EntityManager:
         # 添加返回选项
         entity_names.append("返回上级菜单")
         
-        entity_name = questionary.select(
+        entity_name = ui.display_menu(
             f"请选择要修改的{self.config.name}：",
-            choices=entity_names,
-            use_indicator=True
-        ).ask()
+            entity_names
+        )
         
         if not entity_name or entity_name == "返回上级菜单":
             return
@@ -300,11 +290,11 @@ class EntityManager:
         print(current_description)
         print("------------------------\n")
         
-        edited_description = questionary.text(
+        edited_description = ui.prompt(
             f"请修改{self.config.name}描述:",
             default=current_description,
             multiline=True
-        ).ask()
+        )
         
         if edited_description and edited_description.strip() and edited_description != current_description:
             if self.config.updater_func(entity_name, edited_description):
@@ -327,16 +317,15 @@ class EntityManager:
         # 添加返回选项
         entity_names.append("返回上级菜单")
         
-        entity_name = questionary.select(
+        entity_name = ui.display_menu(
             f"请选择要删除的{self.config.name}：",
-            choices=entity_names,
-            use_indicator=True
-        ).ask()
+            entity_names
+        )
         
         if not entity_name or entity_name == "返回上级菜单":
             return
         
-        confirm = questionary.confirm(f"确定要删除{self.config.name} '{entity_name}' 吗？").ask()
+        confirm = ui.confirm(f"确定要删除{self.config.name} '{entity_name}' 吗？")
         if confirm:
             if self.config.deleter_func(entity_name):
                 print(f"{self.config.name} '{entity_name}' 已删除。\n")

@@ -62,7 +62,7 @@ class ProjectManager:
             with self.config_file.open('r', encoding='utf-8') as f:
                 return json.load(f)
         except (json.JSONDecodeError, IOError) as e:
-            print(f"加载配置文件时出错: {e}")
+            ui.print_error(f"加载配置文件时出错: {e}")
             return {}
     
     def _save_config(self, config: Dict[str, Any]) -> bool:
@@ -72,7 +72,7 @@ class ProjectManager:
                 json.dump(config, f, ensure_ascii=False, indent=4)
             return True
         except IOError as e:
-            print(f"保存配置文件时出错: {e}")
+            ui.print_error(f"保存配置文件时出错: {e}")
             return False
     
     def create_project(self, name: str, display_name: str = "", description: str = "") -> bool:
@@ -89,18 +89,18 @@ class ProjectManager:
         """
         # 验证项目名称
         if not name or not name.strip():
-            print("项目名称不能为空")
+            ui.print_warning("项目名称不能为空")
             return False
         
         # 清理项目名称，去除非法字符
         clean_name = self._clean_project_name(name.strip())
         if not clean_name:
-            print("项目名称包含非法字符")
+            ui.print_warning("项目名称包含非法字符")
             return False
         
         # 检查项目是否已存在
         if self.project_exists(clean_name):
-            print(f"项目 '{clean_name}' 已存在")
+            ui.print_warning(f"项目 '{clean_name}' 已存在")
             return False
         
         # 创建项目目录
@@ -135,11 +135,11 @@ class ProjectManager:
             
             self._save_config(config)
             
-            print(f"✅ 项目 '{display_name or clean_name}' 创建成功")
+            ui.print_success(f"项目 '{display_name or clean_name}' 创建成功")
             return True
             
         except OSError as e:
-            print(f"创建项目目录时出错: {e}")
+            ui.print_error(f"创建项目目录时出错: {e}")
             return False
     
     def _clean_project_name(self, name: str) -> str:
@@ -182,7 +182,7 @@ class ProjectManager:
     def set_active_project(self, name: str) -> bool:
         """设置活动项目"""
         if not self.project_exists(name):
-            print(f"项目 '{name}' 不存在")
+            ui.print_warning(f"项目 '{name}' 不存在")
             return False
         
         config = self._load_config()
@@ -197,7 +197,7 @@ class ProjectManager:
     def delete_project(self, name: str) -> bool:
         """删除项目"""
         if not self.project_exists(name):
-            print(f"项目 '{name}' 不存在")
+            ui.print_warning(f"项目 '{name}' 不存在")
             return False
         
         import shutil
@@ -219,11 +219,11 @@ class ProjectManager:
             
             self._save_config(config)
             
-            print(f"✅ 项目 '{name}' 已删除")
+            ui.print_success(f"✅ 项目 '{name}' 已删除")
             return True
             
         except OSError as e:
-            print(f"删除项目时出错: {e}")
+            ui.print_error(f"删除项目时出错: {e}")
             return False
     
     def get_project_path(self, name: str) -> Optional[Path]:
@@ -257,12 +257,12 @@ class ProjectManager:
     def update_project_info(self, name: str, display_name: str = None, description: str = None) -> bool:
         """更新项目信息"""
         if not self.project_exists(name):
-            print(f"项目 '{name}' 不存在")
+            ui.print_warning(f"项目 '{name}' 不存在")
             return False
         
         config = self._load_config()
         if name not in config["projects"]:
-            print(f"项目配置中未找到 '{name}'")
+            ui.print_warning(f"项目配置中未找到 '{name}'")
             return False
         
         # 更新配置
@@ -280,15 +280,15 @@ class ProjectManager:
             with info_file.open('w', encoding='utf-8') as f:
                 json.dump(project_info, f, ensure_ascii=False, indent=4)
         except OSError as e:
-            print(f"更新项目信息文件时出错: {e}")
+            ui.print_error(f"更新项目信息文件时出错: {e}")
             return False
         
         # 保存全局配置
         if self._save_config(config):
-            print(f"✅ 项目 '{display_name or name}' 信息已更新")
+            ui.print_success(f"✅ 项目 '{display_name or name}' 信息已更新")
             return True
         else:
-            print("❌ 保存配置时出错")
+            ui.print_error("❌ 保存配置时出错")
             return False
 
 # 全局项目管理器实例

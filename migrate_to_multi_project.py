@@ -63,53 +63,55 @@ def get_legacy_project_name():
 
 def migrate_legacy_data():
     """迁移旧版本数据到多项目模式"""
-    print("🔄 检查是否存在旧版本数据...")
+    ui.print_info("🔄 检查是否存在旧版本数据...")
     
     has_legacy, legacy_files, legacy_meta_dir, legacy_backup_dir = check_legacy_data()
     
     if not has_legacy:
-        print("✅ 未发现旧版本数据，无需迁移")
+        ui.print_success("✅ 未发现旧版本数据，无需迁移")
         return True
     
-    print(f"📁 发现旧版本数据文件 {len(legacy_files)} 个:")
+    ui.print_info(f"📁 发现旧版本数据文件 {len(legacy_files)} 个:")
     for file_path in legacy_files:
-        print(f"   - {file_path}")
+        ui.print_info(f"   - {file_path}")
     
     # 获取项目名称
     project_name = get_legacy_project_name()
-    print(f"\n📝 检测到的项目名称: {project_name}")
+    ui.print_info(f"
+📝 检测到的项目名称: {project_name}")
     
     # 询问用户是否进行迁移
-    import questionary
-    if not questionary.confirm(
+    from ui_utils import ui
+    if not ui.confirm(
         f"是否将现有数据迁移到新项目 '{project_name}' 中？",
         default=True
-    ).ask():
-        print("⏹️ 用户取消迁移")
+    ):
+        ui.print_warning("⏹️ 用户取消迁移")
         return False
     
     # 允许用户修改项目名称
-    final_name = questionary.text(
+    final_name = ui.prompt(
         "请确认项目名称（或修改）:",
         default=project_name
-    ).ask()
+    )
     
     if not final_name or not final_name.strip():
-        print("❌ 项目名称不能为空")
+        ui.print_error("❌ 项目名称不能为空")
         return False
     
     final_name = final_name.strip()
     
     # 创建新项目
-    print(f"\n🏗️ 创建新项目: {final_name}")
+    ui.print_info(f"
+🏗️ 创建新项目: {final_name}")
     if not project_manager.create_project(final_name, final_name, "从旧版本迁移的项目"):
-        print("❌ 创建项目失败")
+        ui.print_error("❌ 创建项目失败")
         return False
     
     # 获取项目路径
     project_path = project_manager.get_project_path(final_name)
     if not project_path:
-        print("❌ 获取项目路径失败")
+        ui.print_error("❌ 获取项目路径失败")
         return False
     
     target_meta_dir = project_path / "meta"
@@ -117,69 +119,70 @@ def migrate_legacy_data():
     
     try:
         # 迁移数据文件
-        print("📂 迁移数据文件...")
+        ui.print_info("📂 迁移数据文件...")
         if legacy_meta_dir.exists():
             for item in legacy_meta_dir.iterdir():
                 if item.is_file():
                     target_file = target_meta_dir / item.name
                     shutil.copy2(item, target_file)
-                    print(f"   ✅ 已迁移: {item.name}")
+                    ui.print_success(f"   ✅ 已迁移: {item.name}")
         
         # 迁移备份文件
         if legacy_backup_dir.exists() and legacy_backup_dir.is_dir():
-            print("📂 迁移备份文件...")
+            ui.print_info("📂 迁移备份文件...")
             for item in legacy_backup_dir.iterdir():
                 if item.is_file():
                     target_file = target_backup_dir / item.name
                     shutil.copy2(item, target_file)
-                    print(f"   ✅ 已迁移备份: {item.name}")
+                    ui.print_success(f"   ✅ 已迁移备份: {item.name}")
         
         # 设置为活动项目
         project_manager.set_active_project(final_name)
         
-        print(f"\n✅ 数据迁移完成！项目 '{final_name}' 已设为活动项目")
+        ui.print_success(f"
+✅ 数据迁移完成！项目 '{final_name}' 已设为活动项目")
         
         # 询问是否删除旧数据
-        if questionary.confirm(
+        if ui.confirm(
             "是否删除原始的旧版本数据目录？（建议保留作为备份）",
             default=False
-        ).ask():
-            print("🗑️ 删除旧版本数据...")
+        ):
+            ui.print_info("🗑️ 删除旧版本数据...")
             if legacy_meta_dir.exists():
                 shutil.rmtree(legacy_meta_dir)
-                print("   ✅ 已删除旧版本 meta 目录")
+                ui.print_success("   ✅ 已删除旧版本 meta 目录")
             
             if legacy_backup_dir.exists():
                 shutil.rmtree(legacy_backup_dir)
-                print("   ✅ 已删除旧版本 meta_backup 目录")
+                ui.print_success("   ✅ 已删除旧版本 meta_backup 目录")
         else:
-            print("📁 旧版本数据已保留，您可以稍后手动删除")
+            ui.print_info("📁 旧版本数据已保留，您可以稍后手动删除")
         
         return True
         
     except Exception as e:
-        print(f"❌ 迁移过程中出现错误: {e}")
+        ui.print_error(f"❌ 迁移过程中出现错误: {e}")
         import traceback
         traceback.print_exc()
         return False
 
 def main():
     """主函数"""
-    print("🚀 MetaNovel-Engine 数据迁移工具")
-    print("=" * 50)
+    ui.print_info("🚀 MetaNovel-Engine 数据迁移工具")
+    ui.print_info("=" * 50)
     
     try:
         if migrate_legacy_data():
-            print("\n🎉 迁移成功完成！")
-            print("现在您可以使用 python meta_novel_cli.py 启动程序")
-            print("程序将自动运行在多项目模式下")
+            ui.print_success("\n🎉 迁移成功完成！")
+            ui.print_info("现在您可以使用 python meta_novel_cli.py 启动程序")
+            ui.print_info("程序将自动运行在多项目模式下")
         else:
-            print("\n⚠️ 迁移未完成")
+            ui.print_warning("\n⚠️ 迁移未完成")
     
     except KeyboardInterrupt:
-        print("\n\n⏹️ 用户中断操作")
+        ui.print_warning("\n\n⏹️ 用户中断操作")
     except Exception as e:
-        print(f"\n💥 迁移过程中出现异常: {e}")
+        ui.print_error(f"\n💥 迁移过程中出现异常: {e}")
         import traceback
         traceback.print_exc()
 

@@ -5,7 +5,7 @@ from config import setup_proxy
 setup_proxy()  # 必须在导入网络库之前设置代理
 # ----------------------------------------------------
 
-import questionary
+
 import json
 import re
 import datetime
@@ -51,38 +51,32 @@ def handle_theme_one_line():
         current_theme = ""
     
     # 显示当前状态
-    print(f"\n--- 当前状态 ---")
-    print(f"小说名称: {current_novel_name}")
+    ui.print_info(f"\n--- 当前状态 ---")
+    ui.print_info(f"小说名称: {current_novel_name}")
     if current_theme:
-        print(f"一句话主题: {current_theme}")
+        ui.print_info(f"一句话主题: {current_theme}")
     else:
-        print("一句话主题: (尚未设置)")
-    print("------------------\n")
+        ui.print_info("一句话主题: (尚未设置)")
+    ui.print_info("------------------\n")
     
     # 提供操作选项
-    action = questionary.select(
-        "请选择您要进行的操作：",
-        choices=[
-            "1. 设置小说名称",
-            "2. 设置一句话主题",
-            "3. 同时设置名称和主题",
-            "4. 返回主菜单"
-        ],
-        use_indicator=True
-    ).ask()
+    menu_options = [
+        "设置小说名称",
+        "设置一句话主题",
+        "同时设置名称和主题",
+        "返回主菜单"
+    ]
+    action = ui.display_menu("请选择您要进行的操作：", menu_options)
     
-    if action is None or action.startswith("4."):
-        print("返回主菜单。\n")
+    if action is None or action == "4":
+        ui.print_info("返回主菜单。\n")
         return
-    elif action.startswith("1."):
+    elif action == "1":
         # 只设置小说名称
         set_novel_name()
-    elif action.startswith("2."):
+    elif action == "2":
         # 只设置一句话主题
-        new_theme = questionary.text(
-            "请输入您的一句话主题:",
-            default=current_theme
-        ).ask()
+        new_theme = ui.prompt("请输入您的一句话主题:", default=current_theme)
         
         if new_theme is not None and new_theme.strip():
             # 保存主题，保持现有的小说名称
@@ -91,41 +85,35 @@ def handle_theme_one_line():
                 "theme": new_theme.strip()
             }
             if get_data_manager().write_theme_one_line(new_data):
-                print(f"✅ 主题已更新为: {new_theme}\n")
+                ui.print_success(f"✅ 主题已更新为: {new_theme}\n")
             else:
-                print("❌ 保存主题时出错。\n")
+                ui.print_error("❌ 保存主题时出错。\n")
         elif new_theme is None:
-            print("操作已取消。\n")
+            ui.print_warning("操作已取消。\n")
         else:
-            print("主题不能为空。\n")
-    elif action.startswith("3."):
+            ui.print_warning("主题不能为空。\n")
+    elif action == "3":
         # 同时设置名称和主题
-        new_novel_name = questionary.text(
-            "请输入小说名称:",
-            default=current_novel_name if current_novel_name != "未命名小说" else ""
-        ).ask()
+        new_novel_name = ui.prompt("请输入小说名称:", default=current_novel_name if current_novel_name != "未命名小说" else "")
         
         if new_novel_name is None:
-            print("操作已取消。\n")
+            ui.print_warning("操作已取消。\n")
             return
         
         new_novel_name = new_novel_name.strip()
         if not new_novel_name:
-            print("小说名称不能为空。\n")
+            ui.print_warning("小说名称不能为空。\n")
             return
         
-        new_theme = questionary.text(
-            "请输入您的一句话主题:",
-            default=current_theme
-        ).ask()
+        new_theme = ui.prompt("请输入您的一句话主题:", default=current_theme)
         
         if new_theme is None:
-            print("操作已取消。\n")
+            ui.print_warning("操作已取消。\n")
             return
         
         new_theme = new_theme.strip()
         if not new_theme:
-            print("主题不能为空。\n")
+            ui.print_warning("主题不能为空。\n")
             return
         
         # 保存名称和主题
@@ -134,10 +122,10 @@ def handle_theme_one_line():
             "theme": new_theme
         }
         if get_data_manager().write_theme_one_line(new_data):
-            print(f"✅ 小说名称已设置为: {new_novel_name}")
-            print(f"✅ 主题已设置为: {new_theme}\n")
+            ui.print_success(f"✅ 小说名称已设置为: {new_novel_name}")
+            ui.print_success(f"✅ 主题已设置为: {new_theme}\n")
         else:
-            print("❌ 保存时出错。\n")
+            ui.print_error("❌ 保存时出错.\n")
 
 
 def handle_theme_paragraph():
@@ -147,7 +135,7 @@ def handle_theme_paragraph():
     # 首先检查一句话主题是否存在
     one_line_data = get_data_manager().read_theme_one_line()
     if not one_line_data:
-        print("\n请先使用选项 [1] 确立一句话主题。")
+        ui.print_warning("\n请先使用选项 [1] 确立一句话主题。")
         return
     
     # 获取实际的主题内容
@@ -159,7 +147,7 @@ def handle_theme_paragraph():
         one_line_theme = ""
     
     if not one_line_theme.strip():
-        print("\n请先使用选项 [1] 确立一句话主题。")
+        ui.print_warning("\n请先使用选项 [1] 确立一句话主题。")
         return
 
     # 检查是否已有段落主题
@@ -167,72 +155,39 @@ def handle_theme_paragraph():
 
     if existing_paragraph:
         # 如果已有段落主题，显示并提供操作选项
-        print("\n--- 当前段落主题 ---")
-        print(existing_paragraph)
-        print("------------------------\n")
+        ui.print_info("\n--- 当前段落主题 ---")
+        ui.print_info(existing_paragraph)
+        ui.print_info("------------------------\n")
 
-        action = questionary.select(
-            "请选择您要进行的操作：",
-            choices=[
-                "1. 查看当前内容（已显示）",
-                "2. 修改当前内容",
-                "3. 重新生成内容",
-                "4. 返回主菜单"
-            ],
-            use_indicator=True
-        ).ask()
+        action = ui.display_menu("请选择您要进行的操作：", [
+            "查看当前内容（已显示）",
+            "修改当前内容",
+            "重新生成内容",
+            "返回主菜单"
+        ])
 
-        if action is None or action.startswith("4."):
-            print("返回主菜单。\n")
-            return
-        elif action.startswith("1."):
-            print("当前内容已在上方显示。\n")
-            return
-        elif action.startswith("2."):
-            edited_paragraph = questionary.text(
-                "请修改您的段落主题:",
-                default=existing_paragraph,
-                multiline=True
-            ).ask()
-            if edited_paragraph and edited_paragraph.strip() and edited_paragraph != existing_paragraph:
-                if get_data_manager().write_theme_paragraph(edited_paragraph):
-                    print("段落主题已更新。\n")
-                else:
-                    print("保存段落主题时出错。\n")
-            elif edited_paragraph is None:
-                print("操作已取消。\n")
-            else:
-                print("内容未更改。\n")
-            return
-        elif action.startswith("3."):
-            # 继续执行重新生成逻辑
-            print("\n正在重新生成段落主题...")
-        else:
-            return
+        if action is None or action == "4":            ui.print_info("返回主菜单。\n")            return        elif action == "1":            ui.print_info("当前内容已在上方显示。\n")            return        elif action == "2":            edited_paragraph = ui.prompt("请修改您的段落主题:", default=existing_paragraph)            if edited_paragraph and edited_paragraph.strip() and edited_paragraph != existing_paragraph:                if get_data_manager().write_theme_paragraph(edited_paragraph):                    ui.print_success("段落主题已更新.\n")                else:                    ui.print_error("保存段落主题时出错.\n")            elif edited_paragraph is None:                ui.print_warning("操作已取消.\n")            else:                ui.print_warning("内容未更改.\n")            return        elif action == "3":            # 继续执行重新生成逻辑            ui.print_info("\n正在重新生成段落主题...")        else:            return
 
     # 生成新的段落主题（无论是首次生成还是重新生成）
     if not one_line_theme.strip():
-        print("\n一句话主题为空，请先使用选项 [1] 确立主题。")
+        ui.print_warning("\n一句话主题为空，请先使用选项 [1] 确立主题。")
         return
             
-    print(f'\n基于主题 "{one_line_theme}" 进行扩展...')
+    ui.print_info(f'\n基于主题 "{one_line_theme}" 进行扩展...')
 
     # 获取用户自定义提示词
-    print("您可以输入额外的要求或指导来影响AI生成的内容。")
-    user_prompt = questionary.text(
-        "请输入您的额外要求或指导（直接回车跳过）:",
-        default=""
-    ).ask()
+    ui.print_info("您可以输入额外的要求或指导来影响AI生成的内容。")
+    user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）", default="")
 
     if user_prompt is None:
-        print("操作已取消。\n")
+        ui.print_warning("操作已取消。\n")
         return
     
     # 如果用户不想继续，提供确认选项
     if not user_prompt.strip():
-        confirm = questionary.confirm("确定要继续生成段落主题吗？").ask()
+        confirm = ui.confirm("确定要继续生成段落主题吗？")
         if not confirm:
-            print("操作已取消。\n")
+            ui.print_warning("操作已取消。\n")
             return
 
     if not llm_service.is_available():
@@ -242,52 +197,38 @@ def handle_theme_paragraph():
     if user_prompt.strip():
         print(f"用户指导：{user_prompt.strip()}")
     
-    print("正在调用 AI 生成段落主题，请稍候...")
+    ui.print_info("正在调用 AI 生成段落主题，请稍候...")
     generated_paragraph = llm_service.generate_theme_paragraph(one_line_theme, user_prompt)
     
     if not generated_paragraph:
-        print("AI生成失败，请稍后重试。")
+        ui.print_error("AI生成失败，请稍后重试。")
         return
 
-    print("\n--- AI 生成的段落主题 ---")
-    print(generated_paragraph)
-    print("------------------------\n")
+    ui.print_info("\n--- AI 生成的段落主题 ---")
+    ui.print_info(generated_paragraph)
+    ui.print_info("------------------------\n")
     
     # 提供更清晰的操作选项
-    action = questionary.select(
-        "请选择您要进行的操作：",
-        choices=[
-            "1. 接受并保存",
-            "2. 修改后保存", 
-            "3. 放弃此次生成"
-        ],
-        use_indicator=True
-    ).ask()
+    action = ui.display_menu("请选择您要进行的操作：", [
+        "接受并保存",
+        "修改后保存", 
+        "放弃此次生成"
+    ])
 
-    if action is None or action.startswith("3."):
+    if action is None or action == "3":
         print("已放弃此次生成。\n")
         return
-    elif action.startswith("1."):
+    elif action == "1":
         # 直接保存
         if get_data_manager().write_theme_paragraph(generated_paragraph):
-            print("段落主题已保存。\n")
+            ui.print_success("段落主题已保存。\n")
         else:
-            print("保存段落主题时出错。\n")
-    elif action.startswith("2."):
+            ui.print_error("保存段落主题时出错。\n")
+    elif action == "2":
         # 修改后保存
-        edited_paragraph = questionary.text(
-            "请修改您的段落主题:",
-            default=generated_paragraph,
-            multiline=True
-        ).ask()
+        edited_paragraph = ui.prompt("请修改您的段落主题:", default=generated_paragraph)
 
-        if edited_paragraph and edited_paragraph.strip():
-            if get_data_manager().write_theme_paragraph(edited_paragraph):
-                print("段落主题已保存。\n")
-            else:
-                print("保存段落主题时出错。\n")
-        else:
-            print("操作已取消或内容为空，未保存。\n")
+        if edited_paragraph and edited_paragraph.strip():            if get_data_manager().write_theme_paragraph(edited_paragraph):                ui.print_success("段落主题已保存.\n")            else:                ui.print_error("保存段落主题时出错.\n")        else:            ui.print_warning("操作已取消或内容为空，未保存.\n")
 
 
 def handle_world_setting():
@@ -298,33 +239,29 @@ def handle_world_setting():
     one_line_exists, paragraph_exists = get_data_manager().check_prerequisites_for_world_setting()
     
     if not one_line_exists or not paragraph_exists:
-        print("\n请先完成前面的步骤：")
+        ui.print_warning("\n请先完成前面的步骤：")
         if not one_line_exists:
-            print("- 步骤1: 确立一句话主题")
+            ui.print_warning("- 步骤1: 确立一句话主题")
         if not paragraph_exists:
-            print("- 步骤2: 扩展成一段话主题")
-        print("\n世界设定需要基于明确的主题来创建角色、场景和道具。\n")
+            ui.print_warning("- 步骤2: 扩展成一段话主题")
+        ui.print_warning("\n世界设定需要基于明确的主题来创建角色、场景和道具。\n")
         return
     
     while True:
-        choice = questionary.select(
-            "请选择要管理的世界设定类型：",
-            choices=[
-                "1. 角色管理",
-                "2. 场景管理",
-                "3. 道具管理",
-                "4. 返回主菜单"
-            ],
-            use_indicator=True
-        ).ask()
+        choice = ui.display_menu("请选择要管理的世界设定类型：", [
+            "角色管理",
+            "场景管理",
+            "道具管理",
+            "返回主菜单"
+        ])
         
-        if choice is None or choice.startswith("4."):
+        if choice is None or choice == "4":
             break
-        elif choice.startswith("1."):
+        elif choice == "1":
             handle_characters()
-        elif choice.startswith("2."):
+        elif choice == "2":
             handle_locations()
-        elif choice.startswith("3."):
+        elif choice == "3":
             handle_items()
 
 
@@ -350,12 +287,12 @@ def handle_story_outline():
     one_line_exists, paragraph_exists = get_data_manager().check_prerequisites_for_story_outline()
     
     if not one_line_exists or not paragraph_exists:
-        print("\n请先完成前面的步骤：")
+        ui.print_warning("\n请先完成前面的步骤：")
         if not one_line_exists:
-            print("- 步骤1: 确立一句话主题")
+            ui.print_warning("- 步骤1: 确立一句话主题")
         if not paragraph_exists:
-            print("- 步骤2: 扩展成一段话主题")
-        print()
+            ui.print_warning("- 步骤2: 扩展成一段话主题")
+        ui.print_warning()
         return
     
     while True:
@@ -364,44 +301,22 @@ def handle_story_outline():
         
         # 显示当前大纲状态
         if current_outline:
-            print("\n--- 当前故事大纲 ---")
+            ui.print_info("\n--- 当前故事大纲 ---")
             # 显示前200字符作为预览
             preview = current_outline[:200] + "..." if len(current_outline) > 200 else current_outline
-            print(preview)
-            print("------------------------\n")
+            ui.print_info(preview)
+            ui.print_info("------------------------\n")
             
-            action = questionary.select(
-                "请选择您要进行的操作：",
-                choices=[
-                    "1. 查看完整大纲",
-                    "2. 修改当前大纲",
-                    "3. 重新生成大纲",
-                    "4. 返回主菜单"
-                ],
-                use_indicator=True
-            ).ask()
+            action = ui.display_menu("请选择您要进行的操作：", [
+                "查看完整大纲",
+                "修改当前大纲",
+                "重新生成大纲",
+                "返回主菜单"
+            ])
             
-            if action is None or action.startswith("4."):
-                break
-            elif action.startswith("1."):
-                print("\n--- 完整故事大纲 ---")
-                print(current_outline)
-                print("------------------------\n")
-                
-                # 等待用户确认后继续循环
-                questionary.press_any_key_to_continue("按任意键继续...").ask()
-                continue
-            elif action.startswith("2."):
-                edit_outline()
-                continue
-            elif action.startswith("3."):
-                print("\n正在重新生成故事大纲...")
-                generate_story_outline()
-                continue
-            else:
-                break
+            if action is None or action == "4":                break            elif action == "1":                ui.print_info("\n--- 完整故事大纲 ---")                ui.print_info(current_outline)                ui.print_info("------------------------\n")                                # 等待用户确认后继续循环                ui.prompt("按任意键继续...")                continue            elif action == "2":                edit_outline()                continue            elif action == "3":                ui.print_info("\n正在重新生成故事大纲...")                generate_story_outline()                continue            else:                break
         else:
-            print("\n当前没有故事大纲，让我们来生成一个。\n")
+            ui.print_info("\n当前没有故事大纲，让我们来生成一个。\n")
             # 生成新的故事大纲
             generate_story_outline()
             break
@@ -423,99 +338,65 @@ def generate_story_outline():
     # 读取角色信息（如果有的话）
     characters_info = get_data_manager().get_characters_info_string()
     
-    print(f"基于主题和角色信息生成故事大纲...")
+    ui.print_info(f"基于主题和角色信息生成故事大纲...")
     
     # 获取用户自定义提示词
-    print("您可以输入额外的要求或指导来影响AI生成故事大纲。")
-    user_prompt = questionary.text(
-        "请输入您的额外要求或指导（直接回车跳过）:",
-        default=""
-    ).ask()
+    ui.print_info("您可以输入额外的要求或指导来影响AI生成故事大纲。")
+    user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）", default="")
 
     if user_prompt is None:
-        print("操作已取消。\n")
+        ui.print_warning("操作已取消。\n")
         return
     
     # 如果用户不想继续，提供确认选项
     if not user_prompt.strip():
-        confirm = questionary.confirm("确定要继续生成故事大纲吗？").ask()
+        confirm = ui.confirm("确定要继续生成故事大纲吗？")
         if not confirm:
-            print("操作已取消。\n")
+            ui.print_warning("操作已取消。\n")
             return
 
     if user_prompt.strip():
-        print(f"用户指导：{user_prompt.strip()}")
+        ui.print_info(f"用户指导：{user_prompt.strip()}")
     
-    print("正在调用 AI 生成故事大纲，请稍候...")
+    ui.print_info("正在调用 AI 生成故事大纲，请稍候...")
     generated_outline = llm_service.generate_story_outline(one_line_theme, paragraph_theme, characters_info, user_prompt)
     
     if not generated_outline:
-        print("AI生成失败，请稍后重试。")
+        ui.print_error("AI生成失败，请稍后重试。")
         return
 
-    print("\n--- AI 生成的故事大纲 ---")
-    print(generated_outline)
-    print("------------------------\n")
+    ui.print_info("\n--- AI 生成的故事大纲 ---")
+    ui.print_info(generated_outline)
+    ui.print_info("------------------------\n")
     
     # 提供操作选项
-    action = questionary.select(
-        "请选择您要进行的操作：",
-        choices=[
-            "1. 接受并保存",
-            "2. 修改后保存", 
-            "3. 放弃此次生成"
-        ],
-        use_indicator=True
-    ).ask()
+    action = ui.display_menu("请选择您要进行的操作：", [
+        "接受并保存",
+        "修改后保存", 
+        "放弃此次生成"
+    ])
 
-    if action is None or action.startswith("3."):
-        print("已放弃此次生成。\n")
-        return
-    elif action.startswith("1."):
-        # 直接保存
-        if get_data_manager().write_story_outline(generated_outline):
-            print("故事大纲已保存。\n")
-        else:
-            print("保存故事大纲时出错。\n")
-    elif action.startswith("2."):
-        # 修改后保存
-        edited_outline = questionary.text(
-            "请修改故事大纲:",
-            default=generated_outline,
-            multiline=True
-        ).ask()
-
-        if edited_outline and edited_outline.strip():
-            if get_data_manager().write_story_outline(edited_outline):
-                print("故事大纲已保存。\n")
-            else:
-                print("保存故事大纲时出错。\n")
-        else:
-            print("操作已取消或内容为空，未保存。\n")
+    if action is None or action == "3":        ui.print_warning("已放弃此次生成。\n")        return    elif action == "1":        # 直接保存        if get_data_manager().write_story_outline(generated_outline):            ui.print_success("故事大纲已保存。\n")        else:            ui.print_error("保存故事大纲时出错。\n")    elif action == "2":        # 修改后保存        edited_outline = ui.prompt("请修改故事大纲:", default=generated_outline)        if edited_outline and edited_outline.strip():            if get_data_manager().write_story_outline(edited_outline):                ui.print_success("故事大纲已保存.\n")            else:                ui.print_error("保存故事大纲时出错.\n")        else:            ui.print_warning("操作已取消或内容为空，未保存.\n")
 
 
 def edit_outline():
     """Edit existing story outline."""
     current_outline = get_data_manager().read_story_outline()
-    print("\n--- 当前故事大纲 ---")
-    print(current_outline)
-    print("------------------------\n")
+    ui.print_info("\n--- 当前故事大纲 ---")
+    ui.print_info(current_outline)
+    ui.print_info("------------------------\n")
     
-    edited_outline = questionary.text(
-        "请修改故事大纲:",
-        default=current_outline,
-        multiline=True
-    ).ask()
+    edited_outline = ui.prompt("请修改故事大纲:", default=current_outline)
     
     if edited_outline and edited_outline.strip() and edited_outline != current_outline:
         if get_data_manager().write_story_outline(edited_outline):
-            print("故事大纲已更新。\n")
+            ui.print_success("故事大纲已更新。\n")
         else:
-            print("更新故事大纲时出错。\n")
+            ui.print_error("更新故事大纲时出错。\n")
     elif edited_outline is None:
-        print("操作已取消。\n")
+        ui.print_warning("操作已取消。\n")
     else:
-        print("内容未更改。\n")
+        ui.print_warning("内容未更改。\n")
 
 
 def handle_chapter_outline():
@@ -526,7 +407,7 @@ def handle_chapter_outline():
     story_outline_exists = get_data_manager().check_prerequisites_for_chapter_outline()
     
     if not story_outline_exists:
-        print("\n请先完成步骤4: 编辑故事大纲\n")
+        ui.print_warning("\n请先完成步骤4: 编辑故事大纲\n")
         return
     
     while True:
@@ -535,60 +416,56 @@ def handle_chapter_outline():
         
         # 显示当前章节列表
         if chapters:
-            print("\n--- 当前分章细纲 ---")
+            ui.print_info("\n--- 当前分章细纲 ---")
             for i, chapter in enumerate(chapters, 1):
                 title = chapter.get('title', f'第{i}章')
                 outline = chapter.get('outline', '无大纲')
                 preview = outline[:50] + "..." if len(outline) > 50 else outline
-                print(f"{i}. {title}: {preview}")
-            print("------------------------\n")
+                ui.print_info(f"{i}. {title}: {preview}")
+            ui.print_info("------------------------\n")
         else:
-            print("\n当前没有分章细纲。\n")
+            ui.print_info("\n当前没有分章细纲。\n")
         
         # 操作选项
         choices = [
-            "1. 生成分章细纲",
-            "2. 添加新章节",
-            "3. 查看章节详情",
-            "4. 修改章节信息", 
-            "5. 删除章节",
-            "6. 返回主菜单"
+            "生成分章细纲",
+            "添加新章节",
+            "查看章节详情",
+            "修改章节信息", 
+            "删除章节",
+            "返回主菜单"
         ]
         
         if not chapters:
             # 如果没有章节，只显示生成和返回选项
             choices = [
-                "1. 生成分章细纲",
-                "2. 返回主菜单"
+                "生成分章细纲",
+                "返回主菜单"
             ]
         
-        action = questionary.select(
-            "请选择您要进行的操作：",
-            choices=choices,
-            use_indicator=True
-        ).ask()
+        action = ui.display_menu("请选择您要进行的操作：", choices)
         
         if action is None:
             break
-        elif action.startswith("1."):
+        elif action == "1":
             # 生成分章细纲
             generate_chapter_outline()
-        elif action.startswith("2.") and chapters:
+        elif action == "2" and chapters:
             # 添加新章节
             add_chapter()
-        elif action.startswith("2.") and not chapters:
+        elif action == "2" and not chapters:
             # 返回主菜单（当没有章节时）
             break
-        elif action.startswith("3."):
+        elif action == "3":
             # 查看章节详情
             view_chapter()
-        elif action.startswith("4."):
+        elif action == "4":
             # 修改章节信息
             edit_chapter()
-        elif action.startswith("5."):
+        elif action == "5":
             # 删除章节
             delete_chapter()
-        elif action.startswith("6.") or action.startswith("2."):
+        elif action == "6" or action == "2":
             # 返回主菜单
             break
 
@@ -607,112 +484,103 @@ def generate_chapter_outline():
         
     characters_info = get_data_manager().get_characters_info_string()
     
-    print("基于故事大纲生成分章细纲...")
+    ui.print_info("基于故事大纲生成分章细纲...")
     
     # 获取用户自定义提示词
-    print("您可以输入额外的要求或指导来影响AI生成分章细纲。")
-    user_prompt = questionary.text(
-        "请输入您的额外要求或指导（直接回车跳过）:",
-        default=""
-    ).ask()
+    ui.print_info("您可以输入额外的要求或指导来影响AI生成分章细纲。")
+    user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）", default="")
 
     if user_prompt is None:
-        print("操作已取消。\n")
+        ui.print_warning("操作已取消.\n")
         return
     
     # 如果用户不想继续，提供确认选项
-    if not user_prompt.strip():
-        confirm = questionary.confirm("确定要继续生成分章细纲吗？").ask()
-        if not confirm:
-            print("操作已取消。\n")
-            return
+    if not user_prompt.strip():        confirm = ui.confirm("确定要继续生成分章细纲吗？")        if not confirm:            ui.print_warning("操作已取消。
+")            return
 
     if user_prompt.strip():
-        print(f"用户指导：{user_prompt.strip()}")
+        ui.print_info(f"用户指导：{user_prompt.strip()}")
     
-    print("正在调用 AI 生成分章细纲，请稍候...")
+    ui.print_info("正在调用 AI 生成分章细纲，请稍候...")
     chapter_outline_data = llm_service.generate_chapter_outline(one_line_theme, story_outline, characters_info, user_prompt)
     
     if not chapter_outline_data:
-        print("AI生成失败，请稍后重试。")
+        ui.print_error("AI生成失败，请稍后重试。")
         return
 
     # 显示生成的章节
-    print("\n--- AI 生成的分章细纲 ---")
+    ui.print_info("\n--- AI 生成的分章细纲 ---")
     
     # 处理不同的返回格式
     if isinstance(chapter_outline_data, dict):
         chapters = chapter_outline_data.get('chapters', [])
         if not chapters:
             # 如果没有chapters字段，可能是直接返回的章节列表或其他格式
-            print("JSON解析结果：")
-            print(chapter_outline_data)
+            ui.print_info("JSON解析结果：")
+            ui.print_info(chapter_outline_data)
         else:
             for i, chapter in enumerate(chapters, 1):
-                print(f"\n第{i}章: {chapter.get('title', '无标题')}")
-                print(f"大纲: {chapter.get('outline', '无大纲')}")
+                ui.print_info(f"
+第{i}章: {chapter.get('title', '无标题')}")
+                ui.print_info(f"大纲: {chapter.get('outline', '无大纲')}")
     else:
         # 如果不是字典格式，直接显示原始内容
-        print("AI返回的原始内容：")
-        print(chapter_outline_data)
+        ui.print_info("AI返回的原始内容：")
+        ui.print_info(chapter_outline_data)
     
-    print("------------------------\n")
+    ui.print_info("------------------------\n")
     
     # 提供操作选项
-    action = questionary.select(
-        "请选择您要进行的操作：",
-        choices=[
-            "1. 接受并保存",
-            "2. 修改后保存", 
-            "3. 放弃此次生成"
-        ],
-        use_indicator=True
-    ).ask()
+    action = ui.display_menu("请选择您要进行的操作：", [
+        "接受并保存",
+        "修改后保存", 
+        "放弃此次生成"
+    ])
 
-    if action is None or action.startswith("3."):
-        print("已放弃此次生成。\n")
+    if action is None or action == "3":
+        ui.print_warning("已放弃此次生成.\n")
         return
-    elif action.startswith("1."):
+    elif action == "1":
         # 直接保存
         if isinstance(chapter_outline_data, dict):
             chapters_list = chapter_outline_data.get('chapters', [])
             if chapters_list:
                 if get_data_manager().write_chapter_outline(chapters_list):
-                    print("分章细纲已保存。\n")
+                    ui.print_success("分章细纲已保存.\n")
                 else:
-                    print("保存分章细纲时出错。\n")
+                    ui.print_error("保存分章细纲时出错.\n")
             else:
-                print("生成的数据格式不正确，无法保存。请检查AI返回的内容格式。\n")
+                ui.print_warning("生成的数据格式不正确，无法保存。请检查AI返回的内容格式.\n")
         else:
-            print("生成的数据不是预期的JSON格式，无法直接保存。请选择修改后保存。\n")
-    elif action.startswith("2."):
+            ui.print_warning("生成的数据不是预期的JSON格式，无法直接保存。请选择修改后保存。\n")
+    elif action == "2":
         # 修改后保存
         if isinstance(chapter_outline_data, dict):
             chapters = chapter_outline_data.get('chapters', [])
             if not chapters:
-                print("无有效的章节数据可以修改。\n")
+                ui.print_warning("无有效的章节数据可以修改。\n")
                 return
         else:
-            print("由于数据格式问题，请手动输入章节信息：\n")
+            ui.print_warning("由于数据格式问题，请手动输入章节信息：\n")
             chapters = []
             
         # 让用户逐个确认或修改章节
-        print("请逐个确认或修改每个章节：\n")
+        ui.print_info("请逐个确认或修改每个章节：\n")
         modified_chapters = []
         
         if chapters:
             for i, chapter in enumerate(chapters, 1):
-                print(f"--- 第{i}章 ---")
-                print(f"当前标题: {chapter.get('title', '无标题')}")
-                print(f"当前大纲: {chapter.get('outline', '无大纲')}")
+                ui.print_info(f"--- 第{i}章 ---")
+            ui.print_info(f"当前标题: {chapter.get('title', '无标题')}")
+            ui.print_info(f"当前大纲: {chapter.get('outline', '无大纲')}")
                 
-                keep_chapter = questionary.confirm(f"保留第{i}章吗？").ask()
+                keep_chapter = ui.confirm(f"保留第{i}章吗？")
                 if keep_chapter:
                     # 可以选择修改标题和大纲
-                    modify = questionary.confirm("需要修改这一章吗？").ask()
+                    modify = ui.confirm("需要修改这一章吗？")
                     if modify:
-                        new_title = questionary.text("章节标题:", default=chapter.get('title', '')).ask()
-                        new_outline = questionary.text("章节大纲:", default=chapter.get('outline', ''), multiline=True).ask()
+                        new_title = ui.prompt("章节标题:", default=chapter.get('title', ''))
+                        new_outline = ui.prompt("章节大纲:", default=chapter.get('outline', ''))
                         if new_title is not None and new_outline is not None:
                             modified_chapters.append({"title": new_title, "outline": new_outline})
                         else:
@@ -722,15 +590,15 @@ def generate_chapter_outline():
         else:
             # 手动创建章节
             while True:
-                add_chapter = questionary.confirm("添加一个章节吗？").ask()
+                add_chapter = ui.confirm("添加一个章节吗？")
                 if not add_chapter:
                     break
                     
-                title = questionary.text("章节标题:").ask()
+                title = ui.prompt("章节标题:")
                 if not title:
                     continue
                     
-                outline = questionary.text("章节大纲:", multiline=True).ask()
+                outline = ui.prompt("章节大纲:")
                 if outline is None:
                     continue
                     
@@ -738,139 +606,63 @@ def generate_chapter_outline():
         
         if modified_chapters:
             if get_data_manager().write_chapter_outline(modified_chapters):
-                print("分章细纲已保存。\n")
+                ui.print_success("分章细纲已保存.\n")
             else:
-                print("保存分章细纲时出错。\n")
+                ui.print_error("保存分章细纲时出错.\n")
         else:
-            print("未保存任何章节。\n")
+            ui.print_warning("未保存任何章节.\n")
 
 
-def add_chapter():
-    """Add a new chapter."""
-    title = questionary.text("请输入章节标题:").ask()
-    if not title or not title.strip():
-        print("章节标题不能为空。\n")
-        return
-    
-    outline = questionary.text("请输入章节大纲:", multiline=True).ask()
-    if outline is None:
-        print("操作已取消。\n")
-        return
-    
-    new_chapter = {"title": title.strip(), "outline": outline.strip()}
-    
-    chapters = get_data_manager().read_chapter_outline()
-    chapters.append(new_chapter)
-    
-    if get_data_manager().write_chapter_outline(chapters):
-        print(f"章节 '{title}' 已添加。\n")
-    else:
-        print("添加章节时出错。\n")
+def add_chapter():    """Add a new chapter."""    title = ui.prompt("请输入章节标题:")    if not title or not title.strip():        ui.print_warning("章节标题不能为空.\n")        return        outline = ui.prompt("请输入章节大纲:")    if outline is None:        ui.print_warning("操作已取消.\n")        return        new_chapter = {"title": title.strip(), "outline": outline.strip()}        chapters = get_data_manager().read_chapter_outline()    chapters.append(new_chapter)        if get_data_manager().write_chapter_outline(chapters):        ui.print_success(f"章节 '{title}' 已添加.\n")    else:        ui.print_error("添加章节时出错.\n")
 
 
-def view_chapter():
-    """View chapter details."""
-    chapters = get_data_manager().read_chapter_outline()
-    if not chapters:
-        print("\n当前没有章节信息。\n")
-        return
-    
-    chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
-    # 添加返回选项
-    chapter_choices.append("返回上级菜单")
-    
-    choice = questionary.select(
-        "请选择要查看的章节：",
-        choices=chapter_choices,
-        use_indicator=True
-    ).ask()
-    
-    if choice and choice != "返回上级菜单":
-        chapter_index = int(choice.split('.')[0]) - 1
-        chapter = chapters[chapter_index]
-        print(f"\n--- {chapter.get('title', f'第{chapter_index+1}章')} ---")
-        print(chapter.get('outline', '无大纲'))
-        print("------------------------\n")
+def view_chapter():    """View chapter details."""    chapters = get_data_manager().read_chapter_outline()    if not chapters:        ui.print_warning("\n当前没有章节信息。\n")        return        chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]    # 添加返回选项    chapter_choices.append("返回上级菜单")        choice_str = ui.display_menu("请选择要查看的章节：", chapter_choices)    choice = int(choice_str)        if choice and choice != len(chapter_choices):        chapter_index = choice - 1        chapter = chapters[chapter_index]        ui.print_info(f"\n--- {chapter.get('title', f'第{chapter_index+1}章')} ---")        ui.print_info(chapter.get('outline', '无大纲'))        ui.print_info("------------------------\n")
 
 
 def edit_chapter():
     """Edit chapter information."""
     chapters = get_data_manager().read_chapter_outline()
     if not chapters:
-        print("\n当前没有章节信息可编辑。\n")
+        ui.print_warning("\n当前没有章节信息可编辑。\n")
         return
     
     chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
     # 添加返回选项
     chapter_choices.append("返回上级菜单")
     
-    choice = questionary.select(
-        "请选择要修改的章节：",
-        choices=chapter_choices,
-        use_indicator=True
-    ).ask()
+    choice_str = ui.display_menu("请选择要修改的章节：", chapter_choices)
+    choice = int(choice_str)
     
-    if not choice or choice == "返回上级菜单":
+    if not choice or choice == len(chapter_choices):
         return
     
-    chapter_index = int(choice.split('.')[0]) - 1
+    chapter_index = choice - 1
     chapter = chapters[chapter_index]
     
-    print(f"\n--- 当前章节信息 ---")
-    print(f"标题: {chapter.get('title', '无标题')}")
-    print(f"大纲: {chapter.get('outline', '无大纲')}")
-    print("------------------------\n")
+    ui.print_info(f"\n--- 当前章节信息 ---")
+    ui.print_info(f"标题: {chapter.get('title', '无标题')}")
+    ui.print_info(f"大纲: {chapter.get('outline', '无大纲')}")
+    ui.print_info("------------------------\n")
     
-    new_title = questionary.text("章节标题:", default=chapter.get('title', '')).ask()
+    new_title = ui.prompt("章节标题:", default=chapter.get('title', ''))
     if new_title is None:
-        print("操作已取消。\n")
+        ui.print_warning("操作已取消。\n")
         return
     
-    new_outline = questionary.text("章节大纲:", default=chapter.get('outline', ''), multiline=True).ask()
+    new_outline = ui.prompt("章节大纲:", default=chapter.get('outline', ''))
     if new_outline is None:
-        print("操作已取消。\n")
+        ui.print_warning("操作已取消。\n")
         return
     
     # 更新章节信息
     chapters[chapter_index] = {"title": new_title.strip(), "outline": new_outline.strip()}
     if get_data_manager().write_chapter_outline(chapters):
-        print("章节信息已更新。\n")
+        ui.print_success("章节信息已更新。\n")
     else:
-        print("更新章节信息时出错。\n")
+        ui.print_error("更新章节信息时出错。\n")
 
 
-def delete_chapter():
-    """Delete a chapter."""
-    chapters = get_data_manager().read_chapter_outline()
-    if not chapters:
-        print("\n当前没有章节信息可删除。\n")
-        return
-    
-    chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
-    # 添加返回选项
-    chapter_choices.append("返回上级菜单")
-    
-    choice = questionary.select(
-        "请选择要删除的章节：",
-        choices=chapter_choices,
-        use_indicator=True
-    ).ask()
-    
-    if not choice or choice == "返回上级菜单":
-        return
-    
-    chapter_index = int(choice.split('.')[0]) - 1
-    chapter_title = chapters[chapter_index].get('title', f'第{chapter_index+1}章')
-    
-    confirm = questionary.confirm(f"确定要删除章节 '{chapter_title}' 吗？").ask()
-    if confirm:
-        chapters.pop(chapter_index)
-        if get_data_manager().write_chapter_outline(chapters):
-            print(f"章节 '{chapter_title}' 已删除。\n")
-        else:
-            print("删除章节时出错。\n")
-    else:
-        print("操作已取消。\n")
+def delete_chapter():    """Delete a chapter."""    chapters = get_data_manager().read_chapter_outline()    if not chapters:        ui.print_warning("\n当前没有章节信息可删除.\n")        return        chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]    # 添加返回选项    chapter_choices.append("返回上级菜单")        choice_str = ui.display_menu("请选择要删除的章节：", chapter_choices)    choice = int(choice)        if not choice or choice == len(chapter_choices):        return        chapter_index = choice - 1    chapter_title = chapters[chapter_index].get('title', f'第{chapter_index+1}章')        confirm = ui.confirm(f"确定要删除章节 '{chapter_title}' 吗？")    if confirm:        chapters.pop(chapter_index)        if get_data_manager().write_chapter_outline(chapters):            ui.print_success(f"章节 '{chapter_title}' 已删除.\n")        else:            ui.print_error("删除章节时出错.\n")    else:        ui.print_warning("操作已取消.\n")
 
 
 def handle_chapter_summary():
@@ -881,14 +673,14 @@ def handle_chapter_summary():
     chapter_outline_exists = get_data_manager().check_prerequisites_for_chapter_summary()
     
     if not chapter_outline_exists:
-        print("\n请先完成步骤5: 编辑分章细纲\n")
+        ui.print_warning("\n请先完成步骤5: 编辑分章细纲\n")
         return
     
     # 读取分章细纲
     chapters = get_data_manager().read_chapter_outline()
     
     if not chapters:
-        print("\n分章细纲为空，请先完成步骤5。\n")
+        ui.print_warning("\n分章细纲为空，请先完成步骤5。\n")
         return
     
     while True:
@@ -896,69 +688,61 @@ def handle_chapter_summary():
         summaries = get_data_manager().read_chapter_summaries()
         
         # 显示当前章节概要状态
-        print(f"\n--- 章节概要状态 (共{len(chapters)}章) ---")
+        ui.print_info(f"\n--- 章节概要状态 (共{len(chapters)}章) ---")
         
         for i, chapter in enumerate(chapters, 1):
             chapter_key = f"chapter_{i}"
             title = chapter.get('title', f'第{i}章')
             status = "✓ 已完成" if chapter_key in summaries else "○ 未完成"
-            print(f"{i}. {title}: {status}")
-        print("------------------------\n")
+            ui.print_info(f"{i}. {title}: {status}")
+        ui.print_info("------------------------\n")
         
         # 操作选项
         choices = [
-            "1. 生成所有章节概要",
-            "2. 生成单个章节概要",
-            "3. 查看章节概要",
-            "4. 修改章节概要",
-            "5. 删除章节概要",
-            "6. 返回主菜单"
+            "生成所有章节概要",
+            "生成单个章节概要",
+            "查看章节概要",
+            "修改章节概要",
+            "删除章节概要",
+            "返回主菜单"
         ]
         
-        action = questionary.select(
-            "请选择您要进行的操作：",
-            choices=choices,
-            use_indicator=True
-        ).ask()
+        action = ui.display_menu("请选择您要进行的操作：", choices)
         
-        if action is None or action.startswith("6."):
+        if action is None or action == "6":
             break
-        elif action.startswith("1."):
+        elif action == "1":
             # 生成所有章节概要
             generate_all_summaries(chapters)
-        elif action.startswith("2."):
+        elif action == "2":
             # 生成单个章节概要
             generate_single_summary(chapters)
-        elif action.startswith("3."):
+        elif action == "3":
             # 查看章节概要
             view_chapter_summary(chapters)
-        elif action.startswith("4."):
+        elif action == "4":
             # 修改章节概要
             edit_chapter_summary(chapters)
-        elif action.startswith("5."):
+        elif action == "5":
             # 删除章节概要
             delete_chapter_summary(chapters)
 
 
 def generate_all_summaries(chapters):
     """Generate summaries for all chapters."""
-    print(f"准备为所有 {len(chapters)} 个章节生成概要...")
+    ui.print_info(f"准备为所有 {len(chapters)} 个章节生成概要...")
     
     # 提供生成模式选择
-    mode_choice = questionary.select(
-        "请选择生成模式：",
-        choices=[
-            "1. 🚀 并发生成（推荐）- 同时生成多个章节，速度更快",
-            "2. 📝 顺序生成 - 逐个生成章节，更稳定",
-            "3. 🔙 返回上级菜单"
-        ],
-        use_indicator=True
-    ).ask()
+    mode_choice = ui.display_menu("请选择生成模式：", [
+        "🚀 并发生成（推荐）- 同时生成多个章节，速度更快",
+        "📝 顺序生成 - 逐个生成章节，更稳定",
+        "🔙 返回上级菜单"
+    ])
     
-    if mode_choice is None or mode_choice.startswith("3."):
+    if mode_choice is None or mode_choice == "3":
         return
     
-    use_async = mode_choice.startswith("1.")
+    use_async = mode_choice == "1"
     
     confirm_msg = f"这将为所有 {len(chapters)} 个章节生成概要"
     if use_async:
@@ -967,17 +751,14 @@ def generate_all_summaries(chapters):
         confirm_msg += "（顺序模式，较为稳定）"
     confirm_msg += "。确定继续吗？"
     
-    confirm = questionary.confirm(confirm_msg).ask()
+    confirm = ui.confirm(confirm_msg)
     if not confirm:
         print("操作已取消。\n")
         return
     
     # 获取用户自定义提示词
     print("您可以输入额外的要求或指导来影响AI生成章节概要。")
-    user_prompt = questionary.text(
-        "请输入您的额外要求或指导（直接回车跳过）:",
-        default=""
-    ).ask()
+    user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）", default="")
 
     if user_prompt is None:
         print("操作已取消。\n")
@@ -1031,7 +812,8 @@ def generate_all_summaries(chapters):
         
         for i, chapter in enumerate(chapters, 1):
             chapter_key = f"chapter_{i}"
-            print(f"\n正在生成第{i}章概要... ({i}/{len(chapters)})")
+            print(f"
+正在生成第{i}章概要... ({i}/{len(chapters)})")
             
             summary = llm_service.generate_chapter_summary(chapter, i, context_info, user_prompt)
             
@@ -1040,23 +822,23 @@ def generate_all_summaries(chapters):
                     "title": chapter.get('title', f'第{i}章'),
                     "summary": summary
                 }
-                print(f"✅ 第{i}章概要生成完成")
+                ui.print_success(f"✅ 第{i}章概要生成完成")
             else:
                 failed_chapters.append(i)
-                print(f"❌ 第{i}章概要生成失败")
+                ui.print_error(f"❌ 第{i}章概要生成失败")
         
         # 保存结果
         if summaries:
             if get_data_manager().write_chapter_summaries(summaries):
-                print(f"\n✅ 成功生成 {len(summaries)} 个章节概要")
+                ui.print_success(f"\n✅ 成功生成 {len(summaries)} 个章节概要")
                 
                 if failed_chapters:
-                    print(f"失败的章节: {', '.join(map(str, failed_chapters))}")
-                    print("您可以稍后单独重新生成失败的章节。")
+                    ui.print_warning(f"失败的章节: {', '.join(map(str, failed_chapters))}")
+                    ui.print_info("您可以稍后单独重新生成失败的章节。")
             else:
-                print("❌ 保存章节概要时出错")
+                ui.print_error("❌ 保存章节概要时出错")
         else:
-            print("\n❌ 所有章节概要生成均失败")
+            ui.print_error("\n❌ 所有章节概要生成均失败")
 
 
 def generate_single_summary(chapters):
@@ -1072,33 +854,26 @@ def generate_single_summary(chapters):
         status = "已完成" if chapter_key in summaries else "未完成"
         chapter_choices.append(f"{i}. {title} ({status})")
     
-    choice = questionary.select(
-        "请选择要生成概要的章节：",
-        choices=chapter_choices,
-        use_indicator=True
-    ).ask()
+    choice_str = ui.display_menu("请选择要生成概要的章节：", chapter_choices)
     
-    if not choice:
+    if not choice_str:
         return
     
-    chapter_index = int(choice.split('.')[0]) - 1
+    chapter_index = int(choice_str.split('.')[0]) - 1
     chapter_num = chapter_index + 1
     chapter = chapters[chapter_index]
     chapter_key = f"chapter_{chapter_num}"
     
     # 如果已存在概要，询问是否覆盖
     if chapter_key in summaries:
-        overwrite = questionary.confirm(f"第{chapter_num}章已有概要，是否覆盖？").ask()
+        overwrite = ui.confirm(f"第{chapter_num}章已有概要，是否覆盖？")
         if not overwrite:
-            print("操作已取消。\n")
+            ui.print_warning("操作已取消。\n")
             return
     
     # 获取用户自定义提示词
     print("您可以输入额外的要求或指导来影响AI生成章节概要。")
-    user_prompt = questionary.text(
-        "请输入您的额外要求或指导（直接回车跳过）:",
-        default=""
-    ).ask()
+    user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）", default="")
 
     if user_prompt is None:
         print("操作已取消。\n")
@@ -1111,51 +886,38 @@ def generate_single_summary(chapters):
     # 读取相关信息
     context_info = get_data_manager().get_context_info()
     
-    print(f"\n正在生成第{chapter_num}章概要...")
+    ui.print_info(f"
+正在生成第{chapter_num}章概要...")
     summary = llm_service.generate_chapter_summary(chapter, chapter_num, context_info, user_prompt)
     
     if summary:
-        print(f"\n--- 第{chapter_num}章概要 ---")
-        print(summary)
-        print("------------------------\n")
+        ui.print_info(f"\n--- 第{chapter_num}章概要 ---")
+        ui.print_info(summary)
+        ui.print_info("------------------------\n")
         
         # 提供操作选项
-        action = questionary.select(
-            "请选择您要进行的操作：",
-            choices=[
-                "1. 接受并保存",
-                "2. 修改后保存", 
-                "3. 放弃此次生成"
-            ],
-            use_indicator=True
-        ).ask()
+        action = ui.display_menu("请选择您要进行的操作：", [
+            "接受并保存",
+            "修改后保存", 
+            "放弃此次生成"
+        ])
 
-        if action is None or action.startswith("3."):
-            print("已放弃此次生成。\n")
+        if action is None or action == "3":
+            ui.print_warning("已放弃此次生成。\n")
             return
-        elif action.startswith("1."):
+        elif action == "1":
             # 直接保存
             if get_data_manager().set_chapter_summary(chapter_num, chapter.get('title', f'第{chapter_num}章'), summary):
-                print(f"第{chapter_num}章概要已保存。\n")
+                ui.print_success(f"第{chapter_num}章概要已保存。\n")
             else:
-                print("保存章节概要时出错。\n")
-        elif action.startswith("2."):
+                ui.print_error("保存章节概要时出错。\n")
+        elif action == "2":
             # 修改后保存
-            edited_summary = questionary.text(
-                "请修改章节概要:",
-                default=summary,
-                multiline=True
-            ).ask()
+            edited_summary = ui.prompt("请修改章节概要:", default=summary)
 
-            if edited_summary and edited_summary.strip():
-                if get_data_manager().set_chapter_summary(chapter_num, chapter.get('title', f'第{chapter_num}章'), edited_summary):
-                    print(f"第{chapter_num}章概要已保存。\n")
-                else:
-                    print("保存章节概要时出错。\n")
-            else:
-                print("操作已取消或内容为空，未保存。\n")
+            if edited_summary and edited_summary.strip():                if get_data_manager().set_chapter_summary(chapter_num, chapter.get('title', f'第{chapter_num}章'), edited_summary):                    ui.print_success(f"第{chapter_num}章概要已保存.\n")                else:                    ui.print_error("保存章节概要时出错.\n")            else:                ui.print_warning("操作已取消或内容为空，未保存.\n")
     else:
-        print(f"第{chapter_num}章概要生成失败。\n")
+        ui.print_error(f"第{chapter_num}章概要生成失败。\n")
 
 
 
@@ -1165,7 +927,7 @@ def view_chapter_summary(chapters):
     """View chapter summary details."""
     summaries = get_data_manager().read_chapter_summaries()
     if not summaries:
-        print("\n当前没有章节概要。\n")
+        ui.print_warning("\n当前没有章节概要。\n")
         return
     
     # 只显示有概要的章节
@@ -1177,33 +939,30 @@ def view_chapter_summary(chapters):
             available_chapters.append(f"{i}. {title}")
     
     if not available_chapters:
-        print("\n当前没有章节概要。\n")
+        ui.print_warning("\n当前没有章节概要。\n")
         return
     
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
-    choice = questionary.select(
-        "请选择要查看的章节概要：",
-        choices=available_chapters,
-        use_indicator=True
-    ).ask()
+    choice_str = ui.display_menu("请选择要查看的章节概要：", available_chapters)
     
-    if choice and choice != "返回上级菜单":
-        chapter_num = int(choice.split('.')[0])
+    if choice_str and (int(choice_str) -1) != len(available_chapters):
+        chapter_num = int(choice_str.split('.')[0])
         chapter_key = f"chapter_{chapter_num}"
         summary_info = summaries[chapter_key]
         
-        print(f"\n--- {summary_info['title']} ---")
-        print(summary_info['summary'])
-        print("------------------------\n")
+        ui.print_info(f"
+--- {summary_info['title']} ---")
+        ui.print_info(summary_info['summary'])
+        ui.print_info("------------------------\n")
 
 
 def edit_chapter_summary(chapters):
     """Edit chapter summary."""
     summaries = get_data_manager().read_chapter_summaries()
     if not summaries:
-        print("\n当前没有章节概要可编辑。\n")
+        ui.print_warning("\n当前没有章节概要可编辑。\n")
         return
     
     # 只显示有概要的章节
@@ -1217,45 +976,37 @@ def edit_chapter_summary(chapters):
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
-    choice = questionary.select(
-        "请选择要修改的章节概要：",
-        choices=available_chapters,
-        use_indicator=True
-    ).ask()
+    choice_str = ui.display_menu("请选择要修改的章节概要：", available_chapters)
     
-    if not choice or choice == "返回上级菜单":
+    if not choice_str or (int(choice_str)-1) == len(available_chapters):
         return
     
-    chapter_num = int(choice.split('.')[0])
+    chapter_num = int(choice_str.split('.')[0])
     chapter_key = f"chapter_{chapter_num}"
     summary_info = summaries[chapter_key]
     
-    print(f"\n--- 当前概要：{summary_info['title']} ---")
-    print(summary_info['summary'])
-    print("------------------------\n")
+    ui.print_info(f"\n--- 当前概要：{summary_info['title']} ---")
+    ui.print_info(summary_info['summary'])
+    ui.print_info("------------------------\n")
     
-    edited_summary = questionary.text(
-        "请修改章节概要:",
-        default=summary_info['summary'],
-        multiline=True
-    ).ask()
+    edited_summary = ui.prompt("请修改章节概要:", default=summary_info['summary'])
     
     if edited_summary and edited_summary.strip() and edited_summary != summary_info['summary']:
         if get_data_manager().set_chapter_summary(chapter_num, summary_info['title'], edited_summary):
-            print(f"第{chapter_num}章概要已更新。\n")
+            ui.print_success(f"第{chapter_num}章概要已更新。\n")
         else:
-            print("更新章节概要时出错。\n")
+            ui.print_error("更新章节概要时出错。\n")
     elif edited_summary is None:
-        print("操作已取消。\n")
+        ui.print_warning("操作已取消。\n")
     else:
-        print("内容未更改。\n")
+        ui.print_warning("内容未更改。\n")
 
 
 def delete_chapter_summary(chapters):
     """Delete chapter summary."""
     summaries = get_data_manager().read_chapter_summaries()
     if not summaries:
-        print("\n当前没有章节概要可删除。\n")
+        ui.print_warning("\n当前没有章节概要可删除。\n")
         return
     
     # 只显示有概要的章节
@@ -1269,27 +1020,23 @@ def delete_chapter_summary(chapters):
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
-    choice = questionary.select(
-        "请选择要删除的章节概要：",
-        choices=available_chapters,
-        use_indicator=True
-    ).ask()
+    choice_str = ui.display_menu("请选择要删除的章节概要：", available_chapters)
     
-    if not choice or choice == "返回上级菜单":
+    if not choice_str or (int(choice_str)-1) == len(available_chapters):
         return
     
-    chapter_num = int(choice.split('.')[0])
+    chapter_num = int(choice_str.split('.')[0])
     chapter_key = f"chapter_{chapter_num}"
     title = summaries[chapter_key]['title']
     
-    confirm = questionary.confirm(f"确定要删除第{chapter_num}章 '{title}' 的概要吗？").ask()
+    confirm = ui.confirm(f"确定要删除第{chapter_num}章 '{title}' 的概要吗？")
     if confirm:
         if get_data_manager().delete_chapter_summary(chapter_num):
-            print(f"第{chapter_num}章概要已删除。\n")
+            ui.print_success(f"第{chapter_num}章概要已删除.\n")
         else:
-            print("删除章节概要时出错。\n")
+            ui.print_error("删除章节概要时出错.\n")
     else:
-        print("操作已取消。\n")
+        ui.print_warning("操作已取消.\n")
 
 
 def handle_novel_generation():
@@ -1300,14 +1047,14 @@ def handle_novel_generation():
     chapter_summary_exists = get_data_manager().check_prerequisites_for_novel_generation()
     
     if not chapter_summary_exists:
-        print("\n请先完成步骤6: 编辑章节概要\n")
+        ui.print_warning("\n请先完成步骤6: 编辑章节概要\n")
         return
     
     # 读取章节概要
     summaries = get_data_manager().read_chapter_summaries()
     
     if not summaries:
-        print("\n章节概要为空，请先完成步骤6。\n")
+        ui.print_warning("\n章节概要为空，请先完成步骤6。\n")
         return
     
     # 读取分章细纲以获取章节顺序
@@ -1318,7 +1065,7 @@ def handle_novel_generation():
         novel_chapters = get_data_manager().read_novel_chapters()
         
         # 显示当前小说正文状态
-        print(f"\n--- 小说正文状态 (共{len(summaries)}章) ---")
+        ui.print_info(f"\n--- 小说正文状态 (共{len(summaries)}章) ---")
         
         # 按章节顺序显示
         for i in range(1, len(chapters) + 1):
@@ -1328,44 +1075,39 @@ def handle_novel_generation():
                 status = "✓ 已完成" if chapter_key in novel_chapters else "○ 未完成"
                 word_count = len(novel_chapters.get(chapter_key, {}).get('content', ''))
                 word_info = f" ({word_count}字)" if word_count > 0 else ""
-                print(f"{i}. {chapter_title}: {status}{word_info}")
-        print("------------------------\n")
+                ui.print_info(f"{i}. {chapter_title}: {status}{word_info}")
+        ui.print_info("------------------------\n")
         
         # 操作选项
         choices = [
-            "1. 生成所有章节正文",
-            "2. 生成单个章节正文",
-            "3. 查看章节正文",
-            "4. 修改章节正文",
-            "5. 删除章节正文",
-            "6. 分章节导出",
-            "7. 返回主菜单"
+            choices = [
+            choices = [
+            "导出完整小说",
+            "导出单个章节",
+            "导出章节范围",
+            "返回上级菜单"
         ]
         
-        action = questionary.select(
-            "请选择您要进行的操作：",
-            choices=choices,
-            use_indicator=True
-        ).ask()
+        action = ui.display_menu("请选择您要进行的操作：", choices)
         
-        if action is None or action.startswith("7."):
+        if action is None or action == "7":
             break
-        elif action.startswith("1."):
+        elif action == "1":
             # 生成所有章节正文
             generate_all_novel_chapters(chapters, summaries)
-        elif action.startswith("2."):
+        elif action == "2":
             # 生成单个章节正文
             generate_single_novel_chapter(chapters, summaries, novel_chapters)
-        elif action.startswith("3."):
+        elif action == "3":
             # 查看章节正文
             view_novel_chapter(chapters, novel_chapters)
-        elif action.startswith("4."):
+        elif action == "4":
             # 修改章节正文
             edit_novel_chapter(chapters, novel_chapters)
-        elif action.startswith("5."):
+        elif action == "5":
             # 删除章节正文
             delete_novel_chapter(chapters, novel_chapters)
-        elif action.startswith("6."):
+        elif action == "6":
             # 分章节导出
             handle_novel_export(chapters, novel_chapters)
 
@@ -1373,10 +1115,10 @@ def handle_novel_generation():
 def generate_all_novel_chapters(chapters, summaries):
     """Generate novel text for all chapters."""
     available_chapters = sum(1 for i in range(1, len(chapters) + 1) if f"chapter_{i}" in summaries)
-    print(f"准备为 {available_chapters} 个有概要的章节生成正文...")
+    ui.print_info(f"准备为 {available_chapters} 个有概要的章节生成正文...")
     
     if available_chapters == 0:
-        print("没有可用的章节概要，请先生成章节概要。")
+        ui.print_warning("没有可用的章节概要，请先生成章节概要。")
         return
     
     # 询问是否启用反思修正功能
@@ -1384,38 +1126,30 @@ def generate_all_novel_chapters(chapters, summaries):
     use_refinement = GENERATION_CONFIG.get('enable_refinement', True)
     
     if use_refinement:
-        refinement_choice = questionary.select(
-            "请选择生成模式：",
-            choices=[
-                "1. 🔄 智能生成（推荐）- 生成初稿后进行AI反思修正",
-                "2. 📝 标准生成 - 仅生成初稿，不进行修正",
-                "3. 🔙 返回上级菜单"
-            ],
-            use_indicator=True
-        ).ask()
+        refinement_choice = ui.display_menu("请选择生成模式：", [
+            "🔄 智能生成（推荐）- 生成初稿后进行AI反思修正",
+            "📝 标准生成 - 仅生成初稿，不进行修正",
+            "🔙 返回上级菜单"
+        ])
         
-        if refinement_choice is None or refinement_choice.startswith("3."):
+        if refinement_choice is None or refinement_choice == "3":
             return
         
-        use_refinement = refinement_choice.startswith("1.")
+        use_refinement = refinement_choice == "1"
     else:
         use_refinement = False
     
     # 提供并发/顺序模式选择
-    mode_choice = questionary.select(
-        "请选择执行模式：",
-        choices=[
-            "1. 🚀 并发生成（推荐）- 同时生成多个章节，速度更快",
-            "2. 📝 顺序生成 - 逐个生成章节，更稳定",
-            "3. 🔙 返回上级菜单"
-        ],
-        use_indicator=True
-    ).ask()
+    mode_choice = ui.display_menu("请选择执行模式：", [
+        "🚀 并发生成（推荐）- 同时生成多个章节，速度更快",
+        "📝 顺序生成 - 逐个生成章节，更稳定",
+        "🔙 返回上级菜单"
+    ])
     
-    if mode_choice is None or mode_choice.startswith("3."):
+    if mode_choice is None or mode_choice == "3":
         return
     
-    use_async = mode_choice.startswith("1.")
+    use_async = mode_choice == "1"
     
     confirm_msg = f"这将为 {available_chapters} 个章节生成正文"
     if use_refinement:
@@ -1428,17 +1162,14 @@ def generate_all_novel_chapters(chapters, summaries):
         confirm_msg += "（顺序执行）"
     confirm_msg += "，可能需要较长时间。确定继续吗？"
     
-    confirm = questionary.confirm(confirm_msg).ask()
+    confirm = ui.confirm(confirm_msg)
     if not confirm:
         print("操作已取消。\n")
         return
     
     # 获取用户自定义提示词
     print("您可以输入额外的要求或指导来影响AI生成小说正文。")
-    user_prompt = questionary.text(
-        "请输入您的额外要求或指导（直接回车跳过）:",
-        default=""
-    ).ask()
+    user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）", default="")
 
     if user_prompt is None:
         print("操作已取消。\n")
@@ -1508,7 +1239,8 @@ def generate_all_novel_chapters(chapters, summaries):
                 
             processed += 1
             mode_desc = "智能生成" if use_refinement else "标准生成"
-            print(f"\n正在{mode_desc}第{i}章正文... ({processed}/{available_chapters})")
+            ui.print_info(f"
+正在{mode_desc}第{i}章正文... ({processed}/{available_chapters})")
             
             if use_refinement:
                 chapter_content = llm_service.generate_novel_chapter_with_refinement(
@@ -1531,7 +1263,7 @@ def generate_all_novel_chapters(chapters, summaries):
                 print(success_msg)
             else:
                 failed_chapters.append(i)
-                print(f"❌ 第{i}章正文生成失败")
+                ui.print_error(f"❌ 第{i}章正文生成失败")
         
         # 保存结果
         if novel_chapters:
@@ -1540,15 +1272,15 @@ def generate_all_novel_chapters(chapters, summaries):
                 success_msg = f"\n✅ 成功生成 {len(novel_chapters)} 个章节正文，总计 {total_words} 字"
                 if use_refinement:
                     success_msg += " (已完成智能反思修正)"
-                print(success_msg)
+                ui.print_success(success_msg)
                 
                 if failed_chapters:
-                    print(f"失败的章节: {', '.join(map(str, failed_chapters))}")
-                    print("您可以稍后单独重新生成失败的章节。")
+                    ui.print_warning(f"失败的章节: {', '.join(map(str, failed_chapters))}")
+                    ui.print_info("您可以稍后单独重新生成失败的章节。")
             else:
-                print("❌ 保存小说正文时出错")
+                ui.print_error("❌ 保存小说正文时出错")
         else:
-            print("\n❌ 所有章节正文生成均失败")
+            ui.print_error("\n❌ 所有章节正文生成均失败")
 
 
 def generate_single_novel_chapter(chapters, summaries, novel_data):
@@ -1570,24 +1302,20 @@ def generate_single_novel_chapter(chapters, summaries, novel_data):
             word_info = f" ({word_count}字)" if word_count > 0 else ""
             chapter_choices.append(f"{i}. {title} ({status}){word_info}")
     
-    choice = questionary.select(
-        "请选择要生成正文的章节：",
-        choices=chapter_choices,
-        use_indicator=True
-    ).ask()
+    choice_str = ui.display_menu("请选择要生成正文的章节：", chapter_choices)
     
-    if not choice:
+    if not choice_str:
         return
     
-    chapter_num = int(choice.split('.')[0])
+    chapter_num = int(choice_str.split('.')[0])
     chapter_key = f"chapter_{chapter_num}"
     chapter = chapters[chapter_num - 1]
     
     # 如果已存在正文，询问是否覆盖
     if chapter_key in novel_chapters:
-        overwrite = questionary.confirm(f"第{chapter_num}章已有正文，是否覆盖？").ask()
+        overwrite = ui.confirm(f"第{chapter_num}章已有正文，是否覆盖？")
         if not overwrite:
-            print("操作已取消。\n")
+            ui.print_warning("操作已取消。\n")
             return
     
     # 询问是否启用反思修正功能
@@ -1595,29 +1323,22 @@ def generate_single_novel_chapter(chapters, summaries, novel_data):
     use_refinement = GENERATION_CONFIG.get('enable_refinement', True)
     
     if use_refinement:
-        refinement_choice = questionary.select(
-            "请选择生成模式：",
-            choices=[
-                "1. 🔄 智能生成（推荐）- 生成初稿后进行AI反思修正",
-                "2. 📝 标准生成 - 仅生成初稿，不进行修正",
-                "3. 🔙 返回上级菜单"
-            ],
-            use_indicator=True
-        ).ask()
+        refinement_choice = ui.display_menu("请选择生成模式：", [
+            "🔄 智能生成（推荐）- 生成初稿后进行AI反思修正",
+            "📝 标准生成 - 仅生成初稿，不进行修正",
+            "🔙 返回上级菜单"
+        ])
         
-        if refinement_choice is None or refinement_choice.startswith("3."):
+        if refinement_choice is None or refinement_choice == "3":
             return
         
-        use_refinement = refinement_choice.startswith("1.")
+        use_refinement = refinement_choice == "1"
     else:
         use_refinement = False
     
     # 获取用户自定义提示词
     print("您可以输入额外的要求或指导来影响AI生成小说正文。")
-    user_prompt = questionary.text(
-        "请输入您的额外要求或指导（直接回车跳过）:",
-        default=""
-    ).ask()
+    user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）", default="")
 
     if user_prompt is None:
         print("操作已取消。\n")
@@ -1631,63 +1352,56 @@ def generate_single_novel_chapter(chapters, summaries, novel_data):
     context_info = get_data_manager().get_context_info()
     
     if use_refinement:
-        print(f"\n正在为第{chapter_num}章执行智能生成流程...")
-        print("阶段1: 生成初稿...")
+        ui.print_info(f"
+正在为第{chapter_num}章执行智能生成流程...")
+        ui.print_info("阶段1: 生成初稿...")
         chapter_content = llm_service.generate_novel_chapter_with_refinement(
             chapter, summaries[chapter_key], chapter_num, context_info, user_prompt
         )
     else:
-        print(f"\n正在生成第{chapter_num}章正文...")
+        ui.print_info(f"\n正在生成第{chapter_num}章正文...")
         chapter_content = llm_service.generate_novel_chapter(
             chapter, summaries[chapter_key], chapter_num, context_info, user_prompt
         )
     
     if chapter_content:
-        print(f"\n--- 第{chapter_num}章正文预览 (前500字) ---")
+        ui.print_info(f"\n--- 第{chapter_num}章正文预览 (前500字) ---")
         preview = chapter_content[:500] + "..." if len(chapter_content) > 500 else chapter_content
-        print(preview)
-        print(f"\n总字数: {len(chapter_content)} 字")
+        ui.print_info(preview)
+        ui.print_info(f"\n总字数: {len(chapter_content)} 字")
         if use_refinement:
-            print("✨ 已完成智能反思修正流程")
-        print("------------------------\n")
+            ui.print_info("✨ 已完成智能反思修正流程")
+        ui.print_info("------------------------\n")
         
         # 提供操作选项
-        action = questionary.select(
-            "请选择您要进行的操作：",
-            choices=[
-                "1. 接受并保存",
-                "2. 修改后保存", 
-                "3. 放弃此次生成"
-            ],
-            use_indicator=True
-        ).ask()
+        action = ui.display_menu("请选择您要进行的操作：", [
+            "接受并保存",
+            "修改后保存", 
+            "放弃此次生成"
+        ])
 
-        if action is None or action.startswith("3."):
-            print("已放弃此次生成。\n")
+        if action is None or action == "3":
+            ui.print_warning("已放弃此次生成。\n")
             return
-        elif action.startswith("1."):
+        elif action == "1":
             # 直接保存
             if get_data_manager().set_novel_chapter(chapter_num, chapter.get('title', f'第{chapter_num}章'), chapter_content):
-                print(f"第{chapter_num}章正文已保存 ({len(chapter_content)}字)。\n")
+                ui.print_success(f"第{chapter_num}章正文已保存 ({len(chapter_content)}字)。\n")
             else:
-                print("保存章节正文时出错。\n")
-        elif action.startswith("2."):
+                ui.print_error("保存章节正文时出错。\n")
+        elif action == "2":
             # 修改后保存
-            edited_content = questionary.text(
-                "请修改章节正文:",
-                default=chapter_content,
-                multiline=True
-            ).ask()
+            edited_content = ui.prompt("请修改章节正文:", default=chapter_content)
 
             if edited_content and edited_content.strip():
                 if get_data_manager().set_novel_chapter(chapter_num, chapter.get('title', f'第{chapter_num}章'), edited_content):
-                    print(f"第{chapter_num}章正文已保存 ({len(edited_content)}字)。\n")
+                    ui.print_success(f"第{chapter_num}章正文已保存 ({len(edited_content)}字)。\n")
                 else:
-                    print("保存章节正文时出错。\n")
+                    ui.print_error("保存章节正文时出错。\n")
             else:
-                print("操作已取消或内容为空，未保存。\n")
+                ui.print_warning("操作已取消或内容为空，未保存。\n")
     else:
-        print(f"第{chapter_num}章正文生成失败。\n")
+        ui.print_error(f"第{chapter_num}章正文生成失败。\n")
 
 
 
@@ -1700,7 +1414,7 @@ def view_novel_chapter(chapters, novel_data):
         novel_chapters = novel_data
     
     if not novel_chapters:
-        print("\n当前没有小说正文。\n")
+        ui.print_warning("\n当前没有小说正文。\n")
         return
     
     # 只显示有正文的章节
@@ -1713,27 +1427,23 @@ def view_novel_chapter(chapters, novel_data):
             available_chapters.append(f"{i}. {title} ({word_count}字)")
     
     if not available_chapters:
-        print("\n当前没有小说正文。\n")
+        ui.print_warning("\n当前没有小说正文。\n")
         return
     
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
-    choice = questionary.select(
-        "请选择要查看的章节正文：",
-        choices=available_chapters,
-        use_indicator=True
-    ).ask()
+    choice_str = ui.display_menu("请选择要查看的章节正文：", available_chapters)
     
-    if choice and choice != "返回上级菜单":
-        chapter_num = int(choice.split('.')[0])
+    if choice_str and (int(choice_str)-1) != len(available_chapters):
+        chapter_num = int(choice_str.split('.')[0])
         chapter_key = f"chapter_{chapter_num}"
         chapter_info = novel_chapters[chapter_key]
         
-        print(f"\n--- {chapter_info['title']} ---")
-        print(f"字数: {chapter_info.get('word_count', 0)} 字\n")
-        print(chapter_info['content'])
-        print("------------------------\n")
+        ui.print_info(f"\n--- {chapter_info['title']} ---")
+        ui.print_info(f"字数: {chapter_info.get('word_count', 0)} 字\n")
+        ui.print_info(chapter_info['content'])
+        ui.print_info("------------------------\n")
 
 
 def edit_novel_chapter(chapters, novel_data):
@@ -1745,7 +1455,7 @@ def edit_novel_chapter(chapters, novel_data):
         novel_chapters = novel_data
     
     if not novel_chapters:
-        print("\n当前没有小说正文可编辑。\n")
+        ui.print_warning("\n当前没有小说正文可编辑。\n")
         return
     
     # 只显示有正文的章节
@@ -1760,38 +1470,30 @@ def edit_novel_chapter(chapters, novel_data):
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
-    choice = questionary.select(
-        "请选择要修改的章节正文：",
-        choices=available_chapters,
-        use_indicator=True
-    ).ask()
+    choice_str = ui.display_menu("请选择要修改的章节正文：", available_chapters)
     
-    if not choice or choice == "返回上级菜单":
+    if not choice_str or (int(choice_str)-1) == len(available_chapters):
         return
     
-    chapter_num = int(choice.split('.')[0])
+    chapter_num = int(choice_str.split('.')[0])
     chapter_key = f"chapter_{chapter_num}"
     chapter_info = novel_chapters[chapter_key]
     
-    print(f"\n--- 当前正文：{chapter_info['title']} ---")
-    print(f"字数: {chapter_info.get('word_count', 0)} 字")
-    print("------------------------\n")
+    ui.print_info(f"\n--- 当前正文：{chapter_info['title']} ---")
+    ui.print_info(f"字数: {chapter_info.get('word_count', 0)} 字")
+    ui.print_info("------------------------\n")
     
-    edited_content = questionary.text(
-        "请修改章节正文:",
-        default=chapter_info['content'],
-        multiline=True
-    ).ask()
+    edited_content = ui.prompt("请修改章节正文:", default=chapter_info['content'])
     
     if edited_content and edited_content.strip() and edited_content != chapter_info['content']:
         if get_data_manager().set_novel_chapter(chapter_num, chapter_info['title'], edited_content):
-            print(f"第{chapter_num}章正文已更新 ({len(edited_content)}字)。\n")
+            ui.print_success(f"第{chapter_num}章正文已更新 ({len(edited_content)}字)。\n")
         else:
-            print("更新章节正文时出错。\n")
+            ui.print_error("更新章节正文时出错。\n")
     elif edited_content is None:
-        print("操作已取消。\n")
+        ui.print_warning("操作已取消。\n")
     else:
-        print("内容未更改。\n")
+        ui.print_warning("内容未更改。\n")
 
 
 def delete_novel_chapter(chapters, novel_data):
@@ -1803,7 +1505,7 @@ def delete_novel_chapter(chapters, novel_data):
         novel_chapters = novel_data
     
     if not novel_chapters:
-        print("\n当前没有小说正文可删除。\n")
+        ui.print_warning("\n当前没有小说正文可删除。\n")
         return
     
     # 只显示有正文的章节
@@ -1818,27 +1520,23 @@ def delete_novel_chapter(chapters, novel_data):
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
-    choice = questionary.select(
-        "请选择要删除的章节正文：",
-        choices=available_chapters,
-        use_indicator=True
-    ).ask()
+    choice_str = ui.display_menu("请选择要删除的章节正文：", available_chapters)
     
-    if not choice or choice == "返回上级菜单":
+    if not choice_str or (int(choice_str)-1) == len(available_chapters):
         return
     
-    chapter_num = int(choice.split('.')[0])
+    chapter_num = int(choice_str.split('.')[0])
     chapter_key = f"chapter_{chapter_num}"
     title = novel_chapters[chapter_key]['title']
     
-    confirm = questionary.confirm(f"确定要删除第{chapter_num}章 '{title}' 的正文吗？").ask()
+    confirm = ui.confirm(f"确定要删除第{chapter_num}章 '{title}' 的正文吗？")
     if confirm:
         if get_data_manager().delete_novel_chapter(chapter_num):
-            print(f"第{chapter_num}章正文已删除。\n")
+            ui.print_success(f"第{chapter_num}章正文已删除.\n")
         else:
-            print("删除章节正文时出错。\n")
+            ui.print_error("删除章节正文时出错.\n")
     else:
-        print("操作已取消。\n")
+        ui.print_warning("操作已取消.\n")
 
 
 def get_export_dir():
@@ -1864,7 +1562,7 @@ def get_export_dir():
         return export_dir
         
     except Exception as e:
-        print(f"⚠️ 获取导出目录时出错，使用当前目录: {e}")
+        ui.print_warning(f"⚠️ 获取导出目录时出错，使用当前目录: {e}")
         from pathlib import Path
         export_dir = Path.cwd() / "exports"
         export_dir.mkdir(parents=True, exist_ok=True)
@@ -1899,27 +1597,23 @@ def handle_novel_export(chapters, novel_data):
         
         # 导出选项
         choices = [
-            "1. 导出完整小说",
-            "2. 导出单个章节",
-            "3. 导出章节范围",
-            "4. 返回上级菜单"
+            "导出完整小说",
+            "导出单个章节",
+            "导出章节范围",
+            "返回上级菜单"
         ]
         
-        action = questionary.select(
-            "请选择导出操作：",
-            choices=choices,
-            use_indicator=True
-        ).ask()
+        action = ui.display_menu("请选择导出操作：", choices)
         
-        if action is None or action.startswith("4."):
+        if action is None or action == "4":
             break
-        elif action.startswith("1."):
+        elif action == "1":
             # 导出完整小说
             export_complete_novel(chapters, novel_chapters)
-        elif action.startswith("2."):
+        elif action == "2":
             # 导出单个章节
             export_single_chapter(chapters, novel_chapters)
-        elif action.startswith("3."):
+        elif action == "3":
             # 导出章节范围
             export_chapter_range(chapters, novel_chapters)
 
@@ -1942,16 +1636,12 @@ def export_single_chapter(chapters, novel_chapters):
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
-    choice = questionary.select(
-        "请选择要导出的章节：",
-        choices=available_chapters,
-        use_indicator=True
-    ).ask()
+    choice_str = ui.display_menu("请选择要导出的章节：", available_chapters)
     
-    if not choice or choice == "返回上级菜单":
+    if not choice_str or (int(choice_str)-1) == len(available_chapters):
         return
     
-    chapter_num = int(choice.split('.')[0])
+    chapter_num = int(choice_str.split('.')[0])
     chapter_key = f"chapter_{chapter_num}"
     chapter_info = novel_chapters[chapter_key]
     
@@ -2008,31 +1698,23 @@ def export_chapter_range(chapters, novel_chapters):
     start_choices = [f"{i}. 第{i}章" for i in available_chapter_nums]
     start_choices.append("返回上级菜单")
     
-    start_choice = questionary.select(
-        "请选择起始章节：",
-        choices=start_choices,
-        use_indicator=True
-    ).ask()
+    start_choice_str = ui.display_menu("请选择起始章节：", start_choices)
     
-    if not start_choice or start_choice == "返回上级菜单":
+    if not start_choice_str or (int(start_choice_str.split('.')[0]) - 1) == len(start_choices) -1:
         return
     
-    start_chapter = int(start_choice.split('.')[0])
+    start_chapter = int(start_choice_str.split('.')[0])
     
     # 创建结束章节选择列表（只包含起始章节及之后的章节）
     end_choices = [f"{i}. 第{i}章" for i in available_chapter_nums if i >= start_chapter]
     end_choices.append("返回上级菜单")
     
-    end_choice = questionary.select(
-        "请选择结束章节：",
-        choices=end_choices,
-        use_indicator=True
-    ).ask()
+    end_choice_str = ui.display_menu("请选择结束章节：", end_choices)
     
-    if not end_choice or end_choice == "返回上级菜单":
+    if not end_choice_str or (int(end_choice_str.split('.')[0]) - 1) == len(end_choices) -1:
         return
     
-    end_chapter = int(end_choice.split('.')[0])
+    end_chapter = int(end_choice_str.split('.')[0])
     
     # 导出选定范围的章节
     export_chapters = [i for i in available_chapter_nums if start_chapter <= i <= end_chapter]
@@ -2160,33 +1842,29 @@ def export_complete_novel(chapters, novel_data):
 def handle_system_settings():
     """Handle system settings including retry configuration."""
     while True:
-        choice = questionary.select(
-            "请选择系统设置项:",
-            choices=[
-                "1. 查看重试设置",
-                "2. 修改重试设置",
-                "3. 重置重试设置",
-                "4. 查看导出路径设置",
-                "5. 修改导出路径设置",
-                "6. 重置导出路径设置",
-                "7. 返回主菜单"
-            ],
-            use_indicator=True
-        ).ask()
+        choice = ui.display_menu("请选择系统设置项:", [
+            "查看重试设置",
+            "修改重试设置",
+            "重置重试设置",
+            "查看导出路径设置",
+            "修改导出路径设置",
+            "重置导出路径设置",
+            "返回主菜单"
+        ])
 
-        if choice is None or choice.startswith("7."):
+        if choice is None or choice == "7":
             break
-        elif choice.startswith("1."):
+        elif choice == "1":
             show_retry_config()
-        elif choice.startswith("2."):
+        elif choice == "2":
             modify_retry_config()
-        elif choice.startswith("3."):
+        elif choice == "3":
             reset_retry_config()
-        elif choice.startswith("4."):
+        elif choice == "4":
             show_export_config()
-        elif choice.startswith("5."):
+        elif choice == "5":
             modify_export_config()
-        elif choice.startswith("6."):
+        elif choice == "6":
             reset_export_config()
 
 def show_retry_config():
@@ -2240,93 +1918,47 @@ def modify_retry_config():
     
     choices = [f"{i+1}. {desc}" for i, (desc, _, _, _, _) in enumerate(modifiable_configs)]
     
-    choice = questionary.select(
-        "请选择要修改的配置项:",
-        choices=choices,
-        use_indicator=True
-    ).ask()
+    choice_str = ui.display_menu("请选择要修改的配置项：", choices)
     
-    if choice is None or choice.endswith("返回上级菜单"):
+    if choice_str is None or int(choice_str) == len(modifiable_configs) + 1: # +1 for "返回上级菜单"
         return
     
-    # 解析选择
-    idx = int(choice.split('.')[0]) - 1
-    desc, key, value_type, min_val, max_val = modifiable_configs[idx]
+    choice = int(choice_str)
+    desc, key, type, min_val, max_val = modifiable_configs[choice - 1]
+    current_value = RETRY_CONFIG.get(key)
     
-    current_value = RETRY_CONFIG[key]
-    
-    print(f"\n当前 {desc}: {current_value}")
-    
-    if value_type == "bool":
-        new_value = questionary.confirm(f"启用 {desc}").ask()
-        if new_value is not None:
-            RETRY_CONFIG[key] = new_value
-            print(f"✅ {desc} 已设置为: {'启用' if new_value else '禁用'}")
-        else:
-            print("❌ 操作已取消")
-    elif value_type in ["int", "float"]:
-        try:
-            prompt = f"请输入新的 {desc}"
-            if min_val is not None and max_val is not None:
-                prompt += f" (范围: {min_val}-{max_val})"
-            prompt += ":"
-            
-            input_value = questionary.text(prompt, default=str(current_value)).ask()
-            
-            if input_value is None:
-                print("❌ 操作已取消")
-                return
+    if type == "bool":
+        new_value = ui.confirm(f"启用 {desc}")
+    else:
+        prompt = f"请输入新的 {desc} (范围: {min_val}-{max_val}):"
+        while True:
+            input_value = ui.prompt(prompt, default=str(current_value))
+            try:
+                if type == "int":
+                    new_value = int(input_value)
+                else:
+                    new_value = float(input_value)
                 
-            if value_type == "int":
-                new_value = int(input_value)
-            else:
-                new_value = float(input_value)
-            
-            # 验证范围
-            if min_val is not None and new_value < min_val:
-                print(f"❌ 值太小，最小值为 {min_val}")
-                return
-            if max_val is not None and new_value > max_val:
-                print(f"❌ 值太大，最大值为 {max_val}")
-                return
-                
-            RETRY_CONFIG[key] = new_value
-            print(f"✅ {desc} 已设置为: {new_value}")
-            
-        except ValueError:
-            print("❌ 输入的值格式不正确")
+                if min_val is not None and new_value < min_val:
+                    print(f"输入值不能小于 {min_val}")
+                    continue
+                if max_val is not None and new_value > max_val:
+                    print(f"输入值不能大于 {max_val}")
+                    continue
+                break
+            except (ValueError, TypeError):
+                print("无效输入，请输入正确的数值。")
+    
+    # 更新配置
+    from config import update_retry_config
+    if update_retry_config({key: new_value}):
+        print(f"✅ 配置 '{desc}' 已更新为: {new_value}")
+    else:
+        print(f"❌ 更新配置失败")
     
     input("\n按回车键继续...")
 
-def reset_retry_config():
-    """Reset retry configuration to defaults."""
-    print("\n🔄 重置重试配置")
-    
-    confirm = questionary.confirm("确定要将重试配置重置为默认值吗？").ask()
-    
-    if confirm:
-        # 重置为默认配置
-        default_config = {
-            "max_retries": 3,
-            "base_delay": 1.0,
-            "max_delay": 30.0,
-            "exponential_backoff": True,
-            "backoff_multiplier": 2.0,
-            "jitter": True,
-            "retryable_status_codes": [429, 500, 502, 503, 504],
-            "retryable_exceptions": ["timeout", "connection", "network", "dns", "ssl"],
-            "enable_batch_retry": True,
-            "retry_delay_jitter_range": 0.1
-        }
-        
-        for key, value in default_config.items():
-            RETRY_CONFIG[key] = value
-        
-        print("✅ 重试配置已重置为默认值")
-    else:
-        print("❌ 操作已取消")
-    
-    input("\n按回车键继续...")
+def reset_retry_config():    """Reset retry configuration to defaults."""    print("\n⚙️  重置重试配置")        if ui.confirm("确定要将重试配置重置为默认值吗？"):        from config import reset_retry_config as reset_config        if reset_config():            print("✅ 重试配置已重置为默认值\n")        else:            print("❌ 重置重试配置失败\n")    else:        print("❌ 操作已取消\n")    input("\n按回车键继续...")
 
 
 def show_export_config():
@@ -2371,11 +2003,7 @@ def modify_export_config():
         "3. 返回上级菜单"
     ]
     
-    choice = questionary.select(
-        "请选择操作:",
-        choices=choices,
-        use_indicator=True
-    ).ask()
+    choice = ui.display_menu("请选择操作：", choices)
     
     if choice is None or choice.startswith("3."):
         return
@@ -2391,7 +2019,7 @@ def modify_export_config():
         new_path = questionary.text(
             "请输入导出路径:",
             default=info['custom_path'] if info['is_custom'] else ""
-        ).ask()
+        new_path = ui.prompt("请输入新的导出路径:")
         
         if new_path and new_path.strip():
             if set_custom_export_path(new_path.strip()):
@@ -2415,7 +2043,7 @@ def reset_export_config():
     """Reset export path configuration to default."""
     from config import reset_export_path
     
-    if questionary.confirm("确定要重置导出路径设置为默认值吗？").ask():
+    if ui.confirm("确定要重置导出路径设置为默认值吗？"):
         reset_export_path()
         print("\n✅ 导出路径配置已重置为默认值。")
         show_export_config()
@@ -2456,10 +2084,7 @@ def set_novel_name():
     current_name = get_novel_name()
     print(f"\n当前小说名: {current_name}")
     
-    new_name = questionary.text(
-        "请输入新的小说名称:",
-        default=current_name if current_name != "未命名小说" else ""
-    ).ask()
+        new_name = ui.prompt("请输入新的小说名称:", default=current_name if current_name != "未命名小说" else "")
     
     if new_name is None:
         print("操作已取消。\n")
@@ -2682,54 +2307,39 @@ def handle_creative_workflow():
         
         # 获取当前小说名称，用于第一项显示
         current_novel_name = get_novel_name()
-        first_item = f"📝 1. 确立一句话主题 - 《{current_novel_name}》" if current_novel_name != "未命名小说" else "📝 1. 确立一句话主题 - 开始您的创作之旅"
+        first_item = f"📝 确立一句话主题 - 《{current_novel_name}》" if current_novel_name != "未命名小说" else "📝 确立一句话主题 - 开始您的创作之旅"
         
         # 创作流程菜单
-        choice = questionary.select(
-            "🎯 请选择您要进行的操作:",
-            choices=[
-                first_item,
-                "📖 2. 扩展成一段话主题 - 将主题扩展为详细描述", 
-                "🌍 3. 世界设定 - 构建角色、场景和道具",
-                "📋 4. 编辑故事大纲 - 规划整体故事结构",
-                "📚 5. 编辑分章细纲 - 细化每章内容安排",
-                "📄 6. 编辑章节概要 - 生成章节摘要",
-                "📜 7. 生成小说正文 - AI辅助创作正文",
-                "🔙 8. 返回项目管理 - 切换或管理项目"
-            ],
-            use_indicator=True,
-            style=questionary.Style([
-                ('question', 'bold fg:#ff00ff'),
-                ('answer', 'fg:#ff9d00 bold'),
-                ('pointer', 'fg:#ff9d00 bold'),
-                ('highlighted', 'fg:#ff9d00 bold'),
-                ('selected', 'fg:#cc5454'),
-                ('separator', 'fg:#cc5454'),
-                ('instruction', 'fg:#888888'),
-                ('text', ''),
-                ('disabled', 'fg:#858585 italic')
-            ])
-        ).ask()
+        menu_options = [
+            menu_options = [
+            first_item,
+            "📖 扩展成一段话主题 - 将主题扩展为详细描述", 
+            "🌍 世界设定 - 构建角色、场景和道具",
+            "📋 编辑故事大纲 - 规划整体故事结构",
+            "📚 编辑分章细纲 - 细化每章内容安排",
+            "📄 编辑章节概要 - 生成章节摘要",
+            "📜 生成小说正文 - AI辅助创作正文",
+            "🔙 返回项目管理 - 切换或管理项目"
+        ]
+        choice = ui.display_menu("🎯 请选择您要进行的操作:", menu_options)
 
-        if choice is None or choice.startswith("🔙"):
+        if choice is None or choice == '8':
             break
         
-        if choice.startswith("📝"):
+        if choice == '1':
             handle_theme_one_line()
-        elif choice.startswith("📖"):
+        elif choice == '2':
             handle_theme_paragraph()
-        elif choice.startswith("🌍"):
+        elif choice == '3':
             handle_world_setting()
-        elif choice.startswith("📋"):
+        elif choice == '4':
             handle_story_outline()
-        elif choice.startswith("📚"):
+        elif choice == '5':
             handle_chapter_outline()
-        elif choice.startswith("📄"):
+        elif choice == '6':
             handle_chapter_summary()
-        elif choice.startswith("📜"):
+        elif choice == '7':
             handle_novel_generation()
-        else:
-            print(f"您选择了: {choice} (功能开发中...)\n")
 
 def main():
     """
@@ -2755,37 +2365,22 @@ def main():
             console.print()
         
         # 主菜单
-        choice = questionary.select(
-            "🚀 MetaNovel Engine - 主菜单",
-            choices=[
-                "📁 项目管理 - 管理和切换小说项目",
-                "🔧 系统设置 - 配置系统参数",
-                "👋 退出 - 结束程序"
-            ],
-            use_indicator=True,
-            style=questionary.Style([
-                ('question', 'bold fg:#ff00ff'),
-                ('answer', 'fg:#ff9d00 bold'),
-                ('pointer', 'fg:#ff9d00 bold'),
-                ('highlighted', 'fg:#ff9d00 bold'),
-                ('selected', 'fg:#cc5454'),
-                ('separator', 'fg:#cc5454'),
-                ('instruction', 'fg:#888888'),
-                ('text', ''),
-                ('disabled', 'fg:#858585 italic')
-            ])
-        ).ask()
+        menu_options = [
+            menu_options = [
+            "项目管理",
+            "系统设置",
+            "退出"
+        ]
+        choice = ui.display_menu("🚀 MetaNovel Engine - 主菜单", menu_options)
 
-        if choice is None or choice.startswith("👋"):
+        if choice == '1':
+            handle_project_management()
+        elif choice == '2':
+            handle_system_settings()
+        elif choice == '3':
             console.clear()
             ui.print_goodbye()
             break
-        elif choice.startswith("📁"):
-            handle_project_management()
-        elif choice.startswith("🔧"):
-            handle_system_settings()
-        else:
-            print(f"您选择了: {choice} (功能开发中...)\n")
 
 
 if __name__ == "__main__":

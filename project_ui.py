@@ -1,4 +1,4 @@
-import questionary
+
 from rich import print as rprint
 from rich.panel import Panel
 from rich.table import Table
@@ -6,7 +6,7 @@ from rich.text import Text
 from datetime import datetime
 from project_manager import project_manager
 from project_data_manager import project_data_manager
-from ui_utils import console
+from ui_utils import ui, console
 
 def handle_project_management():
     """处理项目管理主菜单"""
@@ -24,35 +24,31 @@ def handle_project_management():
         console.print(Panel(status_text, title="📁 项目管理", border_style="blue"))
         
         # 菜单选项
-        choices = [
-            "1. 🎯 选择项目开始创作",
-            "2. 📋 查看所有项目",
-            "3. ➕ 创建新项目", 
-            "4. 📝 编辑项目信息",
-            "5. ❌ 删除项目",
-            "6. 📊 项目详情",
-            "7. 🔙 返回主菜单"
+        menu_options = [
+            "选择项目开始创作",
+            "查看所有项目",
+            "创建新项目", 
+            "编辑项目信息",
+            "删除项目",
+            "项目详情",
+            "返回主菜单"
         ]
         
-        action = questionary.select(
-            "请选择要进行的操作：",
-            choices=choices,
-            use_indicator=True
-        ).ask()
+        choice = ui.display_menu("请选择要进行的操作：", menu_options)
         
-        if action is None or action.startswith("7."):
+        if choice is None or choice == "7":
             break
-        elif action.startswith("1."):
+        elif choice == "1":
             switch_project()
-        elif action.startswith("2."):
+        elif choice == "2":
             list_all_projects()
-        elif action.startswith("3."):
+        elif choice == "3":
             create_new_project()
-        elif action.startswith("4."):
+        elif choice == "4":
             edit_project()
-        elif action.startswith("5."):
+        elif choice == "5":
             delete_project()
-        elif action.startswith("6."):
+        elif choice == "6":
             show_project_details()
 
 def list_all_projects():
@@ -105,29 +101,21 @@ def create_new_project():
     console.print(Panel("📝 创建新项目", border_style="green"))
     
     # 输入项目名称
-    project_name = questionary.text(
-        "请输入项目名称（用作目录名）:",
-        validate=lambda x: len(x.strip()) > 0 if x else False
-    ).ask()
+    project_name = ui.prompt("请输入项目名称（用作目录名）")
     
     if not project_name:
         console.print("[yellow]操作已取消[/yellow]")
         return
     
     # 输入显示名称
-    display_name = questionary.text(
-        "请输入显示名称（可选，留空则使用项目名称）:",
-        default=project_name
-    ).ask()
+    display_name = ui.prompt("请输入显示名称（可选，留空则使用项目名称）", default=project_name)
     
     if display_name is None:
         console.print("[yellow]操作已取消[/yellow]")
         return
     
     # 输入项目描述
-    description = questionary.text(
-        "请输入项目描述（可选）:"
-    ).ask()
+    description = ui.prompt("请输入项目描述（可选）")
     
     if description is None:
         console.print("[yellow]操作已取消[/yellow]")
@@ -138,7 +126,7 @@ def create_new_project():
         console.print(f"[green]✅ 项目 '{display_name or project_name}' 创建成功！[/green]")
         
         # 询问是否切换到新项目
-        if questionary.confirm("是否切换到新创建的项目？", default=True).ask():
+        if ui.confirm("是否切换到新创建的项目？", default=True):
             project_data_manager.switch_project(project_name.strip())
             console.print(f"[green]已切换到项目 '{display_name or project_name}'[/green]")
     else:
@@ -160,19 +148,15 @@ def switch_project():
         status = " (当前)" if project.name == current_project else ""
         choices.append(f"{project.display_name}{status}")
     
-    choices.append("🔙 返回")
+    choices.append("返回")
     
-    selected = questionary.select(
-        "请选择要进入的项目：",
-        choices=choices,
-        use_indicator=True
-    ).ask()
-    
-    if not selected or selected == "🔙 返回":
+    choice_index_str = ui.display_menu("请选择要进入的项目：", choices)
+    choice_index = int(choice_index_str) - 1
+
+    if choice_index < 0 or choice_index >= len(choices) -1:
         return
-    
-    # 找到对应的项目
-    selected_display_name = selected.replace(" (当前)", "")
+
+    selected_display_name = choices[choice_index].replace(" (当前)", "")
     for project in projects:
         if project.display_name == selected_display_name:
             if project_data_manager.switch_project(project.name):
@@ -203,18 +187,15 @@ def delete_project():
     
     choices.append("取消")
     
-    selected = questionary.select(
-        "请选择要删除的项目：",
-        choices=choices,
-        use_indicator=True
-    ).ask()
+    choice_index_str = ui.display_menu("请选择要删除的项目：", choices)
+    choice_index = int(choice_index_str) - 1
     
-    if not selected or selected == "取消":
+    if choice_index < 0 or choice_index >= len(choices) - 1:
         console.print("[yellow]操作已取消[/yellow]")
         return
     
     # 找到对应的项目
-    selected_display_name = selected.replace(" (当前)", "")
+    selected_display_name = choices[choice_index].replace(" (当前)", "")
     selected_project = None
     for project in projects:
         if project.display_name == selected_display_name:
@@ -229,7 +210,7 @@ def delete_project():
     console.print(f"[red]⚠️  警告：即将删除项目 '{selected_project.display_name}'[/red]")
     console.print("[red]此操作将永久删除该项目的所有数据，无法恢复！[/red]")
     
-    if questionary.confirm(f"确定要删除项目 '{selected_project.display_name}' 吗？", default=False).ask():
+    if ui.confirm(f"确定要删除项目 '{selected_project.display_name}' 吗？", default=False):
         if project_manager.delete_project(selected_project.name):
             console.print(f"[green]✅ 项目 '{selected_project.display_name}' 已删除[/green]")
         else:
@@ -338,20 +319,18 @@ def edit_project():
     
     choices.append("取消")
     
-    selected = questionary.select(
-        "请选择要编辑的项目：",
-        choices=choices,
-        use_indicator=True
-    ).ask()
+    choice_index_str = ui.display_menu("请选择要编辑的项目：", choices)
+    choice_index = int(choice_index_str) - 1
     
-    if not selected or selected == "取消":
+    if choice_index < 0 or choice_index >= len(choices) - 1:
         console.print("[yellow]操作已取消[/yellow]")
         return
     
     # 找到对应的项目
+    selected_display_name = choices[choice_index]
     selected_project = None
     for project in projects:
-        if project.display_name == selected:
+        if project.display_name == selected_display_name:
             selected_project = project
             break
     
@@ -368,20 +347,14 @@ def edit_project():
     console.print()
     
     # 编辑显示名称
-    new_display_name = questionary.text(
-        "请输入新的显示名称（留空保持不变）:",
-        default=selected_project.display_name
-    ).ask()
+    new_display_name = ui.prompt("请输入新的显示名称（留空保持不变）", default=selected_project.display_name)
     
     if new_display_name is None:
         console.print("[yellow]操作已取消[/yellow]")
         return
     
     # 编辑描述
-    new_description = questionary.text(
-        "请输入新的项目描述（留空保持不变）:",
-        default=selected_project.description or ""
-    ).ask()
+    new_description = ui.prompt("请输入新的项目描述（留空保持不变）", default=selected_project.description or "")
     
     if new_description is None:
         console.print("[yellow]操作已取消[/yellow]")
@@ -406,7 +379,7 @@ def edit_project():
     for change in changes:
         console.print(f"  • {change}")
     
-    if questionary.confirm("确认保存这些更改吗？", default=True).ask():
+    if ui.confirm("确认保存这些更改吗？", default=True):
         # 执行更新
         update_display_name = new_display_name.strip() if display_name_changed else None
         update_description = new_description.strip() if description_changed else None
