@@ -1,4 +1,3 @@
-
 from rich import print as rprint
 from rich.panel import Panel
 from rich.table import Table
@@ -24,32 +23,68 @@ def handle_project_management():
         console.print(Panel(status_text, title="📁 项目管理", border_style="blue"))
         
         # 菜单选项
-        menu_options = [
-            "选择项目开始创作",
-            "查看所有项目",
-            "创建新项目", 
-            "编辑项目信息",
-            "删除项目",
-            "项目详情",
-            "返回主菜单"
-        ]
+        if current_project:
+            menu_options = [
+                "🚀 继续当前项目创作",
+                "🔁 切换其他项目",
+                "📋 查看所有项目",
+                "➕ 创建新项目",
+                "✏️ 编辑项目信息",
+                "🗑️ 删除项目",
+                "📊 项目详情",
+                "🔙 返回主菜单"
+            ]
+        else:
+            menu_options = [
+                "🚀 选择项目开始创作",
+                "📋 查看所有项目",
+                "➕ 创建新项目",
+                "✏️ 编辑项目信息",
+                "🗑️ 删除项目",
+                "📊 项目详情",
+                "🔙 返回主菜单"
+            ]
         
         choice = ui.display_menu("请选择要进行的操作：", menu_options)
         
-        if choice is None or choice == "7":
-            break
-        elif choice == "1":
-            switch_project()
-        elif choice == "2":
-            list_all_projects()
-        elif choice == "3":
-            create_new_project()
-        elif choice == "4":
-            edit_project()
-        elif choice == "5":
-            delete_project()
-        elif choice == "6":
-            show_project_details()
+        if current_project:
+            if choice is None or choice == "8":
+                break
+            elif choice == "1":
+                # 直接进入创作流程
+                from meta_novel_cli import handle_creative_workflow
+                handle_creative_workflow()
+            elif choice == "2":
+                switch_project()
+            elif choice == "3":
+                list_all_projects()
+                ui.pause()
+            elif choice == "4":
+                create_new_project()
+            elif choice == "5":
+                edit_project()
+            elif choice == "6":
+                delete_project()
+            elif choice == "7":
+                show_project_details()
+                ui.pause()
+        else:
+            if choice is None or choice == "7":
+                break
+            elif choice == "1":
+                switch_project()
+            elif choice == "2":
+                list_all_projects()
+                ui.pause()
+            elif choice == "3":
+                create_new_project()
+            elif choice == "4":
+                edit_project()
+            elif choice == "5":
+                delete_project()
+            elif choice == "6":
+                show_project_details()
+                ui.pause()
 
 def list_all_projects():
     """列出所有项目"""
@@ -151,9 +186,14 @@ def switch_project():
     choices.append("返回")
     
     choice_index_str = ui.display_menu("请选择要进入的项目：", choices)
+    
+    # 检查用户是否选择了返回
+    if choice_index_str is None or int(choice_index_str) > len(choices) - 1:
+        return
+
     choice_index = int(choice_index_str) - 1
 
-    if choice_index < 0 or choice_index >= len(choices) - 1:
+    if choice_index < 0:
         return
 
     selected_display_name = choices[choice_index].replace(" (当前)", "")
@@ -190,6 +230,11 @@ def delete_project():
     choices.append("取消")
     
     choice_index_str = ui.display_menu("请选择要删除的项目：", choices)
+    
+    if choice_index_str is None:
+        console.print("[yellow]操作已取消[/yellow]")
+        return
+        
     choice_index = int(choice_index_str) - 1
     
     if choice_index < 0 or choice_index >= len(choices) - 1:
@@ -233,17 +278,20 @@ def show_project_details():
         console.print("[red]无法获取项目信息[/red]")
         return
     
+    # 获取项目对应的显示名称
+    project_display_name = project_info.display_name
+
     # 创建详情面板
     details = f"""
 [cyan]项目名称:[/cyan] {project_info.name}
-[cyan]显示名称:[/cyan] {project_info.display_name}
+[cyan]显示名称:[/cyan] {project_display_name}
 [cyan]项目描述:[/cyan] {project_info.description or '无描述'}
 [cyan]项目路径:[/cyan] {project_info.path}
 [cyan]创建时间:[/cyan] {project_info.created_at}
 [cyan]最后访问:[/cyan] {project_info.last_accessed}
     """.strip()
     
-    console.print(Panel(details, title=f"📊 项目详情 - {project_info.display_name}", border_style="cyan"))
+    console.print(Panel(details, title=f"📊 项目详情 - {project_display_name}", border_style="cyan"))
     
     # 获取项目进度信息
     data_manager = project_data_manager.get_data_manager()
@@ -322,6 +370,11 @@ def edit_project():
     choices.append("取消")
     
     choice_index_str = ui.display_menu("请选择要编辑的项目：", choices)
+    
+    if choice_index_str is None:
+        console.print("[yellow]操作已取消[/yellow]")
+        return
+        
     choice_index = int(choice_index_str) - 1
     
     if choice_index < 0 or choice_index >= len(choices) - 1:
@@ -340,28 +393,19 @@ def edit_project():
         console.print("[red]未找到选中的项目[/red]")
         return
     
-    console.print(Panel(f"📝 编辑项目 - {selected_project.display_name}", border_style="yellow"))
+    console.print(Panel(f"✏️ 正在编辑项目: {selected_project.display_name}", border_style="yellow"))
     
-    # 显示当前信息
-    console.print(f"[cyan]当前项目名称:[/cyan] {selected_project.name}")
-    console.print(f"[cyan]当前显示名称:[/cyan] {selected_project.display_name}")
-    console.print(f"[cyan]当前描述:[/cyan] {selected_project.description or '无描述'}")
-    console.print()
-    
-    # 编辑显示名称
-    new_display_name = ui.prompt("请输入新的显示名称（留空保持不变）", default=selected_project.display_name)
-    
+    # 获取新信息
+    new_display_name = ui.prompt("输入新的显示名称 (留空不修改)", default=selected_project.display_name)
     if new_display_name is None:
         console.print("[yellow]操作已取消[/yellow]")
         return
-    
-    # 编辑描述
-    new_description = ui.prompt("请输入新的项目描述（留空保持不变）", default=selected_project.description or "")
-    
+        
+    new_description = ui.prompt("输入新的描述 (留空不修改)", default=selected_project.description or "")
     if new_description is None:
         console.print("[yellow]操作已取消[/yellow]")
         return
-    
+
     # 检查是否有更改
     display_name_changed = new_display_name.strip() != selected_project.display_name
     description_changed = new_description.strip() != (selected_project.description or "")
@@ -369,30 +413,21 @@ def edit_project():
     if not display_name_changed and not description_changed:
         console.print("[yellow]没有任何更改[/yellow]")
         return
-    
-    # 确认更改
-    changes = []
-    if display_name_changed:
-        changes.append(f"显示名称: {selected_project.display_name} → {new_display_name.strip()}")
-    if description_changed:
-        changes.append(f"描述: {selected_project.description or '无描述'} → {new_description.strip() or '无描述'}")
-    
-    console.print("[yellow]即将进行以下更改:[/yellow]")
-    for change in changes:
-        console.print(f"  • {change}")
-    
-    if ui.confirm("确认保存这些更改吗？", default=True):
-        # 执行更新
-        update_display_name = new_display_name.strip() if display_name_changed else None
-        update_description = new_description.strip() if description_changed else None
+
+    update_display_name = new_display_name.strip() if display_name_changed else None
+    update_description = new_description.strip() if description_changed else None
+
+    # 更新项目
+    if project_manager.update_project_info(
+        selected_project.name, 
+        display_name=update_display_name,
+        description=update_description
+    ):
+        console.print(f"[green]✅ 项目 '{new_display_name.strip()}' 信息已更新[/green]")
         
-        if project_manager.update_project_info(
-            selected_project.name, 
-            display_name=update_display_name,
-            description=update_description
-        ):
-            console.print(f"[green]✅ 项目信息已更新成功[/green]")
-        else:
-            console.print("[red]❌ 更新项目信息失败[/red]")
+        # 如果编辑的是当前活动项目，则更新数据管理器的状态
+        if selected_project.name == project_manager.get_active_project():
+            project_data_manager.refresh_current_project_info()
+            console.print("[cyan]当前活动项目信息已刷新[/cyan]")
     else:
-        console.print("[yellow]操作已取消[/yellow]") 
+        console.print("[red]❌ 更新项目信息失败[/red]") 
