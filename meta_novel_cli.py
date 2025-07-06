@@ -1620,13 +1620,18 @@ def generate_single_novel_chapter(chapters, summaries, novel_data):
                 ui.print_error("保存章节正文时出错。\n")
         elif action == "2":
             # 修改后保存
-            edited_content = ui.prompt("请修改章节正文:", default=chapter_content)
-
-            if edited_content and edited_content.strip():
-                if get_data_manager().set_novel_chapter(chapter_num, chapter.get('title', f'第{chapter_num}章'), edited_content):
-                    ui.print_success(f"第{chapter_num}章正文已保存 ({len(edited_content)}字)。\n")
+            chapter_content = new_content
+            edited_content = ui.prompt("请修改章节正文:", default=chapter_content, multiline=True)
+            
+            if edited_content is not None and edited_content.strip():
+                # 更新当前章节内容
+                novel_chapters[chapter_key]['content'] = edited_content.strip()
+                novel_chapters[chapter_key]['word_count'] = len(re.findall(r'[\u4e00-\u9fff]+', edited_content.strip()))
+                
+                if get_data_manager().write_novel_chapters(novel_chapters):
+                    ui.print_success("章节正文已更新。\n")
                 else:
-                    ui.print_error("保存章节正文时出错。\n")
+                    ui.print_error("更新章节正文时出错。\n")
             else:
                 ui.print_warning("操作已取消或内容为空，未保存。\n")
     else:
@@ -1876,7 +1881,11 @@ def export_single_chapter(chapters, novel_chapters):
             novel_chapter_data = novel_chapters.get(f"chapter_{chapter_num}", {})
             content = novel_chapter_data.get('content', '')
             title = novel_chapter_data.get('title', f'第{chapter_num}章')
-            filename = f"{title}.txt"
+            
+            # 获取小说名并添加到文件名中
+            novel_name = get_novel_name()
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{novel_name}_{title}_{timestamp}.txt"
             
             with open(os.path.join(export_dir, filename), 'w', encoding='utf-8') as f:
                 f.write(content)
@@ -1928,7 +1937,10 @@ def export_chapter_range(chapters, novel_chapters):
 
     export_dir = get_export_dir()
     novel_name = get_novel_name()
-    filename = f"{novel_name} (第{start_chapter}-{end_chapter}章).txt"
+    
+    # 添加时间戳并统一文件名格式
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{novel_name}_第{start_chapter}-{end_chapter}章_{timestamp}.txt"
     filepath = os.path.join(export_dir, filename)
     
     with open(filepath, 'w', encoding='utf-8') as f:
