@@ -15,7 +15,7 @@ from llm_service import llm_service
 from project_data_manager import project_data_manager
 from progress_utils import AsyncProgressManager, run_with_progress
 from retry_utils import batch_retry_manager
-from config import RETRY_CONFIG, set_retry_config
+from config import RETRY_CONFIG, update_retry_config
 from entity_manager import handle_characters, handle_locations, handle_items
 from ui_utils import ui, console
 from rich.panel import Panel
@@ -2089,8 +2089,10 @@ def modify_retry_config():
         try:
             new_value = type_converter(new_value_str)
             if validator(new_value):
-                set_retry_config(key, new_value)
-                ui.print_success(f"{desc} 已更新为: {new_value}\n")
+                if update_retry_config({key: new_value}):
+                    ui.print_success(f"{desc} 已更新为: {new_value}\n")
+                else:
+                    ui.print_error(f"更新配置 '{desc}' 失败。\n")
             else:
                 ui.print_warning(f"输入的值 '{new_value}' 无效，请重新输入。\n")
         except ValueError:
