@@ -1,4 +1,5 @@
 import sys
+import os
 
 # --- 导入配置模块并设置代理 ---
 from config import setup_proxy
@@ -14,7 +15,7 @@ from llm_service import llm_service
 from project_data_manager import project_data_manager
 from progress_utils import AsyncProgressManager, run_with_progress
 from retry_utils import batch_retry_manager
-from config import RETRY_CONFIG
+from config import RETRY_CONFIG, set_retry_config
 from entity_manager import handle_characters, handle_locations, handle_items
 from ui_utils import ui, console
 from rich.panel import Panel
@@ -1021,106 +1022,108 @@ def generate_single_summary(chapters):
     # 读取现有概要数据
     summaries = get_data_manager().read_chapter_summaries()
     
-    # 选择章节
+    # 打印章节列表供用户选择
     chapter_choices = []
-    for i in range(1, len(chapters) + 1):
+    # 使用 enumerate 从 1 开始，方便用户选择
+    for i, chapter in enumerate(chapters, 1):
         chapter_key = f"chapter_{i}"
         title = chapter.get('title', f'第{i}章')
         status = "已完成" if chapter_key in summaries else "未完成"
-        chapter_choices.append(f"{i}. {title} ({status})")
+        chapter_choices.append(f"{title} ({status})")
     
     choice_str = ui.display_menu("请选择要生成概要的章节：", chapter_choices)
     
     if not choice_str:
         return
     
-    chapter_index = int(choice_str.split('.')[0]) - 1
-    chapter_num = chapter_index + 1
-    chapter = chapters[chapter_index]
-    chapter_key = f"chapter_{chapter_num}"
-    
-    # 如果已存在概要，询问是否覆盖
-    if chapter_key in summaries:
-        overwrite = ui.confirm(f"第{chapter_num}章已有概要，是否覆盖？")
-        if not overwrite:
-            ui.print_warning("操作已取消。\n")
-            return
-    
-    # 获取用户自定义提示词
-    print("您可以输入额外的要求或指导来影响AI生成章节概要。")
-    user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）", default="")
-
-    if user_prompt is None:
-        print("操作已取消。\n")
-        return
-    
-    if not llm_service.is_available():
-        print("AI服务不可用，请检查配置。")
-        return
-    
-    # 读取相关信息
-    context_info = get_data_manager().get_context_info()
-    
-    ui.print_info(f"\n正在生成第{chapter_num}章概要...")
-    summary = llm_service.generate_chapter_summary(chapter, chapter_num, context_info, user_prompt)
-    
-    if summary:
-        ui.print_info(f"\n--- 第{chapter_num}章概要 ---")
-        ui.print_info(summary)
-        ui.print_info("------------------------\n")
+    try:
+        chapter_index = int(choice_str) - 1
         
-        # 提供操作选项
-        action = ui.display_menu("请选择您要进行的操作：", [
-            "接受并保存",
-            "修改后保存", 
-            "放弃此次生成"
-        ])
-
-        if action is None or action == "3":
-            ui.print_warning("已放弃此次生成。\n")
+        # 检查选择是否有效
+        if not (0 <= chapter_index < len(chapters)):
+            ui.print_warning("无效的选择。\n")
             return
-        elif action == "1":
-            # 直接保存
-            if get_data_manager().set_chapter_summary(chapter_num, chapter.get('title', f'第{chapter_num}章'), summary):
-                ui.print_success(f"第{chapter_num}章概要已保存。\n")
-            else:
-                ui.print_error("保存章节概要时出错。\n")
-        elif action == "2":
-            # 修改后保存
-            edited_summary = ui.prompt("请修改章节概要:", default=summary)
+            
+        chapter_to_generate = chapters[chapter_index]
+        chapter_num = chapter_index + 1
+        
+        # 如果已存在概要，询问是否覆盖
+        if chapter_key in summaries:
+            overwrite = ui.confirm(f"第{chapter_num}章已有概要，是否覆盖？")
+            if not overwrite:
+                ui.print_warning("操作已取消。\n")
+                return
+        
+        # 获取用户自定义提示词
+        print("您可以输入额外的要求或指导来影响AI生成章节概要。")
+        user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）", default="")
 
-            if edited_summary and edited_summary.strip():
-                if get_data_manager().set_chapter_summary(chapter_num, chapter.get('title', f'第{chapter_num}章'), edited_summary):
-                    ui.print_success(f"第{chapter_num}章概要已保存.\n")
+        if user_prompt is None:
+            print("操作已取消。\n")
+            return
+        
+        if not llm_service.is_available():
+            print("AI服务不可用，请检查配置。")
+            return
+        
+        # 读取相关信息
+        context_info = get_data_manager().get_context_info()
+        
+        ui.print_info(f"\n为章节 '{chapter_to_generate.get('title')}' 生成概要...")
+        summary = llm_service.generate_chapter_summary(chapter_to_generate, chapter_num, context_info, user_prompt)
+        
+        if summary:
+            ui.print_info(f"\n--- 第{chapter_num}章概要 ---")
+            ui.print_info(summary)
+            ui.print_info("------------------------\n")
+            
+            # 提供操作选项
+            action = ui.display_menu("请选择您要进行的操作：", [
+                "接受并保存",
+                "修改后保存", 
+                "放弃此次生成"
+            ])
+
+            if action is None or action == "3":
+                ui.print_warning("已放弃此次生成。\n")
+                return
+            elif action == "1":
+                # 直接保存
+                if get_data_manager().set_chapter_summary(chapter_num, chapter_to_generate.get('title', f'第{chapter_num}章'), summary):
+                    ui.print_success(f"第{chapter_num}章概要已保存。\n")
                 else:
-                    ui.print_error("保存章节概要时出错.\n")
-            else:
-                ui.print_warning("操作已取消或内容为空，未保存.\n")
-    else:
-        ui.print_error(f"第{chapter_num}章概要生成失败。\n")
+                    ui.print_error("保存章节概要时出错。\n")
+            elif action == "2":
+                # 修改后保存
+                edited_summary = ui.prompt("请修改章节概要:", default=summary)
 
-
+                if edited_summary and edited_summary.strip():
+                    if get_data_manager().set_chapter_summary(chapter_num, chapter_to_generate.get('title', f'第{chapter_num}章'), edited_summary):
+                        ui.print_success(f"第{chapter_num}章概要已保存.\n")
+                    else:
+                        ui.print_error("保存章节概要时出错.\n")
+                else:
+                    ui.print_warning("操作已取消或内容为空，未保存.\n")
+        else:
+            ui.print_error(f"第{chapter_num}章概要生成失败。\n")
+    except (ValueError, IndexError):
+        ui.print_warning("无效的选择。\n")
+        return
 
 
 def view_chapter_summary(chapters):
     """View chapter summary details."""
     summaries = get_data_manager().read_chapter_summaries()
     if not summaries:
-        ui.print_warning("\n当前没有章节概要。\n")
+        ui.print_warning("\n当前没有章节概要信息。\n")
         return
-    
-    # 只显示有概要的章节
-    available_chapters = []
-    chapter_map = {}
-    for i in range(1, len(chapters) + 1):
-        chapter_key = f"chapter_{i}"
-        if chapter_key in summaries:
-            title = chapters[i-1].get('title', f'第{i}章')
-            available_chapters.append(f"{i}. {title}")
-            chapter_map[len(available_chapters)] = i
+        
+    chapter_map = {i + 1: ch for i, ch in enumerate(chapters)}
+    summary_keys_sorted = sorted([int(k.split('_')[1]) for k in summaries.keys()])
+    available_chapters = [f"{chapter_map.get(key, {}).get('title', f'第{key}章')}" for key in summary_keys_sorted]
 
     if not available_chapters:
-        ui.print_warning("\n当前没有章节概要。\n")
+        ui.print_warning("\n没有找到任何可用的章节概要。\n")
         return
     
     # 添加返回选项
@@ -1128,116 +1131,114 @@ def view_chapter_summary(chapters):
     
     choice_str = ui.display_menu("请选择要查看的章节概要：", available_chapters)
     
-    if not choice_str or int(choice_str) > len(chapter_map):
+    if not choice_str or choice_str == str(len(available_chapters)):
         return
 
-    choice = int(choice_str)
-    chapter_num = chapter_map[choice]
-    chapter_key = f"chapter_{chapter_num}"
-    summary_info = summaries[chapter_key]
-    
-    ui.print_info(f"\n--- {summary_info['title']} ---")
-    ui.print_info(summary_info['summary'])
-    ui.print_info("------------------------\n")
+    try:
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(summary_keys_sorted):
+            chapter_num = summary_keys_sorted[choice_index]
+            summary = summaries.get(f"chapter_{chapter_num}", "没有找到概要。")
+            ui.print_info(f"\n--- 第{chapter_num}章概要 ---")
+            ui.print_info(summary)
+            ui.print_info("------------------------\n")
+            ui.pause()
+        else:
+            ui.print_warning("无效的选择。\n")
+    except (ValueError, IndexError):
+        ui.print_warning("无效的选择。\n")
 
 
 def edit_chapter_summary(chapters):
-    """Edit chapter summary."""
+    """Edit a chapter summary."""
     summaries = get_data_manager().read_chapter_summaries()
     if not summaries:
-        ui.print_warning("\n当前没有章节概要可编辑。\n")
+        ui.print_warning("\n当前没有章节概要信息。\n")
         return
+
+    chapter_map = {i + 1: ch for i, ch in enumerate(chapters)}
+    summary_keys_sorted = sorted([int(k.split('_')[1]) for k in summaries.keys()])
+    available_chapters = [f"{chapter_map.get(key, {}).get('title', f'第{key}章')}" for key in summary_keys_sorted]
     
-    # 只显示有概要的章节
-    available_chapters = []
-    chapter_map = {}
-    for i in range(1, len(chapters) + 1):
-        chapter_key = f"chapter_{i}"
-        if chapter_key in summaries:
-            title = chapters[i-1].get('title', f'第{i}章')
-            available_chapters.append(f"{i}. {title}")
-            chapter_map[len(available_chapters)] = i
-
-    if not available_chapters:
-        ui.print_warning("\n当前没有章节概要可编辑。\n")
-        return
-
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要修改的章节概要：", available_chapters)
     
-    if not choice_str or int(choice_str) > len(chapter_map):
+    if not choice_str or choice_str == str(len(available_chapters)):
         return
 
-    choice = int(choice_str)
-    chapter_num = chapter_map[choice]
-    chapter_key = f"chapter_{chapter_num}"
-    summary_info = summaries[chapter_key]
-    
-    ui.print_info(f"\n--- 当前概要：{summary_info['title']} ---")
-    ui.print_info(summary_info['summary'])
-    ui.print_info("------------------------\n")
-    
-    edited_summary = ui.prompt("请修改章节概要:", default=summary_info['summary'])
-    
-    if edited_summary and edited_summary.strip() and edited_summary != summary_info['summary']:
-        if get_data_manager().set_chapter_summary(chapter_num, summary_info['title'], edited_summary):
-            ui.print_success(f"第{chapter_num}章概要已更新。\n")
+    try:
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(summary_keys_sorted):
+            chapter_num = summary_keys_sorted[choice_index]
+            summary_key = f"chapter_{chapter_num}"
+            current_summary = summaries.get(summary_key, "")
+
+            ui.print_info(f"\n--- 当前概要：第{chapter_num}章 ---")
+            ui.print_info(current_summary)
+            ui.print_info("------------------------\n")
+            
+            new_summary = ui.prompt("请输入新的概要:", default=current_summary, multiline=True)
+
+            if new_summary is not None and new_summary.strip() != current_summary:
+                summaries[summary_key] = new_summary.strip()
+                if get_data_manager().write_chapter_summaries(summaries):
+                    ui.print_success("章节概要已更新。\n")
+                else:
+                    ui.print_error("更新章节概要时出错。\n")
+            else:
+                ui.print_warning("操作已取消或内容未更改。\n")
         else:
-            ui.print_error("更新章节概要时出错。\n")
-    elif edited_summary is None:
-        ui.print_warning("操作已取消。\n")
-    else:
-        ui.print_warning("内容未更改。\n")
+            ui.print_warning("无效的选择。\n")
+    except (ValueError, IndexError):
+        ui.print_warning("无效的选择。\n")
 
 
 def delete_chapter_summary(chapters):
-    """Delete chapter summary."""
+    """Delete a chapter summary."""
     summaries = get_data_manager().read_chapter_summaries()
     if not summaries:
-        ui.print_warning("\n当前没有章节概要可删除。\n")
+        ui.print_warning("\n当前没有章节概要信息。\n")
         return
-    
-    # 只显示有概要的章节
-    available_chapters = []
-    chapter_map = {}
-    for i in range(1, len(chapters) + 1):
-        chapter_key = f"chapter_{i}"
-        if chapter_key in summaries:
-            title = chapters[i-1].get('title', f'第{i}章')
-            available_chapters.append(f"{i}. {title}")
-            chapter_map[len(available_chapters)] = i
 
-    if not available_chapters:
-        ui.print_warning("\n当前没有章节概要可删除。\n")
-        return
+    chapter_map = {i + 1: ch for i, ch in enumerate(chapters)}
+    summary_keys_sorted = sorted([int(k.split('_')[1]) for k in summaries.keys()])
+    available_chapters = [f"{chapter_map.get(key, {}).get('title', f'第{key}章')}" for key in summary_keys_sorted]
 
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要删除的章节概要：", available_chapters)
     
-    if not choice_str or int(choice_str) > len(chapter_map):
+    if not choice_str or choice_str == str(len(available_chapters)):
         return
 
-    choice = int(choice_str)
-    chapter_num = chapter_map[choice]
-    chapter_key = f"chapter_{chapter_num}"
-    title = summaries[chapter_key]['title']
-    
-    confirm = ui.confirm(f"确定要删除第{chapter_num}章 '{title}' 的概要吗？")
-    if confirm:
-        if get_data_manager().delete_chapter_summary(chapter_num):
-            ui.print_success(f"第{chapter_num}章概要已删除.\n")
+    try:
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(summary_keys_sorted):
+            chapter_num = summary_keys_sorted[choice_index]
+            summary_key = f"chapter_{chapter_num}"
+            
+            if ui.confirm(f"确定要删除第{chapter_num}章的概要吗？"):
+                if summary_key in summaries:
+                    del summaries[summary_key]
+                    if get_data_manager().write_chapter_summaries(summaries):
+                        ui.print_success("章节概要已删除。\n")
+                    else:
+                        ui.print_error("删除章节概要时出错。\n")
+                else:
+                    ui.print_warning("未找到该章节的概要。\n")
+            else:
+                ui.print_warning("操作已取消。\n")
         else:
-            ui.print_error("删除章节概要时出错.\n")
-    else:
-        ui.print_warning("操作已取消.\n")
+            ui.print_warning("无效的选择。\n")
+    except (ValueError, IndexError):
+        ui.print_warning("无效的选择。\n")
 
 
 def handle_novel_generation():
-    """Handles novel text generation with full management operations."""
+    """Handles novel generation management."""
     ensure_meta_dir()
     
     # 检查前置条件
@@ -1504,9 +1505,20 @@ def generate_single_novel_chapter(chapters, summaries, novel_data):
     if not choice_str:
         return
     
-    chapter_num = int(choice_str.split('.')[0])
+    try:
+        chapter_num = int(choice_str)
+        chapter_index = chapter_num - 1
+        
+        if not (0 <= chapter_index < len(chapters)):
+            ui.print_warning("无效的选择。\n")
+            return
+            
+    except (ValueError, IndexError):
+        ui.print_warning("无效的选择。\n")
+        return
+
+    chapter = chapters[chapter_index]
     chapter_key = f"chapter_{chapter_num}"
-    chapter = chapters[chapter_num - 1]
     
     # 如果已存在正文，询问是否覆盖
     if chapter_key in novel_chapters:
@@ -1610,148 +1622,132 @@ def view_novel_chapter(chapters, novel_data):
         novel_chapters = novel_data
     
     if not novel_chapters:
-        ui.print_warning("\n当前没有小说正文。\n")
+        ui.print_warning("\n当前没有小说正文信息。\n")
         return
-    
-    # 只显示有正文的章节
-    available_chapters = []
-    chapter_map = {}
-    for i in range(1, len(chapters) + 1):
-        chapter_key = f"chapter_{i}"
-        if chapter_key in novel_chapters:
-            title = chapters[i-1].get('title', f'第{i}章')
-            word_count = novel_chapters[chapter_key].get('word_count', 0)
-            available_chapters.append(f"{i}. {title} ({word_count}字)")
-            chapter_map[len(available_chapters)] = i
 
-    if not available_chapters:
-        ui.print_warning("\n当前没有小说正文。\n")
-        return
-    
+    chapter_map = {i + 1: ch for i, ch in enumerate(chapters)}
+    novel_keys_sorted = sorted([int(k.split('_')[1]) for k in novel_chapters.keys()])
+    available_chapters = [f"{chapter_map.get(key, {}).get('title', f'第{key}章')}" for key in novel_keys_sorted]
+
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要查看的章节正文：", available_chapters)
     
-    if not choice_str or int(choice_str) > len(chapter_map):
+    if not choice_str or choice_str == str(len(available_chapters)):
         return
 
-    choice = int(choice_str)
-    chapter_num = chapter_map[choice]
-    chapter_key = f"chapter_{chapter_num}"
-    chapter_info = novel_chapters[chapter_key]
-    
-    ui.print_info(f"\n--- {chapter_info['title']} ---")
-    ui.print_info(f"字数: {chapter_info.get('word_count', 0)} 字\n")
-    ui.print_info(chapter_info['content'])
-    ui.print_info("------------------------\n")
+    try:
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(novel_keys_sorted):
+            chapter_num = novel_keys_sorted[choice_index]
+            chapter_key = f"chapter_{chapter_num}"
+            novel_chapter_data = novel_chapters.get(chapter_key)
+            
+            if novel_chapter_data:
+                ui.print_info(f"\n--- {novel_chapter_data.get('title', '无标题')} ---")
+                ui.print_info(novel_chapter_data.get('content', '无内容'))
+                ui.print_info("------------------------\n")
+                ui.pause()
+            else:
+                ui.print_warning("未找到该章节的正文。\n")
+        else:
+            ui.print_warning("无效的选择。\n")
+    except (ValueError, IndexError):
+        ui.print_warning("无效的选择。\n")
 
 
 def edit_novel_chapter(chapters, novel_data):
-    """Edit novel chapter content."""
-    # 处理数据格式兼容性：如果传入的直接是章节字典，直接使用；否则从'chapters'键获取
-    if isinstance(novel_data, dict) and 'chapters' in novel_data:
-        novel_chapters = novel_data['chapters']
-    else:
-        novel_chapters = novel_data
-    
+    """Edit a novel chapter."""
+    novel_chapters = novel_data
     if not novel_chapters:
-        ui.print_warning("\n当前没有小说正文可编辑。\n")
+        ui.print_warning("\n当前没有小说正文信息。\n")
         return
-    
-    # 只显示有正文的章节
-    available_chapters = []
-    chapter_map = {}
-    for i in range(1, len(chapters) + 1):
-        chapter_key = f"chapter_{i}"
-        if chapter_key in novel_chapters:
-            title = chapters[i-1].get('title', f'第{i}章')
-            word_count = novel_chapters[chapter_key].get('word_count', 0)
-            available_chapters.append(f"{i}. {title} ({word_count}字)")
-            chapter_map[len(available_chapters)] = i
 
-    if not available_chapters:
-        ui.print_warning("\n当前没有小说正文可编辑。\n")
-        return
+    chapter_map = {i + 1: ch for i, ch in enumerate(chapters)}
+    novel_keys_sorted = sorted([int(k.split('_')[1]) for k in novel_chapters.keys()])
+    available_chapters = [f"{chapter_map.get(key, {}).get('title', f'第{key}章')}" for key in novel_keys_sorted]
 
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要修改的章节正文：", available_chapters)
     
-    if not choice_str or int(choice_str) > len(chapter_map):
+    if not choice_str or choice_str == str(len(available_chapters)):
         return
 
-    choice = int(choice_str)
-    chapter_num = chapter_map[choice]
-    chapter_key = f"chapter_{chapter_num}"
-    chapter_info = novel_chapters[chapter_key]
-    
-    ui.print_info(f"\n--- 当前正文：{chapter_info['title']} ---")
-    ui.print_info(f"字数: {chapter_info.get('word_count', 0)} 字")
-    ui.print_info("------------------------\n")
-    
-    edited_content = ui.prompt("请修改章节正文:", default=chapter_info['content'])
-    
-    if edited_content and edited_content.strip() and edited_content != chapter_info['content']:
-        if get_data_manager().set_novel_chapter(chapter_num, chapter_info['title'], edited_content):
-            ui.print_success(f"第{chapter_num}章正文已更新 ({len(edited_content)}字)。\n")
+    try:
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(novel_keys_sorted):
+            chapter_num = novel_keys_sorted[choice_index]
+            chapter_key = f"chapter_{chapter_num}"
+            novel_chapter_data = novel_chapters.get(chapter_key)
+
+            if novel_chapter_data:
+                current_content = novel_chapter_data.get('content', '')
+                ui.print_info(f"\n--- 正在修改：{novel_chapter_data.get('title', '')} ---")
+                
+                edited_content = ui.prompt("请编辑章节正文:", default=current_content, multiline=True)
+                
+                if edited_content is not None and edited_content.strip() != current_content:
+                    # 更新内容和字数
+                    novel_chapters[chapter_key]['content'] = edited_content.strip()
+                    novel_chapters[chapter_key]['word_count'] = len(re.findall(r'[\u4e00-\u9fff]+', edited_content.strip()))
+                    
+                    if get_data_manager().write_novel_chapters(novel_chapters):
+                        ui.print_success("章节正文已更新。\n")
+                    else:
+                        ui.print_error("更新章节正文时出错。\n")
+                else:
+                    ui.print_warning("操作已取消或内容未更改。\n")
+            else:
+                ui.print_warning("未找到该章节的正文。\n")
         else:
-            ui.print_error("更新章节正文时出错。\n")
-    elif edited_content is None:
-        ui.print_warning("操作已取消。\n")
-    else:
-        ui.print_warning("内容未更改。\n")
+            ui.print_warning("无效的选择。\n")
+    except (ValueError, IndexError):
+        ui.print_warning("无效的选择。\n")
 
 
 def delete_novel_chapter(chapters, novel_data):
-    """Delete novel chapter content."""
-    # 处理数据格式兼容性：如果传入的直接是章节字典，直接使用；否则从'chapters'键获取
-    if isinstance(novel_data, dict) and 'chapters' in novel_data:
-        novel_chapters = novel_data['chapters']
-    else:
-        novel_chapters = novel_data
-    
+    """Delete a novel chapter."""
+    novel_chapters = novel_data
     if not novel_chapters:
-        ui.print_warning("\n当前没有小说正文可删除。\n")
+        ui.print_warning("\n当前没有小说正文信息。\n")
         return
-    
-    # 只显示有正文的章节
-    available_chapters = []
-    chapter_map = {}
-    for i in range(1, len(chapters) + 1):
-        chapter_key = f"chapter_{i}"
-        if chapter_key in novel_chapters:
-            title = chapters[i-1].get('title', f'第{i}章')
-            word_count = novel_chapters[chapter_key].get('word_count', 0)
-            available_chapters.append(f"{i}. {title} ({word_count}字)")
-            chapter_map[len(available_chapters)] = i
 
-    if not available_chapters:
-        ui.print_warning("\n当前没有小说正文可删除。\n")
-        return
+    chapter_map = {i + 1: ch for i, ch in enumerate(chapters)}
+    novel_keys_sorted = sorted([int(k.split('_')[1]) for k in novel_chapters.keys()])
+    available_chapters = [f"{chapter_map.get(key, {}).get('title', f'第{key}章')}" for key in novel_keys_sorted]
 
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要删除的章节正文：", available_chapters)
     
-    if not choice_str or int(choice_str) > len(chapter_map):
+    if not choice_str or choice_str == str(len(available_chapters)):
         return
 
-    choice = int(choice_str)
-    chapter_num = chapter_map[choice]
-    chapter_key = f"chapter_{chapter_num}"
-    title = novel_chapters[chapter_key]['title']
-    
-    confirm = ui.confirm(f"确定要删除第{chapter_num}章 '{title}' 的正文吗？")
-    if confirm:
-        if get_data_manager().delete_novel_chapter(chapter_num):
-            ui.print_success(f"第{chapter_num}章正文已删除.\n")
+    try:
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(novel_keys_sorted):
+            chapter_num = novel_keys_sorted[choice_index]
+            chapter_key = f"chapter_{chapter_num}"
+            
+            if ui.confirm(f"确定要删除第{chapter_num}章的正文吗？"):
+                if chapter_key in novel_chapters:
+                    del novel_chapters[chapter_key]
+                    if get_data_manager().write_novel_chapters(novel_chapters):
+                        ui.print_success("章节正文已删除。\n")
+                    else:
+                        ui.print_error("删除章节正文时出错。\n")
+                else:
+                    ui.print_warning("未找到该章节的正文。\n")
+            else:
+                ui.print_warning("操作已取消。\n")
         else:
-            ui.print_error("删除章节正文时出错.\n")
-    else:
-        ui.print_warning("操作已取消.\n")
+            ui.print_warning("无效的选择。\n")
+    except (ValueError, IndexError):
+        ui.print_warning("无效的选择。\n")
 
 
 def get_export_dir():
@@ -1835,162 +1831,100 @@ def handle_novel_export(chapters, novel_data):
 
 def export_single_chapter(chapters, novel_chapters):
     """Export a single chapter."""
-    # 获取可导出的章节
-    available_chapters = []
-    chapter_map = {}
-    for i in range(1, len(chapters) + 1):
-        chapter_key = f"chapter_{i}"
-        if chapter_key in novel_chapters:
-            chapter_title = chapters[i-1].get('title', f'第{i}章')
-            word_count = novel_chapters[chapter_key].get('word_count', len(novel_chapters[chapter_key].get('content', '')))
-            available_chapters.append(f"{i}. {chapter_title} ({word_count}字)")
-            chapter_map[len(available_chapters)] = i
-
-    if not available_chapters:
-        print("\n没有可导出的章节。\n")
+    if not novel_chapters:
+        ui.print_warning("\n当前没有可导出的章节。\n")
         return
     
+    chapter_map = {i + 1: ch for i, ch in enumerate(chapters)}
+    novel_keys_sorted = sorted([int(k.split('_')[1]) for k in novel_chapters.keys()])
+    available_chapters = [f"{chapter_map.get(key, {}).get('title', f'第{key}章')}" for key in novel_keys_sorted]
+
     # 添加返回选项
     available_chapters.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要导出的章节：", available_chapters)
     
-    if not choice_str or int(choice_str) > len(chapter_map):
+    if not choice_str or choice_str == str(len(available_chapters)):
         return
 
-    choice = int(choice_str)
-    chapter_num = chapter_map[choice]
-    chapter_key = f"chapter_{chapter_num}"
-    chapter_info = novel_chapters[chapter_key]
-    
-    # 生成文件名和路径
-    novel_name = get_novel_name()
-    chapter_title = chapters[chapter_num-1].get('title', f'第{chapter_num}章')
-    
-    import datetime
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{novel_name}_{chapter_title}_{timestamp}.txt"
-    
-    # 获取导出目录并生成完整文件路径
-    export_dir = get_export_dir()
-    file_path = export_dir / filename
-    
-    # 写入文件
     try:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(f"{novel_name}\n")
-            f.write("=" * 50 + "\n")
-            f.write(f"导出时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"导出章节: {chapter_title}\n")
-            f.write(f"字数: {chapter_info.get('word_count', len(chapter_info.get('content', '')))} 字\n")
-            f.write("=" * 50 + "\n\n")
-            f.write(f"{chapter_info['title']}\n")
-            f.write("=" * 30 + "\n\n")
-            f.write(chapter_info['content'])
-        
-        print(f"\n✅ 章节已成功导出到文件: {file_path}")
-        print(f"小说名: {novel_name}")
-        print(f"章节: {chapter_title}")
-        print(f"字数: {chapter_info.get('word_count', len(chapter_info.get('content', '')))} 字")
-        print(f"文件位置: {export_dir}\n")
-    except Exception as e:
-        print(f"\n❌ 导出失败: {e}\n")
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(novel_keys_sorted):
+            chapter_num = novel_keys_sorted[choice_index]
+            export_dir = get_export_dir()
+            novel_chapter_data = novel_chapters.get(f"chapter_{chapter_num}", {})
+            content = novel_chapter_data.get('content', '')
+            title = novel_chapter_data.get('title', f'第{chapter_num}章')
+            filename = f"{title}.txt"
+            
+            with open(os.path.join(export_dir, filename), 'w', encoding='utf-8') as f:
+                f.write(content)
+            
+            ui.print_success(f"章节 '{title}' 已导出到: {os.path.join(export_dir, filename)}\n")
+        else:
+            ui.print_warning("无效的选择。\n")
+    except (ValueError, IndexError):
+        ui.print_warning("无效的选择。\n")
 
 
 def export_chapter_range(chapters, novel_chapters):
     """Export a range of chapters."""
-    # 获取可导出的章节号
-    available_chapter_nums = []
-    chapter_map = {}
-    for i in range(1, len(chapters) + 1):
-        chapter_key = f"chapter_{i}"
-        if chapter_key in novel_chapters:
-            available_chapter_nums.append(i)
-            chapter_map[i] = len(available_chapter_nums)
+    if not novel_chapters:
+        ui.print_warning("\n当前没有可导出的章节。\n")
+        return
+        
+    chapter_map = {int(k.split('_')[1]): v.get('title', f"第{k.split('_')[1]}章") for k, v in novel_chapters.items()}
+    available_chapter_nums = sorted(chapter_map.keys())
 
     if not available_chapter_nums:
-        print("\n没有可导出的章节。\n")
+        ui.print_warning("\n没有找到有效的章节号可供选择。\n")
         return
     
-    print(f"\n可导出的章节: {', '.join(map(str, available_chapter_nums))}")
-    
     # 创建起始章节选择列表
-    start_choices = [f"{i}. 第{i}章" for i in available_chapter_nums]
+    start_choices = [f"第{i}章" for i in available_chapter_nums]
     start_choices.append("返回上级菜单")
     
     start_choice_str = ui.display_menu("请选择起始章节：", start_choices)
     
-    if not start_choice_str or int(start_choice_str.split('.')[0]) > len(available_chapter_nums):
+    if not start_choice_str or start_choice_str == str(len(start_choices)):
         return
     
-    start_chapter = int(start_choice_str.split('.')[0])
+    start_chapter_index = int(start_choice_str) - 1
+    start_chapter = available_chapter_nums[start_chapter_index]
     
     # 创建结束章节选择列表（只包含起始章节及之后的章节）
-    end_choices = [f"{i}. 第{i}章" for i in available_chapter_nums if i >= start_chapter]
+    end_choices = [f"第{i}章" for i in available_chapter_nums if i >= start_chapter]
     end_choices.append("返回上级菜单")
     
     end_choice_str = ui.display_menu("请选择结束章节：", end_choices)
     
-    if not end_choice_str or int(end_choice_str.split('.')[0]) > len(end_choices) -1:
+    if not end_choice_str or end_choice_str == str(len(end_choices)):
         return
     
-    end_chapter = int(end_choice_str.split('.')[0])
-    
-    # 导出选定范围的章节
-    export_chapters = [i for i in available_chapter_nums if start_chapter <= i <= end_chapter]
-    
-    if not export_chapters:
-        print("\n没有可导出的章节。\n")
-        return
-    
-    # 生成文件名和路径
-    novel_name = get_novel_name()
-    if start_chapter == end_chapter:
-        chapter_range = f"第{start_chapter}章"
-    else:
-        chapter_range = f"第{start_chapter}-{end_chapter}章"
-    
-    import datetime
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{novel_name}_{chapter_range}_{timestamp}.txt"
-    
-    # 获取导出目录并生成完整文件路径
+    end_chapter_index = int(end_choice_str) - 1
+    # 需要从 end_choices 中获取正确的章节号
+    end_chapter = [num for num in available_chapter_nums if num >= start_chapter][end_chapter_index]
+
     export_dir = get_export_dir()
-    file_path = export_dir / filename
+    novel_name = get_novel_name()
+    filename = f"{novel_name} (第{start_chapter}-{end_chapter}章).txt"
+    filepath = os.path.join(export_dir, filename)
     
-    # 写入文件
-    try:
-        total_words = 0
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(f"{novel_name}\n")
-            f.write("=" * 50 + "\n")
-            f.write(f"导出时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"导出范围: {chapter_range}\n")
-            f.write(f"章节数: {len(export_chapters)} 章\n")
-            f.write("=" * 50 + "\n")
-            
-            for chapter_num in export_chapters:
-                chapter_key = f"chapter_{chapter_num}"
-                chapter_info = novel_chapters[chapter_key]
-                
-                f.write(f"\n\n{chapter_info['title']}\n")
-                f.write("=" * 30 + "\n\n")
-                f.write(chapter_info['content'])
-                
-                total_words += chapter_info.get('word_count', len(chapter_info.get('content', '')))
-        
-        print(f"\n✅ 章节范围已成功导出到文件: {file_path}")
-        print(f"小说名: {novel_name}")
-        print(f"导出范围: {chapter_range}")
-        print(f"章节数: {len(export_chapters)} 章")
-        print(f"总字数: {total_words} 字")
-        print(f"文件位置: {export_dir}\n")
-    except Exception as e:
-        print(f"\n❌ 导出失败: {e}\n")
+    with open(filepath, 'w', encoding='utf-8') as f:
+        for num in range(start_chapter, end_chapter + 1):
+            if num in available_chapter_nums:
+                chapter_data = novel_chapters.get(f"chapter_{num}", {})
+                title = chapter_data.get('title', f"第{num}章")
+                content = chapter_data.get('content', '')
+                f.write(f"## {title}\n\n")
+                f.write(content)
+                f.write("\n\n\n")
+    
+    ui.print_success(f"章节 {start_chapter} 到 {end_chapter} 已合并导出到: {filepath}\n")
 
 
 def export_complete_novel(chapters, novel_data):
-    """Export complete novel to a text file."""
+    """Export the complete novel to a single text file."""
     novel_chapters = novel_data.get('chapters', {}) if isinstance(novel_data, dict) and 'chapters' in novel_data else novel_data
     if not novel_chapters:
         print("\n当前没有小说正文可导出。\n")
@@ -2124,61 +2058,50 @@ def modify_retry_config():
     
     # 选择要修改的配置项
     modifiable_configs = [
-        ("最大重试次数", "max_retries", "int", 1, 10),
-        ("基础延迟时间(秒)", "base_delay", "float", 0.1, 10.0),
-        ("最大延迟时间(秒)", "max_delay", "float", 1.0, 120.0),
-        ("指数退避策略", "exponential_backoff", "bool", None, None),
-        ("退避倍数", "backoff_multiplier", "float", 1.1, 5.0),
-        ("随机抖动", "jitter", "bool", None, None),
-        ("批量重试功能", "enable_batch_retry", "bool", None, None),
-        ("抖动范围(秒)", "retry_delay_jitter_range", "float", 0.01, 1.0),
+        ("重试次数", 'max_retries', RETRY_CONFIG, int, lambda x: x >= 0),
+        ("重试延迟（秒）", 'delay', RETRY_CONFIG, float, lambda x: x > 0),
+        ("重试退避因子", 'backoff', RETRY_CONFIG, float, lambda x: x >= 1),
         ("返回上级菜单", None, None, None, None)
     ]
     
-    choices = [f"{i+1}. {desc}" for i, (desc, _, _, _, _) in enumerate(modifiable_configs)]
+    choices = [item[0] for item in modifiable_configs]
     
     choice_str = ui.display_menu("请选择要修改的配置项：", choices)
     
-    if choice_str is None or int(choice_str) == len(modifiable_configs) + 1: # +1 for "返回上级菜单"
+    if choice_str is None or int(choice_str) > len(modifiable_configs) -1:
         return
     
-    choice = int(choice_str)
-    desc, key, type, min_val, max_val = modifiable_configs[choice - 1]
-    current_value = RETRY_CONFIG.get(key)
-    
-    if type == "bool":
-        new_value = ui.confirm(f"启用 {desc}")
-    else:
-        prompt = f"请输入新的 {desc} (范围: {min_val}-{max_val}):"
-        while True:
-            input_value = ui.prompt(prompt, default=str(current_value))
-            try:
-                if type == "int":
-                    new_value = int(input_value)
-                else:
-                    new_value = float(input_value)
-                
-                if min_val is not None and new_value < min_val:
-                    print(f"输入值不能小于 {min_val}")
-                    continue
-                if max_val is not None and new_value > max_val:
-                    print(f"输入值不能大于 {max_val}")
-                    continue
-                break
-            except (ValueError, TypeError):
-                print("无效输入，请输入正确的数值。")
-    
-    # 更新配置
-    from config import update_retry_config
-    if update_retry_config({key: new_value}):
-        print(f"✅ 配置 '{desc}' 已更新为: {new_value}")
-    else:
-        print(f"❌ 更新配置失败")
-    
-    input("\n按回车键继续...")
+    try:
+        choice_index = int(choice_str) - 1
+        if not (0 <= choice_index < len(modifiable_configs) -1):
+            ui.print_warning("无效的选择。\n")
+            return
+
+        desc, key, config_dict, type_converter, validator = modifiable_configs[choice_index]
+        
+        current_value = config_dict[key]
+        new_value_str = ui.prompt(f"请输入新的 '{desc}' (当前值: {current_value}):", default=str(current_value))
+
+        if new_value_str is None:
+            ui.print_warning("操作已取消。\n")
+            return
+        
+        try:
+            new_value = type_converter(new_value_str)
+            if validator(new_value):
+                set_retry_config(key, new_value)
+                ui.print_success(f"{desc} 已更新为: {new_value}\n")
+            else:
+                ui.print_warning(f"输入的值 '{new_value}' 无效，请重新输入。\n")
+        except ValueError:
+            ui.print_warning("输入格式不正确，请重新输入。\n")
+
+    except (ValueError, IndexError):
+        ui.print_warning("无效的选择。\n")
+        return
 
 def reset_retry_config():
-    """Reset retry configuration to defaults."""
+    """Reset retry configuration to default."""
     print("\n⚙️  重置重试配置")
     if ui.confirm("确定要将重试配置重置为默认值吗？"):
         from config import reset_retry_config as reset_config
