@@ -495,8 +495,7 @@ def generate_chapter_outline():
         return
     
     # 如果用户不想继续，提供确认选项
-    if not user_prompt.strip():        confirm = ui.confirm("确定要继续生成分章细纲吗？")        if not confirm:            ui.print_warning("操作已取消。
-")            return
+    if not user_prompt.strip():        confirm = ui.confirm("确定要继续生成分章细纲吗？")        if not confirm:            ui.print_warning("操作已取消.\n")            return
 
     if user_prompt.strip():
         ui.print_info(f"用户指导：{user_prompt.strip()}")
