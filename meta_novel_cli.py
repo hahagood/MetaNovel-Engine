@@ -708,92 +708,106 @@ def view_chapter():
         ui.print_warning("\n当前没有章节信息。\n")
         return
     
-    chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
+    chapter_choices = [f"{ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
     chapter_choices.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要查看的章节：", chapter_choices)
     
-    if not choice_str or int(choice_str) > len(chapters):
+    if not choice_str or choice_str == str(len(chapter_choices)):
         return
-
-    choice = int(choice_str)
-    chapter_index = choice - 1
-    chapter = chapters[chapter_index]
-    ui.print_info(f"\n--- {chapter.get('title', f'第{chapter_index+1}章')} ---")
-    ui.print_info(chapter.get('outline', '无大纲'))
-    ui.print_info("------------------------\n")
+    
+    try:
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(chapters):
+            chapter = chapters[choice_index]
+            ui.print_info(f"\n--- 章节详情：{chapter.get('title', '无标题')} ---")
+            ui.print_info(f"大纲: {chapter.get('outline', '无大纲')}")
+            ui.print_info("------------------------\n")
+            ui.pause()
+        else:
+            ui.print_warning("无效的选择。\n")
+    except (ValueError, IndexError):
+        ui.print_warning("无效的选择。\n")
 
 
 def edit_chapter():
-    """Edit chapter information."""
+    """Edit chapter details."""
     chapters = get_data_manager().read_chapter_outline()
     if not chapters:
-        ui.print_warning("\n当前没有章节信息可编辑。\n")
+        ui.print_warning("\n当前没有章节信息。\n")
         return
-    
-    chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
+        
+    chapter_choices = [f"{ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
     chapter_choices.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要修改的章节：", chapter_choices)
     
-    if not choice_str or int(choice_str) > len(chapters):
+    if not choice_str or choice_str == str(len(chapter_choices)):
         return
+        
+    try:
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(chapters):
+            chapter_to_edit = chapters[choice_index]
+            
+            ui.print_info(f"当前标题: {chapter_to_edit.get('title', '')}")
+            new_title = ui.prompt("请输入新标题 (留空不修改):", default=chapter_to_edit.get('title', ''))
+            
+            ui.print_info(f"当前大纲: {chapter_to_edit.get('outline', '')}")
+            new_outline = ui.prompt("请输入新大纲 (留空不修改):", default=chapter_to_edit.get('outline', ''))
 
-    choice = int(choice_str)
-    chapter_index = choice - 1
-    chapter = chapters[chapter_index]
-    
-    ui.print_info(f"\n--- 当前章节信息 ---")
-    ui.print_info(f"标题: {chapter.get('title', '无标题')}")
-    ui.print_info(f"大纲: {chapter.get('outline', '无大纲')}")
-    ui.print_info("------------------------\n")
-    
-    new_title = ui.prompt("章节标题:", default=chapter.get('title', ''))
-    if new_title is None:
-        ui.print_warning("操作已取消。\n")
-        return
-    
-    new_outline = ui.prompt("章节大纲:", default=chapter.get('outline', ''))
-    if new_outline is None:
-        ui.print_warning("操作已取消。\n")
-        return
-    
-    # 更新章节信息
-    chapters[chapter_index] = {"title": new_title.strip(), "outline": new_outline.strip()}
-    if get_data_manager().write_chapter_outline(chapters):
-        ui.print_success("章节信息已更新。\n")
-    else:
-        ui.print_error("更新章节信息时出错。\n")
+            if new_title is None or new_outline is None:
+                ui.print_warning("操作已取消。\n")
+                return
+
+            # 更新章节信息
+            chapters[choice_index]['title'] = new_title.strip()
+            chapters[choice_index]['outline'] = new_outline.strip()
+            
+            if get_data_manager().write_chapter_outline(chapters):
+                ui.print_success("章节已更新。\n")
+            else:
+                ui.print_error("更新章节时出错。\n")
+        else:
+            ui.print_warning("无效的选择。\n")
+    except (ValueError, IndexError):
+        ui.print_warning("无效的选择。\n")
 
 
 def delete_chapter():
     """Delete a chapter."""
     chapters = get_data_manager().read_chapter_outline()
     if not chapters:
-        ui.print_warning("\n当前没有章节信息可删除.\n")
+        ui.print_warning("\n当前没有章节信息。\n")
         return
-    
-    chapter_choices = [f"{i+1}. {ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
+
+    chapter_choices = [f"{ch.get('title', f'第{i+1}章')}" for i, ch in enumerate(chapters)]
     chapter_choices.append("返回上级菜单")
     
     choice_str = ui.display_menu("请选择要删除的章节：", chapter_choices)
     
-    if not choice_str or int(choice_str) > len(chapters):
+    if not choice_str or choice_str == str(len(chapter_choices)):
         return
 
-    choice = int(choice_str)
-    chapter_index = choice - 1
-    chapter_title = chapters[chapter_index].get('title', f'第{chapter_index+1}章')
-    
-    confirm = ui.confirm(f"确定要删除章节 '{chapter_title}' 吗？")
-    if confirm:
-        chapters.pop(chapter_index)
-        if get_data_manager().write_chapter_outline(chapters):
-            ui.print_success(f"章节 '{chapter_title}' 已删除.\n")
+    try:
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(chapters):
+            chapter_to_delete = chapters[choice_index]
+            
+            if ui.confirm(f"确定要删除章节 '{chapter_to_delete.get('title', '')}' 吗?"):
+                # 从列表中删除章节
+                del chapters[choice_index]
+                
+                if get_data_manager().write_chapter_outline(chapters):
+                    ui.print_success("章节已删除。\n")
+                else:
+                    ui.print_error("删除章节时出错。\n")
+            else:
+                ui.print_warning("操作已取消。\n")
         else:
-            ui.print_error("删除章节时出错.\n")
-    else:
-        ui.print_warning("操作已取消.\n")
+            ui.print_warning("无效的选择。\n")
+    except (ValueError, IndexError):
+        ui.print_warning("无效的选择。\n")
 
 
 def handle_chapter_summary():
