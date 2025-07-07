@@ -8,6 +8,7 @@ from retry_utils import batch_retry_manager
 from entity_manager import handle_characters, handle_locations, handle_items
 from ui_utils import ui, console
 from rich.panel import Panel
+from rich.text import Text
 
 def _sanitize_chapters(chapters):
     """Ensures every chapter has an 'order' key, adding one if missing."""
@@ -300,7 +301,16 @@ def view_chapter_outlines(chapters):
         ui.pause()
         return
     
-    ui.print_chapters_table(chapters)
+    console.print(Panel(Text("📚 完整章节大纲", justify="center"), border_style="bold magenta"))
+
+    for chapter in chapters:
+        order = chapter.get("order", "N/A")
+        title = chapter.get("title", "无标题")
+        outline = chapter.get("outline", "无大纲内容。")
+        
+        content = f"[bold]{title}[/bold]\n\n{outline}"
+        ui.print_panel(content, title=f"第 {order} 章")
+
     ui.pause()
 
 def generate_chapter_outline(dm, current_chapters):
