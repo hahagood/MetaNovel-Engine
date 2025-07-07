@@ -530,7 +530,21 @@ class LLMService:
     # 新增异步方法
     async def generate_chapter_summary_async(self, chapter, chapter_num, context_info, user_prompt="", progress_callback=None):
         """异步生成章节概要"""
-        base_prompt = f"""请基于以下信息为第{chapter_num}章创建详细的章节概要：
+        if user_prompt is None:
+            user_prompt = ""
+
+        task_name = f"章节 {chapter_num} 概要生成"
+        prompt = self._get_prompt(
+            "chapter_summary",
+            user_prompt=user_prompt,
+            chapter_num=chapter_num,
+            chapter=chapter,
+            context_info=context_info
+        )
+        
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"""请基于以下信息为第{chapter_num}章创建详细的章节概要：
 
 {context_info}
 
@@ -547,15 +561,14 @@ class LLMService:
 6. 与整体故事的连接
 
 概要应该详细具体，字数在{GENERATION_CONFIG['chapter_summary_length']}，为后续的正文写作提供充分的指导。请直接输出章节概要，不要包含额外说明和标题。"""
+            
+            if user_prompt.strip():
+                prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
+            else:
+                prompt = base_prompt
         
-        if user_prompt.strip():
-            full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
-        else:
-            full_prompt = base_prompt
-        
-        task_name = f"第{chapter_num}章概要"
         return await self._make_async_request(
-            full_prompt, 
+            prompt, 
             task_name=task_name,
             progress_callback=progress_callback
         )

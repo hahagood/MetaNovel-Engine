@@ -432,8 +432,13 @@ def handle_chapter_summary():
     dm = get_data_manager()
     if not dm: return
 
+    # Ensure each chapter has an order/number for later use
+    chapters = dm.read_chapter_outline()
+    for i, chapter in enumerate(chapters):
+        chapter['order'] = i + 1
+
     while True:
-        chapters = _sanitize_chapters(dm.read_chapter_outline())
+        # Re-read summaries inside the loop to get the latest state
         summaries = dm.read_chapter_summaries()
         
         if not chapters:
@@ -571,8 +576,13 @@ def generate_single_summary(dm, chapters, summaries):
 
             # Get user input and run generation (for new or regenerated summaries)
             user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）:")
-            async def generation_task():
-                return await llm_service.generate_single_summary_async(chapter, context, user_prompt)
+            async def generation_task(*_):
+                return await llm_service.generate_chapter_summary_async(
+                    chapter,
+                    chapter['order'],
+                    context,
+                    user_prompt
+                )
 
             new_summary = run_with_progress(generation_task, f"正在为'{chapter.get('title')}'生成概要...")
 
