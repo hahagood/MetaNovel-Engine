@@ -457,7 +457,7 @@ def view_chapter_summaries(chapters, summaries):
         summary_key = f"chapter_{order}"
         summary_content = summaries.get(summary_key, {}).get("summary", "尚未生成")
         
-        ui.print_panel(summary_content, title=f"第{order}章: {title}")
+        ui.print_panel(summary_content, title=title)
 
     if not summaries:
         ui.print_info("\n提示：目前还没有任何已生成的章节概要。")
