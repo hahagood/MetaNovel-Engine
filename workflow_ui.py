@@ -766,7 +766,7 @@ def generate_single_novel_chapter(dm, chapters, summaries, novel_chapters):
             context = dm.get_context_info()
 
             async def generation_task(*_):
-                return llm_service.generate_novel_chapter(chapter, summaries.get(chapter_key), order, context, user_prompt)
+                return await llm_service.generate_novel_chapter_async(chapter, summaries.get(chapter_key), order, context, user_prompt)
 
             content = run_with_progress(generation_task, f"正在生成'{chapter.get('title', '无标题')}'...")
 

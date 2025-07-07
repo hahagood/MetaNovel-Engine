@@ -497,8 +497,23 @@ class LLMService:
         return self._make_request(full_prompt)
     
     def generate_novel_chapter(self, chapter, summary_info, chapter_num, context_info, user_prompt=""):
-        """生成小说章节正文"""
-        base_prompt = f"""请基于以下信息为第{chapter_num}章创建完整的小说正文：
+        """生成单章小说正文"""
+        if user_prompt is None:
+            user_prompt = ""
+
+        task_name = f"章节 {chapter_num} 正文生成"
+        prompt = self._get_prompt(
+            "novel_chapter",
+            user_prompt=user_prompt,
+            chapter_num=chapter_num,
+            chapter=chapter,
+            summary_info=summary_info,
+            context_info=context_info
+        )
+        
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"""请基于以下信息为第{chapter_num}章创建完整的小说正文：
 
 {context_info}
 
@@ -518,14 +533,14 @@ class LLMService:
 6. 与前后章节的自然衔接
 
 正文应该详细完整，字数在{GENERATION_CONFIG['novel_chapter_length']}。请直接输出小说正文，不要包含章节标题和额外说明。"""
-        
-        if user_prompt.strip():
-            full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
-        else:
-            full_prompt = base_prompt
+            
+            if user_prompt.strip():
+                prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
+            else:
+                prompt = base_prompt
         
         # 小说正文生成需要更长时间
-        return self._make_request(full_prompt, timeout=120)
+        return self._make_request(prompt, timeout=120)
 
     # 新增异步方法
     async def generate_chapter_summary_async(self, chapter, chapter_num, context_info, user_prompt="", progress_callback=None):
@@ -574,8 +589,23 @@ class LLMService:
         )
     
     async def generate_novel_chapter_async(self, chapter, summary_info, chapter_num, context_info, user_prompt="", progress_callback=None):
-        """异步生成小说章节正文"""
-        base_prompt = f"""请基于以下信息为第{chapter_num}章创建完整的小说正文：
+        """异步生成单章小说正文"""
+        if user_prompt is None:
+            user_prompt = ""
+
+        task_name = f"章节 {chapter_num} 正文生成"
+        prompt = self._get_prompt(
+            "novel_chapter",
+            user_prompt=user_prompt,
+            chapter_num=chapter_num,
+            chapter=chapter,
+            summary_info=summary_info,
+            context_info=context_info
+        )
+        
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"""请基于以下信息为第{chapter_num}章创建完整的小说正文：
 
 {context_info}
 
@@ -595,16 +625,15 @@ class LLMService:
 6. 与前后章节的自然衔接
 
 正文应该详细完整，字数在{GENERATION_CONFIG['novel_chapter_length']}。请直接输出小说正文，不要包含章节标题和额外说明。"""
+            
+            if user_prompt.strip():
+                prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
+            else:
+                prompt = base_prompt
         
-        if user_prompt.strip():
-            full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
-        else:
-            full_prompt = base_prompt
-        
-        task_name = f"第{chapter_num}章正文"
         # 小说正文生成需要更长时间
         return await self._make_async_request(
-            full_prompt, 
+            prompt, 
             timeout=120, 
             task_name=task_name,
             progress_callback=progress_callback
