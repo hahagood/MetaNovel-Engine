@@ -354,7 +354,7 @@ def edit_chapter_outline(dm, chapters):
         ui.pause()
         return
 
-    chapter_titles = [f"第{ch['order']}章: {ch.get('title', '无标题')}" for ch in chapters]
+    chapter_titles = [ch.get('title', '无标题') for ch in chapters]
     choice_str = ui.display_menu("请选择要编辑的章节:", chapter_titles + ["返回"])
     
     if choice_str and choice_str.isdigit():
@@ -384,7 +384,7 @@ def delete_single_chapter_outline(dm, chapters):
         ui.pause()
         return
 
-    chapter_titles = [f"第{ch['order']}章: {ch.get('title', '无标题')}" for ch in chapters]
+    chapter_titles = [ch.get('title', '无标题') for ch in chapters]
     choice_str = ui.display_menu("请选择要删除的章节:", chapter_titles + ["返回"])
     
     if choice_str and choice_str.isdigit():
