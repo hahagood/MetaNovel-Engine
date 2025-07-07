@@ -9,6 +9,13 @@ from entity_manager import handle_characters, handle_locations, handle_items
 from ui_utils import ui, console
 from rich.panel import Panel
 
+def _sanitize_chapters(chapters):
+    """Ensures every chapter has an 'order' key, adding one if missing."""
+    for i, ch in enumerate(chapters):
+        if 'order' not in ch or not ch.get('order'):
+            ch['order'] = i + 1
+    return chapters
+
 # This file now contains the main creative workflow, moved from meta_novel_cli.py
 
 # --- Getters ---
@@ -267,7 +274,7 @@ def handle_chapter_outline():
     if not dm: return
 
     while True:
-        chapters = dm.read_chapter_outline()
+        chapters = _sanitize_chapters(dm.read_chapter_outline())
         status = f"已有 {len(chapters)} 章" if chapters else "未设置"
         ui.print_info(f"\n当前分章细纲状态: {status}")
 
@@ -416,7 +423,7 @@ def handle_chapter_summary():
     if not dm: return
 
     while True:
-        chapters = dm.read_chapter_outline()
+        chapters = _sanitize_chapters(dm.read_chapter_outline())
         summaries = dm.read_chapter_summaries()
         
         if not chapters:
@@ -567,7 +574,7 @@ def handle_novel_generation():
     if not dm: return
 
     while True:
-        chapters = dm.read_chapter_outline()
+        chapters = _sanitize_chapters(dm.read_chapter_outline())
         summaries = dm.read_chapter_summaries()
         novel_chapters = dm.read_novel_chapters()
 
