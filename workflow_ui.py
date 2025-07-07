@@ -417,7 +417,7 @@ def handle_chapter_summary():
 
     while True:
         chapters = dm.read_chapter_outline()
-        summaries = dm.read_chapter_summary()
+        summaries = dm.read_chapter_summaries()
         
         if not chapters:
             ui.print_warning("请先完成分章细纲的编辑。")
@@ -482,7 +482,7 @@ def generate_all_summaries(dm, chapters, summaries):
 
     if results:
         new_summaries = {**summaries, **results}
-        dm.write_chapter_summary(new_summaries)
+        dm.write_chapter_summaries(new_summaries)
         ui.print_success(f"已成功生成 {len(results)} 个概要并保存。")
     else:
         ui.print_error("批量生成概要失败。")
@@ -514,7 +514,7 @@ def generate_single_summary(dm, chapters, summaries):
 
             if new_summary:
                 summaries[chapter_key] = {"summary": new_summary, "title": chapter.get('title')}
-                dm.write_chapter_summary(summaries)
+                dm.write_chapter_summaries(summaries)
                 ui.print_success("概要已生成并保存。")
                 ui.print_panel(new_summary, title=f"新概要: {chapter.get('title')}")
             else:
@@ -540,7 +540,7 @@ def delete_single_summary(dm, summaries):
             key_to_delete = list(summaries.keys())[choice_idx]
             if ui.confirm(f"确定要删除 '{summaries[key_to_delete].get('title')}' 的概要吗？"):
                 del summaries[key_to_delete]
-                dm.write_chapter_summary(summaries)
+                dm.write_chapter_summaries(summaries)
                 ui.print_success("概要已删除。")
             else:
                 ui.print_warning("操作已取消。")
@@ -556,7 +556,7 @@ def handle_novel_generation():
 
     while True:
         chapters = dm.read_chapter_outline()
-        summaries = dm.read_chapter_summary()
+        summaries = dm.read_chapter_summaries()
         novel_chapters = dm.read_novel_chapters()
 
         if not chapters or not summaries:

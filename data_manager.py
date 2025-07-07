@@ -132,6 +132,10 @@ class DataManager:
         }
         return self.write_json_file(self.file_paths["theme_paragraph"], data)
     
+    def delete_theme_paragraph(self):
+        """删除段落主题"""
+        return self.write_json_file(self.file_paths["theme_paragraph"], {})
+    
     # ===== 角色相关 =====
     def read_characters(self):
         """读取所有角色"""
@@ -234,6 +238,10 @@ class DataManager:
         }
         return self.write_json_file(self.file_paths["story_outline"], data)
     
+    def delete_story_outline(self):
+        """删除故事大纲"""
+        return self.write_json_file(self.file_paths["story_outline"], {})
+    
     # ===== 分章细纲相关 =====
     def read_chapter_outline(self):
         """读取分章细纲"""
@@ -248,6 +256,10 @@ class DataManager:
             "created_at": datetime.now().isoformat()
         }
         return self.write_json_file(self.file_paths["chapter_outline"], data)
+    
+    def delete_chapter_outline(self):
+        """删除分章细纲"""
+        return self.write_json_file(self.file_paths["chapter_outline"], {})
     
     # ===== 章节概要相关 =====
     def read_chapter_summaries(self):
