@@ -101,6 +101,34 @@ AI_CONFIG = {
     "timeout": int(os.getenv("REQUEST_TIMEOUT", "60"))
 }
 
+# 可选的LLM模型列表
+LLM_MODELS = {
+    "Gemini 2.5 Pro (最新)": "google/gemini-2.5-pro-preview-06-05",
+    "GPT-4o (最新)": "openai/gpt-4o",
+    "Llama 3.1 70B": "meta-llama/llama-3.1-70b-instruct",
+    "Llama 3.1 8B": "meta-llama/llama-3.1-8b-instruct",
+    "Qwen 2 72B": "qwen/qwen-2-72b-instruct",
+}
+
+def get_llm_model() -> str:
+    """获取当前选择的AI模型ID"""
+    return AI_CONFIG.get("model", "")
+
+def set_llm_model(model_id: str):
+    """设置AI模型"""
+    if model_id in LLM_MODELS.values():
+        AI_CONFIG["model"] = model_id
+        return True
+    return False
+
+# 默认的重试配置
+DEFAULT_RETRY_CONFIG = {
+    "max_retries": 3,
+    "base_delay": 1.0,
+    "max_delay": 30.0,
+    "backoff_multiplier": 2.0
+}
+
 # --- 文件路径配置 ---
 # 注意：这是默认配置，多项目模式下使用get_project_paths()生成动态路径
 FILE_PATHS = {
@@ -186,6 +214,24 @@ RETRY_CONFIG = {
     "retry_delay_jitter_range": float(os.getenv("JITTER_RANGE", "0.1"))  # 抖动范围（秒）
 }
 
+def get_retry_config() -> Dict:
+    """获取当前重试配置"""
+    return {
+        "retries": RETRY_CONFIG.get("max_retries"),
+        "delay": RETRY_CONFIG.get("base_delay"),
+        "backoff": RETRY_CONFIG.get("backoff_multiplier")
+    }
+
+def set_retry_config(new_config: Dict):
+    """设置新的重试配置"""
+    RETRY_CONFIG["max_retries"] = int(new_config.get("retries", DEFAULT_RETRY_CONFIG["max_retries"]))
+    RETRY_CONFIG["base_delay"] = float(new_config.get("delay", DEFAULT_RETRY_CONFIG["base_delay"]))
+    RETRY_CONFIG["backoff_multiplier"] = float(new_config.get("backoff", DEFAULT_RETRY_CONFIG["backoff_multiplier"]))
+
+def reset_retry_config():
+    """重置重试配置为默认值"""
+    set_retry_config(DEFAULT_RETRY_CONFIG)
+
 # --- 导出配置 ---
 EXPORT_CONFIG = {
     "use_custom_path": False,  # 是否使用自定义导出路径
@@ -255,16 +301,21 @@ def set_custom_export_path(path: str) -> bool:
         print(f"设置导出路径时出错: {e}")
         return False
 
+def clear_custom_export_path():
+    """清除自定义导出路径，恢复默认"""
+    EXPORT_CONFIG["use_custom_path"] = False
+    EXPORT_CONFIG["custom_export_path"] = ""
+    return True
 
 def reset_export_path():
-    """重置导出路径为默认值"""
+    """重置导出路径配置为默认值（清除自定义路径）"""
     EXPORT_CONFIG["use_custom_path"] = False
     EXPORT_CONFIG["custom_export_path"] = ""
 
 
 def get_export_path_info() -> Dict[str, str]:
     """
-    获取导出路径信息
+    获取关于导出路径的详细信息
     
     Returns:
         Dict: 包含导出路径信息的字典
