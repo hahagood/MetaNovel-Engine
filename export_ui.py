@@ -60,6 +60,11 @@ def export_single_chapter(chapters, novel_chapters):
     available_chapters = [title for key, title in chapter_map.items() if key in novel_chapters]
     
     choice_str = ui.display_menu("请选择要导出的章节：", available_chapters + ["返回"])
+    
+    # 优先处理返回选项
+    if choice_str == '0':
+        return
+
     if choice_str.isdigit() and int(choice_str) <= len(available_chapters):
         choice_index = int(choice_str) - 1
         # Find the correct chapter key

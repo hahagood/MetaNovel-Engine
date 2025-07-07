@@ -110,16 +110,16 @@ def list_all_projects():
         # 格式化时间
         try:
             created_time = datetime.fromisoformat(project.created_at).strftime("%Y-%m-%d %H:%M")
-        except:
+        except (ValueError, TypeError):
             created_time = "未知"
         
         try:
             access_time = datetime.fromisoformat(project.last_accessed).strftime("%Y-%m-%d %H:%M")
-        except:
+        except (ValueError, TypeError):
             access_time = "未知"
         
         # 状态标识
-        status = "🔸 活动" if project.name == current_project else "⚪ 非活动"
+        status = "活动" if project.name == current_project else "非活动"
         
         table.add_row(
             project.name,

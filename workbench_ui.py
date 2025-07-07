@@ -4,6 +4,7 @@ from workflow_ui import handle_creative_workflow
 from export_ui import handle_novel_export
 from project_manager import project_manager
 from rich.panel import Panel
+from datetime import datetime
 
 def show_workbench():
     """显示项目工作台菜单"""
@@ -45,13 +46,23 @@ def show_project_overview():
     # 获取项目元数据
     info = project_manager.get_project_info(project_manager.get_active_project())
     if info:
+        try:
+            created_at = datetime.fromisoformat(info.created_at).strftime('%Y-%m-%d %H:%M')
+        except (ValueError, TypeError):
+            created_at = "未知"
+            
+        try:
+            last_accessed = datetime.fromisoformat(info.last_accessed).strftime('%Y-%m-%d %H:%M')
+        except (ValueError, TypeError):
+            last_accessed = "未知"
+
         details = f"""
 [cyan]项目名称:[/cyan] {info.name}
 [cyan]显示名称:[/cyan] {info.display_name}
 [cyan]项目描述:[/cyan] {info.description or '无描述'}
 [cyan]项目路径:[/cyan] {info.path}
-[cyan]创建时间:[/cyan] {info.created_at}
-[cyan]最后访问:[/cyan] {info.last_accessed}
+[cyan]创建时间:[/cyan] {created_at}
+[cyan]最后访问:[/cyan] {last_accessed}
         """.strip()
         console.print(Panel(details, title="项目元数据", border_style="cyan"))
     else:
