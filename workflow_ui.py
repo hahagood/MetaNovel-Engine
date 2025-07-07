@@ -444,21 +444,33 @@ def handle_chapter_summary():
             break
 
 def view_chapter_summaries(chapters, summaries):
-    if not summaries:
-        ui.print_warning("尚无任何章节概要。")
+    if not chapters:
+        ui.print_warning("尚未创建任何分章细纲，无法查看概要。")
         ui.pause()
         return
 
-    for chapter in chapters:
-        order = chapter.get("order")
-        title = chapter.get("title", f"第{order}章")
-        summary_content = summaries.get(f"chapter_{order}", {}).get("summary", "尚未生成")
+    ui.print_info("\n--- 所有章节概要 ---")
+    for i, chapter_data in enumerate(chapters):
+        order = chapter_data.get("order", i + 1)
+        title = chapter_data.get("title", f"第{order}章")
+        
+        summary_key = f"chapter_{order}"
+        summary_content = summaries.get(summary_key, {}).get("summary", "尚未生成")
+        
         ui.print_panel(summary_content, title=f"第{order}章: {title}")
+
+    if not summaries:
+        ui.print_info("\n提示：目前还没有任何已生成的章节概要。")
+
     ui.pause()
 
 def generate_all_summaries(dm, chapters, summaries):
     context = dm.get_context_info()
-    chapters_to_generate = [ch for ch in chapters if f"chapter_{ch['order']}" not in summaries]
+    chapters_to_generate = []
+    for i, ch in enumerate(chapters):
+        order = ch.get("order", i + 1)
+        if f"chapter_{order}" not in summaries:
+            chapters_to_generate.append(ch)
 
     if not chapters_to_generate:
         ui.print_info("所有章节概要均已生成。")
