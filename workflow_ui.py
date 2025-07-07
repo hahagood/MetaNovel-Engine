@@ -569,7 +569,7 @@ def handle_novel_generation():
         status = f"已生成 {completed_count}/{total_count} 章"
         ui.print_info(f"\n当前小说正文状态: {status}")
 
-        options = ["查看章节正文", "批量生成未完成章节", "生成/修改单个章节", "编辑单个章节", "删除单个章节", "返回"]
+        options = ["查看章节正文", "批量生成未完成章节", "生成/重新生成单个章节", "手动编辑章节正文", "删除单个章节", "返回"]
         action = ui.display_menu("小说正文生成管理:", options)
 
         if action == "1":
@@ -660,36 +660,42 @@ def generate_all_novel_chapters(dm, chapters, summaries, novel_chapters):
 
 def generate_single_novel_chapter(dm, chapters, summaries, novel_chapters):
     chapter_titles = []
-    chapter_map = {}
-    for i, ch in enumerate(chapters):
-        key = f"chapter_{ch['order']}"
+    for i, chapter_data in enumerate(chapters):
+        order = chapter_data.get('order', i + 1)
+        key = f"chapter_{order}"
         status = "已生成" if key in novel_chapters else "未生成"
-        chapter_titles.append(f"({status}) 第{ch['order']}章: {ch.get('title', '无标题')}")
-        chapter_map[str(i+1)] = ch
-        
-    choice_str = ui.display_menu("请选择章节:", chapter_titles + ["返回"])
-    
-    if choice_str and choice_str in chapter_map:
-        chapter = chapter_map[choice_str]
-        chapter_key = f"chapter_{chapter['order']}"
-        
-        if chapter_key in novel_chapters and not ui.confirm("该章节已有正文，是否覆盖？"):
-            return
-            
-        user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）:")
-        context = dm.get_context_info()
+        title = chapter_data.get('title', '无标题')
+        chapter_titles.append(f"({status}) 第{order}章: {title}")
 
-        async def generation_task():
-            return llm_service.generate_novel_chapter(chapter, summaries.get(chapter_key), chapter['order'], context, user_prompt)
-            
-        content = run_with_progress(generation_task, f"正在生成'{chapter.get('title')}'...")
-        
-        if content:
-            novel_chapters[chapter_key] = {"title": chapter['title'], "content": content, "word_count": len(content)}
-            dm.write_novel_chapters(novel_chapters)
-            ui.print_success("章节正文已生成并保存。")
-        else:
-            ui.print_error("章节生成失败。")
+    choice_str = ui.display_menu("请选择要生成正文的章节:", chapter_titles + ["返回"])
+
+    if choice_str == '0':
+        return
+
+    if choice_str and choice_str.isdigit():
+        choice_idx = int(choice_str) - 1
+        if 0 <= choice_idx < len(chapters):
+            chapter = chapters[choice_idx]
+            order = chapter.get('order', choice_idx + 1)
+            chapter_key = f"chapter_{order}"
+
+            if chapter_key in novel_chapters and not ui.confirm("该章节已有正文，是否覆盖？"):
+                return
+
+            user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）:")
+            context = dm.get_context_info()
+
+            async def generation_task():
+                return llm_service.generate_novel_chapter(chapter, summaries.get(chapter_key), order, context, user_prompt)
+
+            content = run_with_progress(generation_task, f"正在生成'{chapter.get('title', '无标题')}'...")
+
+            if content:
+                novel_chapters[chapter_key] = {"title": chapter.get('title', '无标题'), "content": content, "word_count": len(content)}
+                dm.write_novel_chapters(novel_chapters)
+                ui.print_success("章节正文已生成并保存。")
+            else:
+                ui.print_error("章节生成失败。")
     ui.pause()
 
 
