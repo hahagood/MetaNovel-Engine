@@ -89,8 +89,8 @@ def modify_retry_config():
         if retries_str and delay_str and backoff_str:
             new_config = {
                 'retries': int(retries_str),
-                'delay': int(delay_str),
-                'backoff': int(backoff_str)
+                'delay': float(delay_str),
+                'backoff': float(backoff_str)
             }
             set_retry_config(new_config)
             ui.print_success("重试配置已更新。")
