@@ -530,14 +530,36 @@ def generate_single_summary(dm, chapters, summaries):
             chapter_key = f"chapter_{chapter['order']}"
             context = dm.get_context_info()
 
-            # Confirm if overwriting an existing summary
+            # Confirm if overwriting an existing summary, or offer to edit.
             if chapter_key in summaries:
-                if not ui.confirm("该章节已有概要，是否重新生成？"):
-                    ui.print_warning("操作已取消。")
-                    ui.pause()
-                    return
+                if ui.confirm("该章节已有概要。是否重新生成？(选择 '否' 将进入编辑模式)"):
+                    # User chose 'yes' to regenerate, so we let the function continue to the generation logic.
+                    pass
+                else:
+                    # User chose 'no', so we start the editing process.
+                    current_summary = summaries.get(chapter_key, {}).get("summary", "")
+                    if not current_summary:
+                        ui.print_error("错误：找不到要编辑的概要内容。")
+                        ui.pause()
+                        return
 
-            # Get user input and run generation
+                    edited_summary = ui.prompt(
+                        "请编辑您的章节概要:",
+                        default=current_summary,
+                        multiline=True
+                    )
+
+                    if edited_summary and edited_summary.strip() != current_summary:
+                        summaries[chapter_key]['summary'] = edited_summary.strip()
+                        dm.write_chapter_summaries(summaries)
+                        ui.print_success("概要已更新。")
+                    else:
+                        ui.print_warning("未作修改或输入为空。")
+                    
+                    ui.pause()
+                    return # Editing is done, so we exit the function.
+
+            # Get user input and run generation (for new or regenerated summaries)
             user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）:")
             async def generation_task():
                 return await llm_service.generate_single_summary_async(chapter, context, user_prompt)
