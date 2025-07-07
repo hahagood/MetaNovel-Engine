@@ -745,7 +745,7 @@ def generate_single_novel_chapter(dm, chapters, summaries, novel_chapters):
         key = f"chapter_{order}"
         status = "已生成" if key in novel_chapters else "未生成"
         title = chapter_data.get('title', '无标题')
-        chapter_titles.append(f"({status}) 第{order}章: {title}")
+        chapter_titles.append(f"({status}) {title}")
 
     choice_str = ui.display_menu("请选择要生成正文的章节:", chapter_titles + ["返回"])
 
@@ -765,7 +765,7 @@ def generate_single_novel_chapter(dm, chapters, summaries, novel_chapters):
             user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）:")
             context = dm.get_context_info()
 
-            async def generation_task():
+            async def generation_task(*_):
                 return llm_service.generate_novel_chapter(chapter, summaries.get(chapter_key), order, context, user_prompt)
 
             content = run_with_progress(generation_task, f"正在生成'{chapter.get('title', '无标题')}'...")
