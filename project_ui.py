@@ -19,13 +19,13 @@ def handle_project_management():
             info = project_manager.get_project_info(current_project)
             current_display_name = info.display_name if info else "未知"
         
-        title = f"📁 项目管理 (当前: {current_display_name})"
+        title = f"项目管理 (当前: {current_display_name})"
         
         menu_options = [
-            "✅ 选择并进入项目",
-            "➕ 创建新项目",
-            "🗂️  管理项目列表",
-            "🔙  返回主菜单"
+            "选择并进入项目",
+            "创建新项目",
+            "管理项目列表",
+            "返回主菜单"
         ]
         
         choice = ui.display_menu(title, menu_options)
@@ -71,12 +71,12 @@ def manage_project_list():
         list_all_projects() # 先展示列表
         
         menu_options = [
-            "📝 编辑项目信息",
-            "❌ 删除项目",
-            "📊 查看项目详情",
-            "🔙 返回"
+            "编辑项目信息",
+            "删除项目",
+            "查看项目详情",
+            "返回"
         ]
-        choice = ui.display_menu("🗂️ 管理项目列表", menu_options)
+        choice = ui.display_menu("管理项目列表", menu_options)
 
         if choice == '1':
             edit_project()

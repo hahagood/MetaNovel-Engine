@@ -25,13 +25,13 @@ def handle_creative_workflow():
     while True:
         console.clear()
         current_novel_name = get_novel_name()
-        first_item = f"📝 确立一句话主题 - 《{current_novel_name}》" if current_novel_name != "未命名小说" else "📝 确立一句话主题"
+        first_item = f"确立一句话主题 - 《{current_novel_name}》" if current_novel_name != "未命名小说" else "确立一句话主题"
         
         menu_options = [
-            first_item, "📖 扩展成一段话主题", "🌍 世界设定", "📋 编辑故事大纲", 
-            "📚 编辑分章细纲", "📄 编辑章节概要", "📜 生成小说正文", "🔙 返回项目工作台"
+            first_item, "扩展成一段话主题", "世界设定", "编辑故事大纲", 
+            "编辑分章细纲", "编辑章节概要", "生成小说正文", "返回项目工作台"
         ]
-        choice = ui.display_menu("✍️  创作流程", menu_options)
+        choice = ui.display_menu("创作流程", menu_options)
 
         actions = {'1': handle_theme_one_line, '2': handle_theme_paragraph, '3': handle_world_setting, 
                    '4': handle_story_outline, '5': handle_chapter_outline, '6': handle_chapter_summary, '7': handle_novel_generation}
@@ -58,14 +58,14 @@ def handle_theme_one_line():
         new_theme = ui.prompt("请输入您的一句话主题:", default=current_theme)
         if new_theme and new_theme.strip():
             get_data_manager().write_theme_one_line({"novel_name": current_novel_name, "theme": new_theme.strip()})
-            ui.print_success("✅ 主题已更新")
+            ui.print_success("主题已更新")
     elif action == "3":
         new_name = ui.prompt("请输入小说名称:", default=current_novel_name)
         if new_name and new_name.strip():
             new_theme = ui.prompt("请输入您的一句话主题:", default=current_theme)
             if new_theme and new_theme.strip():
                 get_data_manager().write_theme_one_line({"novel_name": new_name.strip(), "theme": new_theme.strip()})
-                ui.print_success("✅ 名称和主题已更新")
+                ui.print_success("名称和主题已更新")
     ui.pause()
 
 def set_novel_name():
@@ -75,7 +75,7 @@ def set_novel_name():
         current_data = get_data_manager().read_theme_one_line()
         current_theme = current_data.get("theme", "") if isinstance(current_data, dict) else (current_data or "")
         get_data_manager().write_theme_one_line({"novel_name": new_name.strip(), "theme": current_theme})
-        ui.print_success(f"✅ 小说名称已更新为: {new_name}")
+        ui.print_success(f"小说名称已更新为: {new_name}")
 
 # --- Step 2: Paragraph Theme ---
 def handle_theme_paragraph():
@@ -85,7 +85,7 @@ def handle_theme_paragraph():
     
     while True:
         theme_paragraph = dm.read_theme_paragraph()
-        status = "✅ 已设置" if theme_paragraph else "⏳ 未设置"
+        status = "已设置" if theme_paragraph else "未设置"
         
         ui.print_info(f"\n当前段落主题状态: {status}")
         
@@ -105,7 +105,7 @@ def handle_theme_paragraph():
 
 def view_theme_paragraph(theme_paragraph):
     if theme_paragraph:
-        ui.print_panel(theme_paragraph, title="📖 当前段落主题")
+        ui.print_panel(theme_paragraph, title="当前段落主题")
     else:
         ui.print_warning("尚未设置段落主题。")
     ui.pause()
@@ -182,7 +182,7 @@ def handle_story_outline():
 
     while True:
         story_outline = dm.read_story_outline()
-        status = "✅ 已设置" if story_outline else "⏳ 未设置"
+        status = "已设置" if story_outline else "未设置"
         ui.print_info(f"\n当前故事大纲状态: {status}")
 
         options = ["查看当前大纲", "生成新的大纲", "编辑当前大纲", "删除当前大纲", "返回"]
@@ -201,7 +201,7 @@ def handle_story_outline():
 
 def view_story_outline(story_outline):
     if story_outline:
-        ui.print_panel(story_outline, title="📖 当前故事大纲")
+        ui.print_panel(story_outline, title="当前故事大纲")
     else:
         ui.print_warning("尚未设置故事大纲。")
     ui.pause()
@@ -268,7 +268,7 @@ def handle_chapter_outline():
 
     while True:
         chapters = dm.read_chapter_outline()
-        status = f"✅ 已有 {len(chapters)} 章" if chapters else "⏳ 未设置"
+        status = f"已有 {len(chapters)} 章" if chapters else "未设置"
         ui.print_info(f"\n当前分章细纲状态: {status}")
 
         options = ["查看所有章节细纲", "生成新的分章细纲", "编辑指定章节", "删除指定章节", "全部删除", "返回"]
@@ -426,7 +426,7 @@ def handle_chapter_summary():
 
         completed_count = len(summaries)
         total_count = len(chapters)
-        status = f"✅ 已完成 {completed_count}/{total_count} 章"
+        status = f"已完成 {completed_count}/{total_count} 章"
         ui.print_info(f"\n当前章节概要状态: {status}")
 
         options = ["查看章节概要", "批量生成所有未完成的概要", "生成或修改单个概要", "删除单个概要", "返回"]
@@ -566,7 +566,7 @@ def handle_novel_generation():
 
         completed_count = len(novel_chapters)
         total_count = len(chapters)
-        status = f"✅ 已生成 {completed_count}/{total_count} 章"
+        status = f"已生成 {completed_count}/{total_count} 章"
         ui.print_info(f"\n当前小说正文状态: {status}")
 
         options = ["查看章节正文", "批量生成未完成章节", "生成/修改单个章节", "编辑单个章节", "删除单个章节", "返回"]
@@ -617,7 +617,7 @@ def generate_all_novel_chapters(dm, chapters, summaries, novel_chapters):
         ui.pause()
         return
 
-    mode_choice = ui.display_menu("请选择执行模式：", ["🚀 并发生成（推荐）", "📝 顺序生成", "返回"])
+    mode_choice = ui.display_menu("请选择执行模式：", ["并发生成（推荐）", "顺序生成", "返回"])
     if mode_choice == "0": return
     use_async = mode_choice == "1"
 
@@ -663,8 +663,8 @@ def generate_single_novel_chapter(dm, chapters, summaries, novel_chapters):
     chapter_map = {}
     for i, ch in enumerate(chapters):
         key = f"chapter_{ch['order']}"
-        status = "✅" if key in novel_chapters else "⏳"
-        chapter_titles.append(f"{status} 第{ch['order']}章: {ch.get('title', '无标题')}")
+        status = "已生成" if key in novel_chapters else "未生成"
+        chapter_titles.append(f"({status}) 第{ch['order']}章: {ch.get('title', '无标题')}")
         chapter_map[str(i+1)] = ch
         
     choice_str = ui.display_menu("请选择章节:", chapter_titles + ["返回"])

@@ -7,13 +7,13 @@ def handle_system_settings():
     """主设置菜单"""
     while True:
         menu_options = [
-            f"🤖 切换AI模型 (当前: {get_llm_model()})",
-            "🔧 Prompts模板管理",
-            "🔄 智能重试配置",
-            "📂 导出路径配置",
-            "🔙 返回主菜单"
+            f"切换AI模型 (当前: {get_llm_model()})",
+            "Prompts模板管理",
+            "智能重试配置",
+            "导出路径配置",
+            "返回主菜单"
         ]
-        choice = ui.display_menu("⚙️ 系统设置", menu_options)
+        choice = ui.display_menu("系统设置", menu_options)
 
         if choice == '1':
             switch_llm_model()
@@ -57,7 +57,7 @@ def handle_retry_settings():
             "恢复默认配置",
             "返回"
         ]
-        choice = ui.display_menu("🔄 智能重试配置", menu_options)
+        choice = ui.display_menu("智能重试配置", menu_options)
 
         if choice == '1':
             show_retry_config()
@@ -118,7 +118,7 @@ def handle_export_settings():
             "恢复默认路径",
             "返回"
         ]
-        choice = ui.display_menu("📂 导出路径配置", menu_options)
+        choice = ui.display_menu("导出路径配置", menu_options)
 
         if choice == '1':
             show_export_config()
@@ -134,9 +134,9 @@ def show_export_config():
     """显示导出路径配置"""
     info = get_export_path_info()
     ui.print_info("--- 导出路径配置 ---")
-    ui.print_info(f"📁 当前导出路径: {info['current_path']}")
-    ui.print_info(f"🏠 用户文档目录: {info['documents_dir']}")
-    ui.print_info(f"📋 默认导出路径: {info['default_path']}")
+    ui.print_info(f"当前导出路径: {info['current_path']}")
+    ui.print_info(f"用户文档目录: {info['documents_dir']}")
+    ui.print_info(f"默认导出路径: {info['default_path']}")
     
     if info['is_custom']:
         ui.print_info(f"自定义路径: {info['custom_path']}")
