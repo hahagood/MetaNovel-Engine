@@ -508,15 +508,21 @@ def generate_all_summaries(dm, chapters, summaries):
     ui.pause()
 
 def generate_single_summary(dm, chapters, summaries):
+    """Handles the UI for generating or updating a summary for a single chapter."""
     chapter_titles = []
     for ch in chapters:
-        order = ch['order']
+        order = ch.get('order')
         title = ch.get('title', '无标题')
         status = "已生成" if f"chapter_{order}" in summaries else "未生成"
-        chapter_titles.append(f"({status}) 第{order}章: {title}")
+        chapter_titles.append(f"({status}) {title}")
 
     choice_str = ui.display_menu("请选择要生成/修改概要的章节:", chapter_titles + ["返回"])
 
+    # Handle returning to the previous menu
+    if choice_str == '0':
+        return
+
+    # Handle a valid numeric choice
     if choice_str and choice_str.isdigit():
         choice_idx = int(choice_str) - 1
         if 0 <= choice_idx < len(chapters):
@@ -524,19 +530,21 @@ def generate_single_summary(dm, chapters, summaries):
             chapter_key = f"chapter_{chapter['order']}"
             context = dm.get_context_info()
 
+            # Confirm if overwriting an existing summary
             if chapter_key in summaries:
                 if not ui.confirm("该章节已有概要，是否重新生成？"):
                     ui.print_warning("操作已取消。")
                     ui.pause()
                     return
 
+            # Get user input and run generation
             user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）:")
-            
             async def generation_task():
                 return await llm_service.generate_single_summary_async(chapter, context, user_prompt)
 
             new_summary = run_with_progress(generation_task, f"正在为'{chapter.get('title')}'生成概要...")
 
+            # Process results
             if new_summary:
                 summaries[chapter_key] = {"summary": new_summary, "title": chapter.get('title')}
                 dm.write_chapter_summaries(summaries)
@@ -544,9 +552,14 @@ def generate_single_summary(dm, chapters, summaries):
                 ui.print_panel(new_summary, title=f"新概要: {chapter.get('title')}")
             else:
                 ui.print_error("生成概要失败。")
-        else:
-            ui.print_warning("无效的选择。")
+            
+            ui.pause() # Pause after the action is complete
+            return # Exit the function since we're done
+
+    # If the input was not a valid choice, show an error
+    ui.print_warning("无效的选择。")
     ui.pause()
+
 
 def delete_single_summary(dm, summaries):
     if not summaries:
@@ -777,8 +790,3 @@ def delete_novel_chapter(dm, chapters, novel_chapters):
             else:
                 ui.print_warning("操作已取消。")
     ui.pause()
-
-# NOTE: The actual implementations for steps 2, 4, 5, 6, 7 and their helpers 
-# (generate_*, edit_*, view_*, etc.) are omitted here for clarity, but in the
-# real file, they would be fully implemented just like handle_theme_one_line.
-# The purpose of this edit is to establish the complete and correct structure.
