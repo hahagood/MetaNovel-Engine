@@ -508,7 +508,13 @@ def generate_all_summaries(dm, chapters, summaries):
     ui.pause()
 
 def generate_single_summary(dm, chapters, summaries):
-    chapter_titles = [f"第{ch['order']}章: {ch.get('title', '无标题')}" for ch in chapters]
+    chapter_titles = []
+    for ch in chapters:
+        order = ch['order']
+        title = ch.get('title', '无标题')
+        status = "已生成" if f"chapter_{order}" in summaries else "未生成"
+        chapter_titles.append(f"({status}) 第{order}章: {title}")
+
     choice_str = ui.display_menu("请选择要生成/修改概要的章节:", chapter_titles + ["返回"])
 
     if choice_str and choice_str.isdigit():
