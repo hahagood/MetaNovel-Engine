@@ -6,6 +6,7 @@ from datetime import datetime
 from project_manager import project_manager
 from project_data_manager import project_data_manager
 from ui_utils import ui, console
+from workbench_ui import show_workbench
 
 def handle_project_management():
     """处理项目管理的UI和逻辑"""
@@ -18,53 +19,73 @@ def handle_project_management():
             info = project_manager.get_project_info(current_project)
             current_display_name = info.display_name if info else "未知"
         
-        # 将标题作为参数传给display_menu，并移除单独的Panel打印
         title = f"📁 项目管理 (当前: {current_display_name})"
         
         menu_options = [
-            "🚀  继续当前项目创作",
-            "🔁  切换其他项目",
-            "📋  查看所有项目",
-            "➕  创建新项目",
-            "📝  编辑项目信息",
-            "❌  删除项目",
-            "📊  项目详情",
+            "✅ 选择并进入项目",
+            "➕ 创建新项目",
+            "🗂️  管理项目列表",
             "🔙  返回主菜单"
         ]
         
-        choice = ui.display_menu(title, menu_options, default_choice="1" if current_project else "3")
+        choice = ui.display_menu(title, menu_options)
 
-        if choice is None:
+        if choice == '1':
+            select_and_enter_project()
+        elif choice == '2':
+            create_new_project()
+        elif choice == '3':
+            manage_project_list()
+        elif choice == '0':
             break
 
-        def _handle_creative_workflow_wrapper():
-            from meta_novel_cli import handle_creative_workflow
-            handle_creative_workflow()
+def select_and_enter_project():
+    """选择一个项目并进入其工作台"""
+    projects = project_manager.list_projects()
+    if not projects:
+        ui.print_warning("暂无项目。请先创建一个新项目。")
+        ui.pause()
+        return
 
-        action_map = {
-            "1": _handle_creative_workflow_wrapper,
-            "2": switch_project,
-            "3": list_all_projects,
-            "4": create_new_project,
-            "5": edit_project,
-            "6": delete_project,
-            "7": show_project_details,
-            "8": lambda: "break"  # 用于跳出循环的哨兵
-        }
+    current_project = project_manager.get_active_project()
+    
+    choices = []
+    for p in projects:
+        status = " (当前)" if p.name == current_project else ""
+        choices.append(f"{p.display_name}{status}")
+    choices.append("返回")
 
-        # 如果没有当前项目，一些选项是无效的
-        if not current_project and choice in ["1", "2", "7"]:
-            ui.print_warning("此操作需要先选择一个活动项目。")
-            ui.pause()
-            continue
+    choice_str = ui.display_menu("请选择要进入的项目:", choices)
+    
+    if choice_str.isdigit() and choice_str != '0':
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(projects):
+            selected_project = projects[choice_index]
+            project_data_manager.switch_project(selected_project.name)
+            ui.print_success(f"已进入项目: 《{selected_project.display_name}》")
+            show_workbench() # 进入项目工作台
+    
+def manage_project_list():
+    """提供编辑、删除、查看详情等项目管理功能"""
+    while True:
+        list_all_projects() # 先展示列表
+        
+        menu_options = [
+            "📝 编辑项目信息",
+            "❌ 删除项目",
+            "📊 查看项目详情",
+            "🔙 返回"
+        ]
+        choice = ui.display_menu("🗂️ 管理项目列表", menu_options)
 
-        action = action_map.get(choice)
-        if action:
-            if action() == "break":
-                break
-        else:
-            ui.print_warning("无效的选择。")
-            ui.pause()
+        if choice == '1':
+            edit_project()
+        elif choice == '2':
+            delete_project()
+        elif choice == '3':
+            show_project_details()
+        elif choice == '0':
+            break
 
 def list_all_projects():
     """列出所有项目"""
@@ -148,89 +169,36 @@ def create_new_project():
         console.print("[red]❌ 项目创建失败[/red]")
 
 def switch_project():
-    """切换项目并进入创作流程"""
-    projects = project_manager.list_projects()
-    
-    if not projects:
-        console.print("[yellow]暂无项目可切换[/yellow]")
-        return
-    
-    current_project = project_manager.get_active_project()
-    
-    # 准备选择列表
-    choices = []
-    for project in projects:
-        status = " (当前)" if project.name == current_project else ""
-        choices.append(f"{project.display_name}{status}")
-    
-    choices.append("返回")
-    
-    choice_index_str = ui.display_menu("请选择要进入的项目：", choices)
-    
-    # 检查用户是否选择了返回
-    if choice_index_str is None or int(choice_index_str) > len(choices) - 1:
-        return
-
-    choice_index = int(choice_index_str) - 1
-
-    if choice_index < 0:
-        return
-
-    selected_display_name = choices[choice_index].replace(" (当前)", "")
-    for project in projects:
-        if project.display_name == selected_display_name:
-            if project_data_manager.switch_project(project.name):
-                console.print(f"[green]✅ 已切换到项目 '{project.display_name}'[/green]")
-                
-                # 导入并调用创作流程菜单
-                from meta_novel_cli import handle_creative_workflow
-                handle_creative_workflow()
-                # After returning from the creative workflow, we should return to the main menu.
-                return
-            else:
-                console.print("[red]❌ 切换项目失败[/red]")
-            break
+    # This function is now obsolete and replaced by select_and_enter_project
+    pass
 
 def delete_project():
     """删除项目"""
+    selected_project = None
+    
+    # Let user select which project to delete
     projects = project_manager.list_projects()
-    
     if not projects:
-        console.print("[yellow]暂无项目可删除[/yellow]")
+        ui.print_warning("没有可删除的项目。")
         return
-    
-    current_project = project_manager.get_active_project()
-    
-    # 准备选择列表
-    choices = []
-    for project in projects:
-        status = " (当前)" if project.name == current_project else ""
-        choices.append(f"{project.display_name}{status}")
-    
+
+    choices = [p.display_name for p in projects]
     choices.append("取消")
     
-    choice_index_str = ui.display_menu("请选择要删除的项目：", choices)
-    
-    if choice_index_str is None:
-        console.print("[yellow]操作已取消[/yellow]")
+    choice_str = ui.display_menu("请选择要删除的项目:", choices)
+
+    if choice_str.isdigit() and choice_str != '0':
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(projects):
+            selected_project = projects[choice_index]
+        else:
+            ui.print_warning("无效的选择。")
+            return
+    else: # User cancelled
         return
         
-    choice_index = int(choice_index_str) - 1
-    
-    if choice_index < 0 or choice_index >= len(choices) - 1:
-        console.print("[yellow]操作已取消[/yellow]")
-        return
-    
-    # 找到对应的项目
-    selected_display_name = choices[choice_index].replace(" (当前)", "")
-    selected_project = None
-    for project in projects:
-        if project.display_name == selected_display_name:
-            selected_project = project
-            break
-    
     if not selected_project:
-        console.print("[red]未找到选中的项目[/red]")
+        ui.print_error("未找到选中的项目。")
         return
     
     # 确认删除
@@ -244,74 +212,69 @@ def delete_project():
             console.print("[red]❌ 删除项目失败[/red]")
     else:
         console.print("[yellow]操作已取消[/yellow]")
+    ui.pause()
 
 def show_project_details():
     """显示项目详情"""
     current_project = project_manager.get_active_project()
     
     if not current_project:
-        console.print("[yellow]当前无活动项目[/yellow]")
+        ui.print_warning("请先选择一个活动项目。")
+        ui.pause()
         return
     
-    project_info = project_manager.get_project_info(current_project)
-    if not project_info:
-        console.print("[red]无法获取项目信息[/red]")
+    info = project_manager.get_project_info(current_project)
+    dm = project_data_manager.get_data_manager(current_project)
+
+    if not info or not dm:
+        ui.print_error("无法获取项目详情。")
+        ui.pause()
         return
     
     # 获取项目对应的显示名称
-    project_display_name = project_info.display_name or project_info.name
+    project_display_name = info.display_name or info.name
 
     # 创建详情面板
     details = f"""
-[cyan]项目名称:[/cyan] {project_info.name}
+[cyan]项目名称:[/cyan] {info.name}
 [cyan]显示名称:[/cyan] {project_display_name}
-[cyan]项目描述:[/cyan] {project_info.description or '无描述'}
-[cyan]项目路径:[/cyan] {project_info.path}
-[cyan]创建时间:[/cyan] {project_info.created_at}
-[cyan]最后访问:[/cyan] {project_info.last_accessed}
+[cyan]项目描述:[/cyan] {info.description or '无描述'}
+[cyan]项目路径:[/cyan] {info.path}
+[cyan]创建时间:[/cyan] {info.created_at}
+[cyan]最后访问:[/cyan] {info.last_accessed}
     """.strip()
     
     console.print(Panel(details, title=f"📊 项目详情 - {project_display_name}", border_style="cyan"))
 
 def edit_project():
     """编辑项目信息"""
+    selected_project = None
+    
+    # Let user select which project to edit
     projects = project_manager.list_projects()
-    
     if not projects:
-        console.print("[yellow]暂无项目可编辑[/yellow]")
+        ui.print_warning("没有可编辑的项目。")
         return
-    
-    # 准备选择列表
-    choices = []
-    for project in projects:
-        choices.append(f"{project.display_name}")
-    
+
+    choices = [p.display_name for p in projects]
     choices.append("取消")
     
-    choice_index_str = ui.display_menu("请选择要编辑的项目：", choices)
+    choice_str = ui.display_menu("请选择要编辑的项目:", choices)
     
-    if choice_index_str is None:
-        console.print("[yellow]操作已取消[/yellow]")
+    if choice_str.isdigit() and choice_str != '0':
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(projects):
+            selected_project = projects[choice_index]
+        else:
+            ui.print_warning("无效的选择。")
+            return
+    else: # User cancelled
+        return
+
+    if not selected_project:
+        ui.print_error("未找到选中的项目。")
         return
         
-    choice_index = int(choice_index_str) - 1
-    
-    if choice_index < 0 or choice_index >= len(choices) - 1:
-        console.print("[yellow]操作已取消[/yellow]")
-        return
-    
-    # 找到对应的项目
-    selected_display_name = choices[choice_index]
-    selected_project = None
-    for project in projects:
-        if project.display_name == selected_display_name:
-            selected_project = project
-            break
-    
-    if not selected_project:
-        console.print("[red]未找到选中的项目[/red]")
-        return
-    
     console.print(Panel(f"📝 正在编辑项目: {selected_project.display_name}", border_style="yellow"))
     
     # 编辑显示名称

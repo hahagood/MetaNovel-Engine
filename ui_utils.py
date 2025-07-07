@@ -236,80 +236,76 @@ class UIUtils:
     def display_menu(title: str, options: List[str], default_choice: str = "1") -> Optional[str]:
         """
         显示菜单并获取用户选择。
-        特殊处理包含"退出"、"返回"等关键字的选项，将其序号设置为0。
+        根据规则，"返回"或"退出"类的选项应使用序号 "0" 并显示在末尾。
+        此函数现在将自动查找这类选项，将其作为 "0" 选项，并调整显示。
         """
         if not options:
             UIUtils.print_warning("菜单选项为空")
             return None
 
+        console.print(Panel(Text(title, justify="center"), border_style="bold magenta"))
+
+        exit_keywords = ["返回", "退出", "取消"]
         exit_option = None
-        exit_option_original_index = -1
-        regular_options = list(options)  # 创建一个副本以安全地修改
+        regular_options = []
 
-        # 查找并分离出退出/返回选项（通常是最后一个）
-        if regular_options:
-            last_option_lower = regular_options[-1].lower()
-            exit_keywords = ["exit", "quit", "back", "return", "cancel", "退出", "返回", "取消"]
-            if any(keyword in last_option_lower for keyword in exit_keywords):
-                exit_option_original_index = len(regular_options) - 1
-                exit_option = regular_options.pop(exit_option_original_index)
-
-        # 构建显示的菜单项和有效的选择
+        # 1. 分离常规选项和退出选项
+        for opt in options:
+            is_exit_opt = any(keyword in opt for keyword in exit_keywords)
+            if is_exit_opt and not exit_option: # 只处理第一个匹配的退出选项
+                exit_option = opt
+            else:
+                regular_options.append(opt)
+        
+        # 2. 构建菜单项文本
         menu_items = []
         valid_choices = []
-
-        # 1. 处理普通选项
+        
         for i, option in enumerate(regular_options, 1):
-            menu_items.append(f"   {i}. {option}")
+            menu_items.append(f"[cyan]{i}[/cyan]. {option}")
             valid_choices.append(str(i))
 
-        # 2. 处理退出选项
         if exit_option:
-            menu_items.append(f"   0. {exit_option}")
+            menu_items.append(f"[cyan]0[/cyan]. {exit_option}")
             valid_choices.append("0")
-
-        # 渲染菜单面板
-        panel_content = "\n".join(menu_items)
-        panel = Panel(panel_content, title=f"╭─ {title} ─╮", border_style="dim", expand=False)
-        console.print(Align.center(panel))
-
-        # 准备并显示用户输入提示，并与菜单左对齐
-        # 首先，我们需要测量Panel的宽度
-        panel_width = console.measure(panel).maximum
+            # 如果默认选项是退出选项，则更新
+            if default_choice.lower() in [o.lower() for o in options if any(k in o for k in exit_keywords)]:
+                 default_choice = "0"
         
-        # 获取终端宽度
-        terminal_width = console.width
-        
-        # 计算左侧需要填充的空格数
-        padding = (terminal_width - panel_width) // 2
-        
-        # 创建带缩进的提示
-        prompt_text = " " * padding + f"请选择操作 [{'/'.join(valid_choices)}]"
-
-        # 确保 default_choice 是有效的，否则不使用默认值
-        final_default = default_choice if default_choice in valid_choices else None
-
-        try:
-            choice = Prompt.ask(
-                prompt_text,
-                choices=valid_choices,
-                default=final_default
-            )
-
-            # 将 "0" 映射回原始的选项索引 (1-based)
-            if exit_option and choice == "0":
-                # 返回原始列表中的位置 (index + 1)
-                return str(exit_option_original_index + 1)
-
-            return choice
-
-        except Exception as e:
-            # 在交互失败时返回 None，以防程序卡死
-            console.print(f"[red]菜单输入时发生错误: {e}[/red]")
+        # 3. 计算对齐和显示
+        if not menu_items:
+            UIUtils.print_warning("没有可显示的菜单项。")
             return None
 
+        # 创建一个Renderable的列表
+        renderables = [Text.from_markup(item) for item in menu_items]
+        
+        # 将所有菜单项放入一个垂直堆栈（通过换行符），然后居中
+        menu_text = Text("\n").join(renderables)
+        console.print(Align.center(menu_text))
+        console.print() # 添加空行
+
+        # 4. 获取用户输入
+        # 计算左边距以对齐提示
+        max_width = max(r.cell_len for r in renderables) if renderables else 0
+        terminal_width = console.width
+        padding_size = (terminal_width - max_width) // 2
+        padding_str = " " * padding_size
+
+        prompt_text = f"{padding_str}[{Colors.ACCENT}]请选择[/]"
+
+        choice = Prompt.ask(
+            prompt_text,
+            choices=valid_choices,
+            default=default_choice if default_choice in valid_choices else None,
+            show_choices=False,
+            show_default=True,
+        )
+        
+        return choice
+
     @staticmethod
-    def pause(message: str = "按任意键继续..."):
+    def pause(message: str = "按回车键继续..."):
         """暂停程序，等待用户输入"""
         console.input(f"[dim]{message}[/dim]")
 
