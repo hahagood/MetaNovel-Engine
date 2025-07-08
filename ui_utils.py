@@ -294,15 +294,22 @@ class UIUtils:
 
         prompt_text = f"{padding_str}[{Colors.ACCENT}]请选择[/]"
 
-        choice = Prompt.ask(
-            prompt_text,
-            choices=valid_choices,
-            default=default_choice if default_choice in valid_choices else None,
-            show_choices=False,
-            show_default=True,
-        )
-        
-        return choice
+        while True:
+            choice = Prompt.ask(
+                prompt_text,
+                show_choices=False,
+                show_default=False, # 我们自己处理默认值
+                default=default_choice if default_choice in valid_choices else None
+            )
+
+            if choice in valid_choices:
+                return choice
+            else:
+                # 使用我们自定义的、更友好的错误提示
+                error_text = Text("请输入菜单项对应的数字。", style=Colors.ERROR)
+                # 使用与菜单项相同的左边距进行对齐
+                console.print(f"{padding_str}{error_text}")
+                console.print() # 添加空行
 
     @staticmethod
     def pause(message: str = "按回车键继续..."):
