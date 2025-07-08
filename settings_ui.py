@@ -5,26 +5,31 @@ from prompts_ui import handle_prompts_management
 
 def handle_system_settings():
     """主设置菜单"""
-    while True:
-        menu_options = [
-            f"切换AI模型 (当前: {get_llm_model()})",
-            "Prompts模板管理",
-            "智能重试配置",
-            "导出路径配置",
-            "返回主菜单"
-        ]
-        choice = ui.display_menu("系统设置", menu_options)
+    try:
+        while True:
+            menu_options = [
+                f"切换AI模型 (当前: {get_llm_model()})",
+                "Prompts模板管理",
+                "智能重试配置",
+                "导出路径配置",
+                "返回主菜单"
+            ]
+            choice = ui.display_menu("系统设置", menu_options)
 
-        if choice == '1':
-            switch_llm_model()
-        elif choice == '2':
-            handle_prompts_management()
-        elif choice == '3':
-            handle_retry_settings()
-        elif choice == '4':
-            handle_export_settings()
-        elif choice == '0':
-            break
+            if choice == '1':
+                switch_llm_model()
+            elif choice == '2':
+                handle_prompts_management()
+            elif choice == '3':
+                handle_retry_settings()
+            elif choice == '4':
+                handle_export_settings()
+            elif choice == '0':
+                break
+    
+    except KeyboardInterrupt:
+        # 重新抛出 KeyboardInterrupt 让上层处理
+        raise
 
 
 def switch_llm_model():
@@ -50,23 +55,28 @@ def switch_llm_model():
 
 def handle_retry_settings():
     """处理重试配置的子菜单"""
-    while True:
-        menu_options = [
-            "查看当前配置",
-            "修改配置",
-            "恢复默认配置",
-            "返回"
-        ]
-        choice = ui.display_menu("智能重试配置", menu_options)
+    try:
+        while True:
+            menu_options = [
+                "查看当前配置",
+                "修改配置",
+                "恢复默认配置",
+                "返回"
+            ]
+            choice = ui.display_menu("智能重试配置", menu_options)
 
-        if choice == '1':
-            show_retry_config()
-        elif choice == '2':
-            modify_retry_config()
-        elif choice == '3':
-            reset_retry_config_ui()
-        elif choice == '0':
-            break
+            if choice == '1':
+                show_retry_config()
+            elif choice == '2':
+                modify_retry_config()
+            elif choice == '3':
+                reset_retry_config_ui()
+            elif choice == '0':
+                break
+    
+    except KeyboardInterrupt:
+        # 重新抛出 KeyboardInterrupt 让上层处理
+        raise
 
 def show_retry_config():
     """显示当前的重试配置"""
@@ -111,23 +121,28 @@ def reset_retry_config_ui():
 
 def handle_export_settings():
     """处理导出路径的子菜单"""
-    while True:
-        menu_options = [
-            "查看当前配置",
-            "修改导出路径",
-            "恢复默认路径",
-            "返回"
-        ]
-        choice = ui.display_menu("导出路径配置", menu_options)
+    try:
+        while True:
+            menu_options = [
+                "查看当前配置",
+                "修改导出路径",
+                "恢复默认路径",
+                "返回"
+            ]
+            choice = ui.display_menu("导出路径配置", menu_options)
 
-        if choice == '1':
-            show_export_config()
-        elif choice == '2':
-            modify_export_config()
-        elif choice == '3':
-            clear_custom_export_path_ui()
-        elif choice == '0':
-            break
+            if choice == '1':
+                show_export_config()
+            elif choice == '2':
+                modify_export_config()
+            elif choice == '3':
+                clear_custom_export_path_ui()
+            elif choice == '0':
+                break
+    
+    except KeyboardInterrupt:
+        # 重新抛出 KeyboardInterrupt 让上层处理
+        raise
 
 
 def show_export_config():

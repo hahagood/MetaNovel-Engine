@@ -10,34 +10,39 @@ from workbench_ui import show_workbench
 
 def handle_project_management():
     """处理项目管理的UI和逻辑"""
-    while True:
-        console.clear()
-        
-        current_project = project_manager.get_active_project()
-        current_display_name = "无"
-        if current_project:
-            info = project_manager.get_project_info(current_project)
-            current_display_name = info.display_name if info else "未知"
-        
-        title = f"项目管理 (当前: {current_display_name})"
-        
-        menu_options = [
-            "选择并进入项目",
-            "创建新项目",
-            "管理项目列表",
-            "返回主菜单"
-        ]
-        
-        choice = ui.display_menu(title, menu_options)
+    try:
+        while True:
+            console.clear()
+            
+            current_project = project_manager.get_active_project()
+            current_display_name = "无"
+            if current_project:
+                info = project_manager.get_project_info(current_project)
+                current_display_name = info.display_name if info else "未知"
+            
+            title = f"项目管理 (当前: {current_display_name})"
+            
+            menu_options = [
+                "选择并进入项目",
+                "创建新项目",
+                "管理项目列表",
+                "返回主菜单"
+            ]
+            
+            choice = ui.display_menu(title, menu_options)
 
-        if choice == '1':
-            select_and_enter_project()
-        elif choice == '2':
-            create_new_project()
-        elif choice == '3':
-            manage_project_list()
-        elif choice == '0':
-            break
+            if choice == '1':
+                select_and_enter_project()
+            elif choice == '2':
+                create_new_project()
+            elif choice == '3':
+                manage_project_list()
+            elif choice == '0':
+                break
+    
+    except KeyboardInterrupt:
+        # 重新抛出 KeyboardInterrupt 让上层处理
+        raise
 
 def select_and_enter_project():
     """选择一个项目并进入其工作台"""
@@ -67,25 +72,30 @@ def select_and_enter_project():
     
 def manage_project_list():
     """提供编辑、删除、查看详情等项目管理功能"""
-    while True:
-        list_all_projects() # 先展示列表
-        
-        menu_options = [
-            "编辑项目信息",
-            "删除项目",
-            "查看项目详情",
-            "返回"
-        ]
-        choice = ui.display_menu("管理项目列表", menu_options)
+    try:
+        while True:
+            list_all_projects() # 先展示列表
+            
+            menu_options = [
+                "编辑项目信息",
+                "删除项目",
+                "查看项目详情",
+                "返回"
+            ]
+            choice = ui.display_menu("管理项目列表", menu_options)
 
-        if choice == '1':
-            edit_project()
-        elif choice == '2':
-            delete_project()
-        elif choice == '3':
-            show_project_details()
-        elif choice == '0':
-            break
+            if choice == '1':
+                edit_project()
+            elif choice == '2':
+                delete_project()
+            elif choice == '3':
+                show_project_details()
+            elif choice == '0':
+                break
+    
+    except KeyboardInterrupt:
+        # 重新抛出 KeyboardInterrupt 让上层处理
+        raise
 
 def list_all_projects():
     """列出所有项目"""

@@ -295,26 +295,34 @@ class UIUtils:
         prompt_text = f"{padding_str}[{Colors.ACCENT}]请选择[/]"
 
         while True:
-            choice = Prompt.ask(
-                prompt_text,
-                show_choices=False,
-                show_default=False, # 我们自己处理默认值
-                default=default_choice if default_choice in valid_choices else None
-            )
+            try:
+                choice = Prompt.ask(
+                    prompt_text,
+                    show_choices=False,
+                    show_default=False, # 我们自己处理默认值
+                    default=default_choice if default_choice in valid_choices else None
+                )
 
-            if choice in valid_choices:
-                return choice
-            else:
-                # 使用我们自定义的、更友好的错误提示
-                error_text = Text("请输入菜单项对应的数字。", style=Colors.ERROR)
-                # 使用与菜单项相同的左边距进行对齐
-                console.print(f"{padding_str}{error_text}")
-                console.print() # 添加空行
+                if choice in valid_choices:
+                    return choice
+                else:
+                    # 使用我们自定义的、更友好的错误提示
+                    error_text = Text("请输入菜单项对应的数字。", style=Colors.ERROR)
+                    # 使用与菜单项相同的左边距进行对齐
+                    console.print(f"{padding_str}{error_text}")
+                    console.print() # 添加空行
+            except KeyboardInterrupt:
+                # 重新抛出 KeyboardInterrupt 让上层处理
+                raise
 
     @staticmethod
     def pause(message: str = "按回车键继续..."):
         """暂停程序，等待用户输入"""
-        console.input(f"[dim]{message}[/dim]")
+        try:
+            console.input(f"[dim]{message}[/dim]")
+        except KeyboardInterrupt:
+            # 重新抛出 KeyboardInterrupt 让上层处理
+            raise
 
     @staticmethod
     def print_separator(char: str = "─", length: int = 50):
@@ -336,7 +344,11 @@ class UIUtils:
     @staticmethod
     def confirm(message: str, default: bool = True) -> bool:
         """确认对话框"""
-        return Confirm.ask(message, default=default)
+        try:
+            return Confirm.ask(message, default=default)
+        except KeyboardInterrupt:
+            # 重新抛出 KeyboardInterrupt 让上层处理
+            raise
     
     @staticmethod
     def prompt(prompt_text: str, default: Optional[str] = None, choices: Optional[List[str]] = None, multiline: bool = False) -> Optional[str]:
@@ -405,7 +417,10 @@ class UIUtils:
                 # --- 原始的单行输入逻辑 ---
                 return Prompt.ask(prompt_text, choices=choices, default=default)
 
-        except (KeyboardInterrupt, EOFError):
+        except KeyboardInterrupt:
+            # 重新抛出 KeyboardInterrupt 让上层处理
+            raise
+        except EOFError:
             console.print("\\n[yellow]操作已取消。[/yellow]")
             return None
         except FileNotFoundError:
