@@ -28,9 +28,12 @@ class EntityConfig:
 
 
 # 预定义实体配置
-def get_entity_configs():
+def get_entity_configs(data_manager_instance=None):
     """获取实体配置，使用当前活动的项目数据管理器"""
-    data_manager = project_data_manager.get_data_manager()
+    if data_manager_instance:
+        data_manager = data_manager_instance
+    else:
+        data_manager = project_data_manager.get_data_manager()
     
     return {
         "characters": EntityConfig(
