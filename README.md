@@ -1,6 +1,6 @@
 # MetaNovel-Engine
 
-![Version](https://img.shields.io/badge/version-v0.0.11-blue.svg)
+![Version](https://img.shields.io/badge/version-v0.0.12-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
@@ -89,6 +89,19 @@ MetaNovel-Engine 是一套完整的AI辅助小说创作工具链，通过结构�
 本项目采用MIT License，详见[LICENSE](LICENSE)文件。
 
 ## 📝 版本历史
+
+### v0.0.12 (2025-07-08) - 优雅退出功能
+- **用户体验**:
+  - 新增优雅的Ctrl+C退出处理功能，在任何菜单层级都能安全退出
+  - Ctrl+C现在显示与菜单退出相同的友好退出界面，提供统一的退出体验
+  - 新增signal_handler.py模块，专门处理系统信号
+- **技术改进**:
+  - 修改所有UI模块的循环函数，支持KeyboardInterrupt优雅处理
+  - 在ui_utils.py中为所有输入函数添加信号处理
+  - 新增测试脚本验证信号处理功能
+- **开发质量**:
+  - 确保程序在接收到中断信号时不会产生错误警告信息
+  - 提高了程序的健壮性和用户体验
 
 ### v0.0.11 (2025-07-08) - 测试重构与UI优化
 - **测试**:
