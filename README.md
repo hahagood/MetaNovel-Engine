@@ -1,6 +1,6 @@
 # MetaNovel-Engine
 
-![Version](https://img.shields.io/badge/version-v0.0.13-blue.svg)
+![Version](https://img.shields.io/badge/version-v0.0.14-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
@@ -13,6 +13,7 @@ MetaNovel-Engine 是一套完整的AI辅助小说创作工具链，通过结构�
 ## ✨ 核心功能
 
 - **📁 多项目管理**：支持同时管理多个小说项目，数据完全独立。
+- **🎨 项目级Prompts配置**：每个项目都有独立的prompts.json配置，支持个性化AI提示词。
 - **🎯 渐进式创作**：7个步骤层层递进，从主题构思到完整小说。
 - **🤖 智能AI辅助**：集成大语言模型，为创作的每一步提供灵感。
 - **🌍 世界设定管理**：轻松管理你的角色、场景和关键道具。
@@ -89,6 +90,20 @@ MetaNovel-Engine 是一套完整的AI辅助小说创作工具链，通过结构�
 本项目采用MIT License，详见[LICENSE](LICENSE)文件。
 
 ## 📝 版本历史
+
+### v0.0.14 (2025-07-09) - 项目级Prompts配置
+- **功能增强**:
+  - 实现每个项目使用各自的prompts.json配置文件，实现真正的项目级AI提示词定制
+  - 新项目会自动从根目录或默认模板复制prompts.json，确保配置完整性
+  - 项目切换时自动重新加载对应的prompts配置，即时生效
+- **技术改进**:
+  - 修改LLMService类支持动态prompts路径获取和重新加载
+  - 优化prompts_ui.py的路径管理逻辑，支持项目级别配置
+  - 在project_data_manager中添加prompts自动重载机制
+- **用户体验**:
+  - 每个项目现在可以有完全独立的AI提示词配置
+  - 支持针对不同类型小说（如科幻、言情、悬疑）使用不同的AI创作风格
+  - 向后兼容单项目模式，不影响现有用户的使用体验
 
 ### v0.0.13 (2025-07-09) - 菜单交互优化
 - **用户体验优化**:
