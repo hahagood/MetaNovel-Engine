@@ -1,6 +1,6 @@
 # MetaNovel-Engine
 
-![Version](https://img.shields.io/badge/version-v0.0.12-blue.svg)
+![Version](https://img.shields.io/badge/version-v0.0.13-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
@@ -89,6 +89,19 @@ MetaNovel-Engine 是一套完整的AI辅助小说创作工具链，通过结构�
 本项目采用MIT License，详见[LICENSE](LICENSE)文件。
 
 ## 📝 版本历史
+
+### v0.0.13 (2025-07-09) - 菜单交互优化
+- **用户体验优化**:
+  - 修复了所有菜单中选择"返回"时不必要的"按回车键继续..."提示
+  - 统一了菜单返回行为，现在选择返回会直接返回上级菜单
+  - 修复了实体管理器（角色、场景、道具）中的菜单返回问题
+- **功能改进**:
+  - 改进了项目详情查看功能，现在支持选择任意项目查看详情
+  - 修复了查看角色详情时的索引错误导致的程序崩溃
+  - 修复了project_data_manager.get_data_manager()调用错误
+- **技术修复**:
+  - 涉及的模块：workflow_ui.py、entity_manager.py、project_ui.py
+  - 改善了用户操作的流畅性，减少了冗余的交互步骤
 
 ### v0.0.12 (2025-07-08) - 优雅退出功能
 - **用户体验**:
