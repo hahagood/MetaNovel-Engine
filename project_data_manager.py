@@ -26,6 +26,14 @@ class ProjectDataManager:
             else:
                 # 单项目模式：使用默认路径
                 self._current_data_manager = DataManager()
+            
+            # 通知LLM服务重新加载prompts
+            try:
+                # 使用延迟导入避免循环引用
+                from llm_service import llm_service
+                llm_service.reload_prompts()
+            except Exception as e:
+                print(f"重新加载prompts时出错: {e}")
     
     def get_data_manager(self) -> DataManager:
         """获取当前的数据管理器实例"""

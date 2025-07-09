@@ -1,21 +1,58 @@
 import json
+from pathlib import Path
 from ui_utils import ui, console
 from rich.panel import Panel
 
-PROMPTS_FILE = 'prompts.json'
-DEFAULT_PROMPTS_FILE = 'prompts.default.json' # 假设我们有一个默认备份文件
+def get_prompts_path():
+    """获取当前项目的prompts.json路径"""
+    try:
+        # 使用延迟导入避免循环引用
+        import project_data_manager
+        data_manager = project_data_manager.project_data_manager.get_data_manager()
+        
+        if data_manager.project_path:
+            # 多项目模式：使用项目路径下的prompts.json
+            prompts_path = data_manager.project_path / 'prompts.json'
+            
+            # 如果项目路径下不存在prompts.json，从根目录复制默认的
+            if not prompts_path.exists():
+                import shutil
+                root_prompts = Path('prompts.json')
+                if root_prompts.exists():
+                    shutil.copy2(root_prompts, prompts_path)
+                    ui.print_info(f"已为项目复制默认prompts.json到: {prompts_path}")
+                else:
+                    # 如果根目录也没有，尝试从默认模板复制
+                    default_prompts = Path('prompts.default.json')
+                    if default_prompts.exists():
+                        shutil.copy2(default_prompts, prompts_path)
+                        ui.print_info(f"已为项目复制默认prompts模板到: {prompts_path}")
+            
+            return prompts_path
+        else:
+            # 单项目模式：使用根目录的prompts.json
+            return Path('prompts.json')
+    except Exception as e:
+        ui.print_warning(f"获取prompts.json路径时出错: {e}，使用默认路径")
+        return Path('prompts.json')
+
+def get_default_prompts_path():
+    """获取默认prompts模板路径"""
+    return Path('prompts.default.json')
 
 def get_prompts():
     """加载prompts"""
     try:
-        with open(PROMPTS_FILE, 'r', encoding='utf-8') as f:
+        prompts_file = get_prompts_path()
+        with open(prompts_file, 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
         return {}
 
 def save_prompts(prompts):
     """保存prompts"""
-    with open(PROMPTS_FILE, 'w', encoding='utf-8') as f:
+    prompts_file = get_prompts_path()
+    with open(prompts_file, 'w', encoding='utf-8') as f:
         json.dump(prompts, f, indent=2, ensure_ascii=False)
 
 def handle_prompts_management():
@@ -95,13 +132,14 @@ def reset_prompts():
         return
 
     try:
-        with open(DEFAULT_PROMPTS_FILE, 'r', encoding='utf-8') as f:
+        default_prompts_file = get_default_prompts_path()
+        with open(default_prompts_file, 'r', encoding='utf-8') as f:
             default_prompts = json.load(f)
         
         save_prompts(default_prompts)
         ui.print_success("所有Prompts已成功恢复为默认设置。")
     except FileNotFoundError:
-        ui.print_error(f"错误：未找到默认配置文件 '{DEFAULT_PROMPTS_FILE}'。")
+        ui.print_error(f"错误：未找到默认配置文件 '{get_default_prompts_path()}'")
     except Exception as e:
         ui.print_error(f"恢复默认设置时发生错误: {e}")
     

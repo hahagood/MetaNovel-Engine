@@ -3,6 +3,7 @@ import json
 import re
 import httpx
 import asyncio
+from pathlib import Path
 from openai import OpenAI, APIStatusError, AsyncOpenAI
 from openai.types.chat import ChatCompletion
 from config import API_CONFIG, AI_CONFIG, GENERATION_CONFIG, PROXY_CONFIG, validate_config
@@ -21,14 +22,53 @@ class LLMService:
     def _load_prompts(self):
         """加载提示词配置"""
         try:
-            with open('prompts.json', 'r', encoding='utf-8') as f:
+            # 获取当前项目的prompts.json路径
+            prompts_path = self._get_prompts_path()
+            with open(prompts_path, 'r', encoding='utf-8') as f:
                 self.prompts = json.load(f)
         except FileNotFoundError:
-            print("警告: 未找到prompts.json文件，将使用默认提示词")
+            print(f"警告: 未找到prompts.json文件，将使用默认提示词")
             self.prompts = {}
         except json.JSONDecodeError as e:
             print(f"警告: prompts.json格式错误: {e}")
             self.prompts = {}
+    
+    def _get_prompts_path(self):
+        """获取当前项目的prompts.json路径"""
+        try:
+            # 导入放在方法内部，避免循环导入
+            from project_data_manager import project_data_manager
+            data_manager = project_data_manager.get_data_manager()
+            
+            if data_manager.project_path:
+                # 多项目模式：使用项目路径下的prompts.json
+                prompts_path = data_manager.project_path / 'prompts.json'
+                
+                # 如果项目路径下不存在prompts.json，从根目录复制默认的
+                if not prompts_path.exists():
+                    import shutil
+                    root_prompts = Path('prompts.json')
+                    if root_prompts.exists():
+                        shutil.copy2(root_prompts, prompts_path)
+                        print(f"已为项目复制默认prompts.json到: {prompts_path}")
+                    else:
+                        # 如果根目录也没有，尝试从默认模板复制
+                        default_prompts = Path('prompts.default.json')
+                        if default_prompts.exists():
+                            shutil.copy2(default_prompts, prompts_path)
+                            print(f"已为项目复制默认prompts模板到: {prompts_path}")
+                
+                return prompts_path
+            else:
+                # 单项目模式：使用根目录的prompts.json
+                return Path('prompts.json')
+        except Exception as e:
+            print(f"获取prompts.json路径时出错: {e}，使用默认路径")
+            return Path('prompts.json')
+    
+    def reload_prompts(self):
+        """重新加载prompts配置，用于项目切换时"""
+        self._load_prompts()
     
     def _get_prompt(self, prompt_type, user_prompt="", **kwargs):
         """获取格式化的提示词"""
