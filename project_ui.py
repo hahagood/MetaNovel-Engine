@@ -226,35 +226,47 @@ def delete_project():
 
 def show_project_details():
     """显示项目详情"""
-    current_project = project_manager.get_active_project()
-    
-    if not current_project:
-        ui.print_warning("请先选择一个活动项目。")
+    projects = project_manager.list_projects()
+    if not projects:
+        ui.print_warning("暂无项目。")
         ui.pause()
         return
     
-    info = project_manager.get_project_info(current_project)
-    dm = project_data_manager.get_data_manager()
+    # 让用户选择要查看的项目
+    choices = [p.display_name for p in projects]
+    choices.append("返回")
+    
+    choice_str = ui.display_menu("请选择要查看详情的项目:", choices)
+    
+    if choice_str == "0":
+        return
+    
+    if choice_str and choice_str.isdigit():
+        choice_index = int(choice_str) - 1
+        if 0 <= choice_index < len(projects):
+            selected_project = projects[choice_index]
+            _display_project_details(selected_project)
+        else:
+            ui.print_warning("无效的选择。")
+            ui.pause()
 
-    if not info or not dm:
-        ui.print_error("无法获取项目详情。")
-        ui.pause()
-        return
-    
+def _display_project_details(project_info):
+    """显示指定项目的详细信息"""
     # 获取项目对应的显示名称
-    project_display_name = info.display_name or info.name
+    project_display_name = project_info.display_name or project_info.name
 
     # 创建详情面板
     details = f"""
-[cyan]项目名称:[/cyan] {info.name}
+[cyan]项目名称:[/cyan] {project_info.name}
 [cyan]显示名称:[/cyan] {project_display_name}
-[cyan]项目描述:[/cyan] {info.description or '无描述'}
-[cyan]项目路径:[/cyan] {info.path}
-[cyan]创建时间:[/cyan] {info.created_at}
-[cyan]最后访问:[/cyan] {info.last_accessed}
+[cyan]项目描述:[/cyan] {project_info.description or '无描述'}
+[cyan]项目路径:[/cyan] {project_info.path}
+[cyan]创建时间:[/cyan] {project_info.created_at}
+[cyan]最后访问:[/cyan] {project_info.last_accessed}
     """.strip()
     
     console.print(Panel(details, title=f"📊 项目详情 - {project_display_name}", border_style="cyan"))
+    ui.pause()
 
 def edit_project():
     """编辑项目信息"""
