@@ -62,11 +62,13 @@ def handle_theme_one_line():
     
     if action == "1":
         set_novel_name()
+        ui.pause()
     elif action == "2":
         new_theme = ui.prompt("请输入您的一句话主题:", default=current_theme)
         if new_theme and new_theme.strip():
             get_data_manager().write_theme_one_line({"novel_name": current_novel_name, "theme": new_theme.strip()})
             ui.print_success("主题已更新")
+        ui.pause()
     elif action == "3":
         new_name = ui.prompt("请输入小说名称:", default=current_novel_name)
         if new_name and new_name.strip():
@@ -74,7 +76,10 @@ def handle_theme_one_line():
             if new_theme and new_theme.strip():
                 get_data_manager().write_theme_one_line({"novel_name": new_name.strip(), "theme": new_theme.strip()})
                 ui.print_success("名称和主题已更新")
-    ui.pause()
+        ui.pause()
+    elif action == "0":
+        # 选择返回时直接返回，不需要暂停
+        return
 
 def set_novel_name():
     current_name = get_novel_name()
