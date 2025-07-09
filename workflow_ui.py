@@ -372,6 +372,9 @@ def edit_chapter_outline(dm, chapters):
     chapter_titles = [ch.get('title', '无标题') for ch in chapters]
     choice_str = ui.display_menu("请选择要编辑的章节:", chapter_titles + ["返回"])
     
+    if choice_str == '0':
+        return
+    
     if choice_str and choice_str.isdigit():
         choice_idx = int(choice_str) - 1
         if 0 <= choice_idx < len(chapters):
@@ -401,6 +404,9 @@ def delete_single_chapter_outline(dm, chapters):
 
     chapter_titles = [ch.get('title', '无标题') for ch in chapters]
     choice_str = ui.display_menu("请选择要删除的章节:", chapter_titles + ["返回"])
+    
+    if choice_str == '0':
+        return
     
     if choice_str and choice_str.isdigit():
         choice_idx = int(choice_str) - 1
@@ -617,6 +623,9 @@ def delete_single_summary(dm, summaries):
     summary_titles = [f"第{k.split('_')[1]}章: {v.get('title', '无标题')}" for k, v in summaries.items()]
     choice_str = ui.display_menu("请选择要删除的概要:", summary_titles + ["返回"])
 
+    if choice_str == '0':
+        return
+
     if choice_str and choice_str.isdigit():
         choice_idx = int(choice_str) - 1
         # Note: This way of getting the key is fragile. A better way would be to pass a list of keys.
@@ -680,6 +689,10 @@ def view_novel_chapter(chapters, novel_chapters):
     chapter_titles = [f"第{order}章: {title}" for order, title in sorted(chapter_map.items())]
     
     choice_str = ui.display_menu("请选择要查看的章节:", chapter_titles + ["返回"])
+    
+    if choice_str == '0':
+        return
+    
     if choice_str and choice_str.isdigit():
         choice_idx = int(choice_str) - 1
         sorted_orders = sorted(chapter_map.keys())
@@ -781,7 +794,10 @@ def generate_single_novel_chapter(dm, chapters, summaries, novel_chapters):
                 ui.print_success("章节正文已生成并保存。")
             else:
                 ui.print_error("章节生成失败。")
-    ui.pause()
+            ui.pause()
+        else:
+            ui.print_warning("无效的选择。")
+            ui.pause()
 
 
 def edit_novel_chapter(dm, chapters, novel_chapters):
@@ -793,6 +809,9 @@ def edit_novel_chapter(dm, chapters, novel_chapters):
     chapter_titles = [f"第{order}章: {title}" for order, title in sorted(chapter_map.items())]
 
     choice_str = ui.display_menu("请选择要编辑的章节:", chapter_titles + ["返回"])
+
+    if choice_str == '0':
+        return
 
     if choice_str and choice_str.isdigit():
         choice_idx = int(choice_str) - 1
@@ -810,6 +829,8 @@ def edit_novel_chapter(dm, chapters, novel_chapters):
                 ui.print_success("章节已更新。")
             else:
                 ui.print_warning("内容未修改。")
+        else:
+            ui.print_warning("无效的选择。")
     ui.pause()
 
 
@@ -822,6 +843,9 @@ def delete_novel_chapter(dm, chapters, novel_chapters):
     chapter_titles = [f"第{order}章: {title}" for order, title in sorted(chapter_map.items())]
 
     choice_str = ui.display_menu("请选择要删除的章节:", chapter_titles + ["返回"])
+    
+    if choice_str == '0':
+        return
     
     if choice_str and choice_str.isdigit():
         choice_idx = int(choice_str) - 1
@@ -836,4 +860,6 @@ def delete_novel_chapter(dm, chapters, novel_chapters):
                 ui.print_success("章节正文已删除。")
             else:
                 ui.print_warning("操作已取消。")
+        else:
+            ui.print_warning("无效的选择。")
     ui.pause()

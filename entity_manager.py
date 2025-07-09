@@ -89,7 +89,7 @@ class EntityManager:
             
             action = ui.display_menu("请选择您要进行的操作：", choices)
             
-            if action is None:
+            if action is None or action == "0":
                 break
             
             if len(choices) > 2: # 当有实体数据时
@@ -101,12 +101,12 @@ class EntityManager:
                     self._edit_entity()
                 elif action == "4":
                     self._delete_entity()
-                elif action == "5":
+                elif action == "0":
                     break
             else: # 当没有实体数据时
                 if action == "1":
                     self._add_entity()
-                elif action == "2":
+                elif action == "0":
                     break
     
     def _display_entity_list(self, entities_data):
@@ -257,16 +257,23 @@ class EntityManager:
         # 添加返回选项
         entity_names.append("返回上级菜单")
         
-        entity_name = ui.display_menu(
+        choice = ui.display_menu(
             f"请选择要查看的{self.config.name}：",
             entity_names
         )
         
-        if entity_name and entity_name != "返回上级菜单":
-            entity_info = entities_data[entity_name]
-            print(f"\n--- {self.config.name}详情：{entity_name} ---")
-            print(entity_info.get(self.config.description_key, '无描述'))
-            print("------------------------\n")
+        if choice == "0":
+            return
+        
+        if choice and choice.isdigit():
+            choice_idx = int(choice) - 1
+            if 0 <= choice_idx < len(entity_names) - 1:  # 减1是因为要排除返回选项
+                entity_name = entity_names[choice_idx]
+                entity_info = entities_data[entity_name]
+                print(f"\n--- {self.config.name}详情：{entity_name} ---")
+                print(entity_info.get(self.config.description_key, '无描述'))
+                print("------------------------\n")
+                ui.pause()
     
     def _edit_entity(self):
         """编辑实体信息"""
