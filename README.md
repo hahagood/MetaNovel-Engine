@@ -16,12 +16,11 @@
 
 ## 🚀 5分钟快速开始
 
-### 1. 安装运行
+### 1. 安装
 ```bash
 git clone https://github.com/hahagood/MetaNovel-Engine.git
 cd MetaNovel-Engine
 pip install -r requirements.txt
-python meta_novel_cli.py
 ```
 
 ### 2. 配置API（首次使用）
@@ -31,7 +30,12 @@ cp .env.example .env
 # 编辑 .env 文件，填入：OPENROUTER_API_KEY=your_api_key_here
 ```
 
-### 3. 开始创作
+### 3. 运行程序
+```bash
+python meta_novel_cli.py
+```
+
+### 4. 开始创作
 运行程序后，选择"创建新项目"，按照7步流程开始你的小说创作之旅！
 
 ## 📝 创作流程：7步工作流
@@ -73,15 +77,19 @@ cp .env.example .env
 ## 🆘 常见问题
 
 **Q: 需要什么API密钥？**
+
 A: 需要OpenRouter的API密钥，支持多种AI模型，价格便宜。
 
 **Q: 创作一部小说需要多少费用？**
-A: 通过结构化流程，通常一部10万字小说的AI费用在10-30美元。
+
+A: 通过结构化流程，通常一部10万字小说的AI费用约4美元。
 
 **Q: 支持中文创作吗？**
+
 A: 完全支持中文，所有提示词都已优化为中文创作。
 
 **Q: 旧版本数据如何迁移？**
+
 A: 运行 `python migrate_to_multi_project.py` 即可自动迁移。
 
 ## 📄 开源协议
