@@ -234,7 +234,7 @@ def show_project_details():
         return
     
     info = project_manager.get_project_info(current_project)
-    dm = project_data_manager.get_data_manager(current_project)
+    dm = project_data_manager.get_data_manager()
 
     if not info or not dm:
         ui.print_error("无法获取项目详情。")
