@@ -3,6 +3,7 @@ from pathlib import Path
 from config import FILE_PATHS, ensure_directories, get_project_paths
 from datetime import datetime
 from typing import Optional, Dict
+import time
 
 class DataManager:
     """数据管理类，封装所有文件读写操作"""
@@ -17,6 +18,16 @@ class DataManager:
         self.project_path = project_path
         self.file_paths = get_project_paths(project_path)
         ensure_directories(project_path)
+        
+        # 添加状态缓存
+        self._status_cache = None
+        self._status_cache_time = None
+        self._cache_ttl = 2  # 缓存2秒
+    
+    def _clear_status_cache(self):
+        """清除状态缓存"""
+        self._status_cache = None
+        self._status_cache_time = None
     
     def read_json_file(self, file_path):
         """读取JSON文件"""
@@ -26,7 +37,7 @@ class DataManager:
                     return json.load(f)
             return {}
         except (json.JSONDecodeError, IOError) as e:
-            print(f"读取文件 {file_path} 时出错: {e}")
+            # 静默处理文件读取错误，避免在启动时显示错误信息
             return {}
     
     def write_json_file(self, file_path, data):
@@ -34,9 +45,11 @@ class DataManager:
         try:
             with file_path.open('w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
+            # 清除缓存，因为数据可能已更改
+            self._clear_status_cache()
             return True
         except IOError as e:
-            print(f"写入文件 {file_path} 时出错: {e}")
+            # 静默处理文件写入错误，避免在启动时显示错误信息
             return False
     
     # ===== 通用CRUD方法 =====
@@ -438,7 +451,52 @@ class DataManager:
         return False
 
     def get_project_status_details(self) -> Dict[str, Dict]:
-        """获取项目各阶段的详细完成状态"""
+        """获取项目各阶段的详细完成状态（带缓存）"""
+        current_time = time.time()
+        
+        # 检查缓存是否有效
+        if (self._status_cache is not None and 
+            self._status_cache_time is not None and
+            current_time - self._status_cache_time < self._cache_ttl):
+            return self._status_cache
+            
+        # 重新计算状态
+        status = self._calculate_project_status_details()
+        
+        # 更新缓存
+        self._status_cache = status
+        self._status_cache_time = current_time
+        
+        return status
+    
+    def _calculate_project_status_details(self) -> Dict[str, Dict]:
+        """计算项目各阶段的详细完成状态"""
+        # 快速预检查：如果没有任何meta文件，直接返回空状态
+        meta_files = [
+            self.file_paths['theme_one_line'],
+            self.file_paths['theme_paragraph'], 
+            self.file_paths['characters'],
+            self.file_paths['locations'],
+            self.file_paths['items'],
+            self.file_paths['story_outline'],
+            self.file_paths['chapter_outline'],
+            self.file_paths['chapter_summary'],  # 修复：使用正确的键名
+            self.file_paths['novel_text']        # 修复：使用正确的键名
+        ]
+        
+        # 如果没有任何文件存在，返回默认状态（避免多次文件访问）
+        if not any(Path(f).exists() for f in meta_files):
+            return {
+                "theme_one_line": {"completed": False, "details": "未设置"},
+                "theme_paragraph": {"completed": False, "details": "未生成"},
+                "world_settings": {"completed": False, "details": "未设定"},
+                "story_outline": {"completed": False, "details": "未生成"},
+                "chapter_outline": {"completed": False, "details": "未生成"},
+                "chapter_summaries": {"completed": False, "details": "未生成"},
+                "novel_chapters": {"completed": False, "details": "未生成"}
+            }
+        
+        # 正常详细检查
         status = {}
 
         # 1. 小说名称与主题
@@ -461,7 +519,7 @@ class DataManager:
         items = self.read_items()
         ws_details = []
         if characters: ws_details.append(f"角色({len(characters)})")
-        if locations: ws_details.append(f"场景({len(locations)})")
+        if locations: ws_details.append(f"场景({len(locations)})")  
         if items: ws_details.append(f"道具({len(items)})")
         if ws_details:
             status["world_settings"] = {"completed": True, "details": "、".join(ws_details)}

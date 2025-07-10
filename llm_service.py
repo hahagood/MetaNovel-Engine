@@ -27,10 +27,10 @@ class LLMService:
             with open(prompts_path, 'r', encoding='utf-8') as f:
                 self.prompts = json.load(f)
         except FileNotFoundError:
-            print(f"警告: 未找到prompts.json文件，将使用默认提示词")
+            # 静默处理文件未找到，避免在启动时显示错误信息
             self.prompts = {}
         except json.JSONDecodeError as e:
-            print(f"警告: prompts.json格式错误: {e}")
+            # 静默处理JSON格式错误，避免在启动时显示错误信息
             self.prompts = {}
     
     def _get_prompts_path(self):
@@ -63,7 +63,7 @@ class LLMService:
                 # 单项目模式：使用根目录的prompts.json
                 return Path('prompts.json')
         except Exception as e:
-            print(f"获取prompts.json路径时出错: {e}，使用默认路径")
+            # 静默处理路径获取错误，避免在启动时显示错误信息
             return Path('prompts.json')
     
     def reload_prompts(self):
@@ -125,7 +125,7 @@ class LLMService:
             self.async_client = AsyncOpenAI(**async_client_kwargs)
             
         except Exception as e:
-            print(f"初始化AI客户端时出错: {e}")
+            # 静默处理AI客户端初始化错误，避免在启动时显示错误信息
             self.client = None
             self.async_client = None
     

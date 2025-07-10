@@ -15,25 +15,25 @@ def main():
         while True:
             console.clear()
             
+            # 快速显示基本界面
             active_project_name = project_data_manager.get_current_project_display_name()
             status_text = Text(f"当前项目: 《{active_project_name}》", justify="center")
             console.print(Panel(status_text, title="🚀 MetaNovel Engine", border_style="magenta"))
             
-            # 在主菜单显示项目进度
+            # 显示项目进度（使用缓存优化）
             dm = project_data_manager.get_data_manager()
             if dm:
                 status_details = dm.get_project_status_details()
                 ui.print_project_status(status_details)
-
+            
             # 主菜单
             menu_options = [
                 "项目管理",
                 "系统设置", # This will be wired up later
                 "退出"
             ]
-            # In the refactored structure, main will call project_management,
-            # which in turn calls the workbench, which calls the workflow.
-            # The settings call will be handled by a different UI module.
+            
+            # 显示菜单
             choice = ui.display_menu("🚀 MetaNovel Engine - 主菜单", menu_options)
 
             if choice == '1':

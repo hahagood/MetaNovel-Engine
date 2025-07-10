@@ -33,7 +33,8 @@ class ProjectDataManager:
                 from llm_service import llm_service
                 llm_service.reload_prompts()
             except Exception as e:
-                print(f"重新加载prompts时出错: {e}")
+                # 静默处理错误，避免在启动时显示错误信息
+                pass
     
     def get_data_manager(self) -> DataManager:
         """获取当前的数据管理器实例"""
