@@ -102,19 +102,41 @@ def handle_theme_paragraph():
         
         ui.print_info(f"\n当前段落主题状态: {status}")
         
-        options = ["查看当前主题", "生成新的主题", "编辑当前主题", "删除当前主题", "返回"]
+        options = ["查看当前主题", "生成新的主题（智能版）", "生成新的主题（简单版）", "编辑当前主题", "删除当前主题", "返回"]
         action = ui.display_menu("段落主题管理:", options)
 
         if action == "1":
             view_theme_paragraph(theme_paragraph)
         elif action == "2":
-            generate_theme_paragraph(dm)
+            generate_enhanced_theme_paragraph(dm)
         elif action == "3":
-            edit_theme_paragraph(dm, theme_paragraph)
+            generate_theme_paragraph(dm)
         elif action == "4":
+            edit_theme_paragraph(dm, theme_paragraph)
+        elif action == "5":
             delete_theme_paragraph(dm)
         elif action == "0":
             break
+
+def generate_enhanced_theme_paragraph(dm):
+    """使用增强版工作流生成主题段落"""
+    theme_one_line_data = dm.read_theme_one_line()
+    if not isinstance(theme_one_line_data, dict) or not theme_one_line_data.get("theme"):
+        ui.print_warning("请先设置一句话主题。")
+        ui.pause()
+        return
+
+    # 使用新的主题段落服务
+    from theme_paragraph_service import theme_paragraph_service
+    
+    success = theme_paragraph_service.run_enhanced_theme_paragraph_workflow(theme_one_line_data)
+    
+    if success:
+        ui.print_success("增强版主题段落生成完成！")
+    else:
+        ui.print_warning("增强版主题段落生成被取消或失败。")
+    
+    ui.pause()
 
 def view_theme_paragraph(theme_paragraph):
     if theme_paragraph:

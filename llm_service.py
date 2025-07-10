@@ -341,6 +341,42 @@ class LLMService:
         
         return self._make_request(prompt)
     
+    def analyze_theme_genres(self, one_line_theme, user_prompt=""):
+        """分析主题并推荐作品类型"""
+        prompt = self._get_prompt("theme_analysis", user_prompt, one_line_theme=one_line_theme)
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"请分析以下一句话主题，并推荐3-5种最适合的作品类型（如科幻、奇幻、悬疑、情感等），以JSON格式返回。\n\n主题：{one_line_theme}"
+            prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}" if user_prompt.strip() else base_prompt
+        
+        return self._make_json_request(prompt, task_name="主题分析")
+    
+    def generate_theme_paragraph_variants(self, one_line_theme, selected_genre, user_intent, user_prompt=""):
+        """生成3个版本的主题段落"""
+        prompt = self._get_prompt("theme_paragraph_variants", user_prompt, 
+                                 one_line_theme=one_line_theme,
+                                 selected_genre=selected_genre,
+                                 user_intent=user_intent)
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"请根据以下信息生成3个不同版本的故事构想，每个版本约{GENERATION_CONFIG['theme_paragraph_length']}字，以JSON格式返回。\n\n主题：{one_line_theme}\n类型：{selected_genre}\n用户意图：{user_intent}"
+            prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}" if user_prompt.strip() else base_prompt
+        
+        return self._make_json_request(prompt, task_name="主题段落生成")
+    
+    def generate_theme_paragraph_with_genre(self, one_line_theme, selected_genre, user_intent, user_prompt=""):
+        """基于类型和用户意图生成主题段落"""
+        prompt = self._get_prompt("theme_paragraph", user_prompt, 
+                                 one_line_theme=one_line_theme,
+                                 selected_genre=selected_genre,
+                                 user_intent=user_intent)
+        if prompt is None:
+            # 后备提示词
+            base_prompt = f"请将以下一句话主题按照{selected_genre}类型的风格，扩展成一段具体的故事构想，字数在{GENERATION_CONFIG['theme_paragraph_length']}。\n\n主题：{one_line_theme}\n用户意图：{user_intent}"
+            prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}" if user_prompt.strip() else base_prompt
+        
+        return self._make_request(prompt)
+    
     def generate_character_description(self, char_name, user_prompt="", one_line_theme="", story_context=""):
         """生成角色描述"""
         # 如果没有提供上下文信息，尝试从数据管理器获取
