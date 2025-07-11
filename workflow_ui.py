@@ -163,10 +163,9 @@ def generate_theme_paragraph(dm):
         
     user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）:")
     
-    async def generation_task():
-        return await llm_service.generate_theme_paragraph_async(theme_one_line_data, user_prompt)
-    
-    new_theme = run_with_progress(generation_task, "正在生成段落主题...")
+    # 直接调用同步函数
+    ui.print_info("正在生成段落主题...")
+    new_theme = llm_service.generate_theme_paragraph(theme_one_line_data, user_prompt)
 
     if new_theme:
         dm.write_theme_paragraph(new_theme)
@@ -561,7 +560,6 @@ def view_chapter_summaries(chapters, summaries):
     ui.pause()
 
 def generate_all_summaries(dm, chapters, summaries):
-    context = dm.get_context_info()
     chapters_to_generate = []
     for i, ch in enumerate(chapters):
         order = ch.get("order", i + 1)
@@ -582,16 +580,51 @@ def generate_all_summaries(dm, chapters, summaries):
         ui.print_warning("操作已取消。")
         ui.pause()
         return
+    
+    # 获取上下文信息
+    context = dm.get_context_info()
+    user_prompt = ""  # 批量生成暂时不支持用户自定义提示
+    
+    # 逐个生成章节概要（同步方式）
+    ui.print_info(f"开始批量生成 {len(chapters_to_generate)} 个章节概要...")
+    results = {}
+    failed_chapters = []
+    
+    for i, chapter in enumerate(chapters_to_generate, 1):
+        order = chapter.get("order", i)
+        title = chapter.get("title", f"第{order}章")
         
-    async def generation_task():
-        return await llm_service.generate_all_summaries_async(chapters_to_generate, context)
-
-    results = run_with_progress(generation_task, f"批量生成 {len(chapters_to_generate)} 个章节概要...")
+        ui.print_info(f"正在生成第{order}章概要: {title}... ({i}/{len(chapters_to_generate)})")
+        
+        try:
+            summary = llm_service.generate_chapter_summary(
+                chapter, 
+                order, 
+                context, 
+                user_prompt
+            )
+            
+            if summary:
+                results[f"chapter_{order}"] = {
+                    "title": title,
+                    "summary": summary
+                }
+                ui.print_success(f"第{order}章概要生成成功。")
+            else:
+                failed_chapters.append(order)
+                ui.print_error(f"第{order}章概要生成失败。")
+                
+        except Exception as e:
+            failed_chapters.append(order)
+            ui.print_error(f"第{order}章概要生成异常: {e}")
+        
 
     if results:
         new_summaries = {**summaries, **results}
         dm.write_chapter_summaries(new_summaries)
         ui.print_success(f"已成功生成 {len(results)} 个概要并保存。")
+        if failed_chapters:
+            ui.print_warning(f"失败的章节: {failed_chapters}")
     else:
         ui.print_error("批量生成概要失败。")
     ui.pause()
@@ -650,15 +683,15 @@ def generate_single_summary(dm, chapters, summaries):
 
             # Get user input and run generation (for new or regenerated summaries)
             user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）:")
-            async def generation_task(*_):
-                return await llm_service.generate_chapter_summary_async(
-                    chapter,
-                    chapter['order'],
-                    context,
-                    user_prompt
-                )
-
-            new_summary = run_with_progress(generation_task, f"正在为'{chapter.get('title')}'生成概要...")
+            
+            # 直接调用同步函数
+            ui.print_info(f"正在为'{chapter.get('title')}'生成概要...")
+            new_summary = llm_service.generate_chapter_summary(
+                chapter,
+                chapter['order'],
+                context,
+                user_prompt
+            )
 
             # Process results
             if new_summary:
@@ -778,42 +811,54 @@ def generate_all_novel_chapters(dm, chapters, summaries, novel_chapters):
         ui.pause()
         return
 
-    mode_choice = ui.display_menu("请选择执行模式：", ["并发生成（推荐）", "顺序生成", "返回"])
-    if mode_choice == "0": return
-    use_async = mode_choice == "1"
-
     if not ui.confirm(f"将为 {len(chapters_to_generate)} 个章节生成正文，确定吗？"):
         ui.print_warning("操作已取消。")
         return
 
     user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）:")
 
-    async def async_generation_task():
-        return await llm_service.generate_all_novels_async(chapters_to_generate, context, user_prompt)
-
-    def sync_generation_task():
-        results = {}
-        for chapter in chapters_to_generate:
-            ui.print_info(f"正在生成第{chapter['order']}章: {chapter['title']}...")
-            content = llm_service.generate_novel_chapter(chapter, summaries.get(f"chapter_{chapter['order']}"), chapter['order'], context, user_prompt)
+    # 同步顺序生成所有章节
+    ui.print_info(f"开始生成 {len(chapters_to_generate)} 个章节正文...")
+    results = {}
+    failed_chapters = []
+    
+    for i, chapter in enumerate(chapters_to_generate, 1):
+        order = chapter['order']
+        title = chapter.get('title', f'第{order}章')
+        
+        ui.print_info(f"正在生成第{order}章: {title}... ({i}/{len(chapters_to_generate)})")
+        
+        try:
+            content = llm_service.generate_novel_chapter(
+                chapter, 
+                summaries.get(f"chapter_{order}"), 
+                order, 
+                context, 
+                user_prompt
+            )
+            
             if content:
-                results[f"chapter_{chapter['order']}"] = {"title": chapter['title'], "content": content, "word_count": len(content)}
-                ui.print_success(f"第{chapter['order']}章生成成功。")
+                results[f"chapter_{order}"] = {
+                    "title": title, 
+                    "content": content, 
+                    "word_count": len(content)
+                }
+                ui.print_success(f"第{order}章生成成功。")
             else:
-                ui.print_error(f"第{chapter['order']}章生成失败。")
-        return results, [] # Match async return signature
-
-    if use_async:
-        results, failed = run_with_progress(async_generation_task, f"并发生成 {len(chapters_to_generate)} 个章节...")
-    else:
-        results, failed = sync_generation_task()
+                failed_chapters.append(order)
+                ui.print_error(f"第{order}章生成失败。")
+                
+        except Exception as e:
+            failed_chapters.append(order)
+            ui.print_error(f"第{order}章生成异常: {e}")
+        
 
     if results:
         updated_chapters = {**novel_chapters, **results}
         dm.write_novel_chapters(updated_chapters)
         ui.print_success(f"成功生成 {len(results)} 个章节。")
-        if failed:
-            ui.print_warning(f"失败章节: {failed}")
+        if failed_chapters:
+            ui.print_warning(f"失败章节: {failed_chapters}")
     else:
         ui.print_error("所有章节生成均失败。")
     ui.pause()
@@ -846,10 +891,15 @@ def generate_single_novel_chapter(dm, chapters, summaries, novel_chapters):
             user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）:")
             context = dm.get_context_info()
 
-            async def generation_task(*_):
-                return await llm_service.generate_novel_chapter_async(chapter, summaries.get(chapter_key), order, context, user_prompt)
-
-            content = run_with_progress(generation_task, f"正在生成'{chapter.get('title', '无标题')}'...")
+            # 直接调用同步函数
+            ui.print_info(f"正在生成'{chapter.get('title', '无标题')}'...")
+            content = llm_service.generate_novel_chapter(
+                chapter, 
+                summaries.get(chapter_key), 
+                order, 
+                context, 
+                user_prompt
+            )
 
             if content:
                 novel_chapters[chapter_key] = {"title": chapter.get('title', '无标题'), "content": content, "word_count": len(content)}
