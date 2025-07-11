@@ -1,6 +1,6 @@
 # MetaNovel-Engine
 
-![Version](https://img.shields.io/badge/version-v0.0.15-blue.svg)
+![Version](https://img.shields.io/badge/version-v0.0.16-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
@@ -65,11 +65,17 @@ python meta_novel_cli.py
 - 针对不同题材调整AI创作风格
 - 支持自定义AI模型和参数
 
-### 🤖 智能创作体验（v0.0.15新增）
+### 🤖 智能创作体验
 - **智能主题分析**：AI自动分析一句话主题，推荐最适合的作品类型（科幻、奇幻、悬疑、情感等）
 - **多版本生成**：基于用户创作意图，一次生成3个不同风格的故事构想供选择
 - **强制参与机制**：要求用户表达创作意图，确保AI生成内容符合用户期望
 - **模块化架构**：采用独立服务模块设计，便于功能扩展和维护
+
+### ✨ AI反思修正功能（v0.0.16新增）
+- **智能质量提升**：AI自动分析生成的小说正文，发现并修正问题
+- **三重优化流程**：初稿生成 → AI批评分析 → 自动修正优化
+- **多维度改进**：改善角色塑造、情节逻辑、语言表达、读者体验
+- **配置灵活性**：支持自动/手动/禁用三种模式，适应不同创作需求
 
 ### 📤 导出功能
 - 支持单章节或整本小说导出
