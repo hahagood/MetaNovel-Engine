@@ -76,6 +76,10 @@ class LLMService:
             # 如果找不到配置，返回None，由调用方处理
             return None
         
+        # 确保user_prompt不是None
+        if user_prompt is None:
+            user_prompt = ""
+        
         prompt_config = self.prompts[prompt_type]
         
         # 格式化基础提示词
@@ -333,6 +337,9 @@ class LLMService:
     
     def generate_theme_paragraph(self, one_line_theme, user_prompt=""):
         """生成段落主题"""
+        if user_prompt is None:
+            user_prompt = ""
+            
         prompt = self._get_prompt("theme_paragraph", user_prompt, one_line_theme=one_line_theme)
         if prompt is None:
             # 后备提示词
@@ -343,6 +350,9 @@ class LLMService:
     
     def analyze_theme_genres(self, one_line_theme, user_prompt=""):
         """分析主题并推荐作品类型"""
+        if user_prompt is None:
+            user_prompt = ""
+            
         prompt = self._get_prompt("theme_analysis", user_prompt, one_line_theme=one_line_theme)
         if prompt is None:
             # 后备提示词
@@ -353,6 +363,9 @@ class LLMService:
     
     def generate_theme_paragraph_variants(self, one_line_theme, selected_genre, user_intent, user_prompt=""):
         """生成3个版本的主题段落"""
+        if user_prompt is None:
+            user_prompt = ""
+            
         prompt = self._get_prompt("theme_paragraph_variants", user_prompt, 
                                  one_line_theme=one_line_theme,
                                  selected_genre=selected_genre,
@@ -366,6 +379,9 @@ class LLMService:
     
     def generate_theme_paragraph_with_genre(self, one_line_theme, selected_genre, user_intent, user_prompt=""):
         """基于类型和用户意图生成主题段落"""
+        if user_prompt is None:
+            user_prompt = ""
+            
         prompt = self._get_prompt("theme_paragraph", user_prompt, 
                                  one_line_theme=one_line_theme,
                                  selected_genre=selected_genre,
@@ -547,6 +563,9 @@ class LLMService:
     
     def generate_chapter_summary(self, chapter, chapter_num, context_info, user_prompt=""):
         """生成章节概要"""
+        if user_prompt is None:
+            user_prompt = ""
+
         base_prompt = f"""请基于以下信息为第{chapter_num}章创建详细的章节概要：
 
 {context_info}
@@ -565,7 +584,7 @@ class LLMService:
 
 概要应该详细具体，字数在{GENERATION_CONFIG['chapter_summary_length']}，为后续的正文写作提供充分的指导。请直接输出章节概要，不要包含额外说明和标题。"""
         
-        if user_prompt.strip():
+        if user_prompt and user_prompt.strip():
             full_prompt = f"{base_prompt}\n\n用户额外要求：{user_prompt.strip()}"
         else:
             full_prompt = base_prompt
