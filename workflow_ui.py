@@ -242,8 +242,9 @@ def view_story_outline(story_outline):
     ui.pause()
 
 def generate_story_outline(dm):
-    context = dm.get_context_info()
-    if not context.get('theme_paragraph'):
+    # 检查前置条件
+    theme_paragraph = dm.read_theme_paragraph()
+    if not theme_paragraph:
         ui.print_warning("请先设置段落主题。")
         ui.pause()
         return
@@ -254,11 +255,21 @@ def generate_story_outline(dm):
         return
         
     user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）:")
-
-    async def generation_task():
-        return await llm_service.generate_story_outline_async(context, user_prompt)
     
-    new_outline = run_with_progress(generation_task, "正在生成故事大纲...")
+    # 获取必要信息
+    one_line_theme = dm.read_theme_one_line()
+    paragraph_theme = dm.read_theme_paragraph()
+    characters_info = dm.get_characters_info_string()
+
+    # 直接调用同步函数并显示进度消息
+    ui.print_info("正在生成故事大纲...")
+    
+    new_outline = llm_service.generate_story_outline(
+        one_line_theme, 
+        paragraph_theme, 
+        characters_info, 
+        user_prompt or ""
+    )
 
     if new_outline:
         dm.write_story_outline(new_outline)

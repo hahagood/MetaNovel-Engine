@@ -143,7 +143,7 @@ class EntityManager:
         print(f"请输入{self.config.name}信息（可以是名称、JSON格式、或任何描述）")
         print(f"AI会自动理解您的输入并生成标准的{self.config.name}描述。")
         
-        user_input = ui.prompt(f"请输入{self.config.name}信息:")
+        user_input = ui.prompt(f"请输入{self.config.name}信息:", multiline=True)
         if not user_input or not user_input.strip():
             print(f"{self.config.name}信息不能为空。\n")
             return
