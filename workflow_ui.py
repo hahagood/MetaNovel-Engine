@@ -829,7 +829,7 @@ def generate_all_novel_chapters(dm, chapters, summaries, novel_chapters):
         ui.print_info(f"正在生成第{order}章: {title}... ({i}/{len(chapters_to_generate)})")
         
         try:
-            content = llm_service.generate_novel_chapter(
+            content = llm_service.generate_novel_chapter_with_refinement(
                 chapter, 
                 summaries.get(f"chapter_{order}"), 
                 order, 
@@ -893,7 +893,7 @@ def generate_single_novel_chapter(dm, chapters, summaries, novel_chapters):
 
             # 直接调用同步函数
             ui.print_info(f"正在生成'{chapter.get('title', '无标题')}'...")
-            content = llm_service.generate_novel_chapter(
+            content = llm_service.generate_novel_chapter_with_refinement(
                 chapter, 
                 summaries.get(chapter_key), 
                 order, 
