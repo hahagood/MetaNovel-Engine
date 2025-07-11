@@ -13,7 +13,11 @@ from rich.text import Text
 def _sanitize_chapters(chapters):
     """Ensures every chapter has an 'order' key, adding one if missing."""
     for i, ch in enumerate(chapters):
-        if 'order' not in ch or not ch.get('order'):
+        # 如果有chapter_number字段，使用它作为order
+        if 'chapter_number' in ch and ch.get('chapter_number'):
+            ch['order'] = ch['chapter_number']
+        # 如果没有order字段或order为空，使用索引+1
+        elif 'order' not in ch or not ch.get('order'):
             ch['order'] = i + 1
     return chapters
 
@@ -358,8 +362,9 @@ def generate_chapter_outline(dm, current_chapters):
             ui.pause()
             return
             
-    context = dm.get_context_info()
-    if not context.get('story_outline'):
+    # 检查前置条件
+    story_outline = dm.read_story_outline()
+    if not story_outline:
         ui.print_warning("请先设置故事大纲。")
         ui.pause()
         return
@@ -371,26 +376,51 @@ def generate_chapter_outline(dm, current_chapters):
         
     user_prompt = ui.prompt("请输入您的额外要求或指导（直接回车跳过）:")
     
-    async def generation_task():
-        return await llm_service.generate_chapter_outline_async(context, user_prompt)
-        
-    new_chapters_str = run_with_progress(generation_task, "正在生成分章细纲...")
+    # 获取必要信息
+    one_line_theme = dm.read_theme_one_line()
+    characters_info = dm.get_characters_info_string()
+    
+    # 直接调用同步函数并显示进度消息
+    ui.print_info("正在生成分章细纲...")
+    
+    new_chapters_result = llm_service.generate_chapter_outline(
+        one_line_theme, 
+        story_outline, 
+        characters_info, 
+        user_prompt or ""
+    )
 
-    if new_chapters_str:
+    if new_chapters_result:
         try:
-            # The LLM is expected to return a JSON string of a list of chapters
-            new_chapters = json.loads(new_chapters_str)
-            if isinstance(new_chapters, list):
+            # 处理返回结果，可能是JSON字典或字符串
+            if isinstance(new_chapters_result, dict) and 'chapters' in new_chapters_result:
+                # 如果直接返回字典格式
+                new_chapters = new_chapters_result['chapters']
+            elif isinstance(new_chapters_result, str):
+                # 如果返回字符串，尝试解析JSON
+                parsed_result = json.loads(new_chapters_result)
+                if isinstance(parsed_result, dict) and 'chapters' in parsed_result:
+                    new_chapters = parsed_result['chapters']
+                elif isinstance(parsed_result, list):
+                    new_chapters = parsed_result
+                else:
+                    raise ValueError("JSON格式不正确")
+            else:
+                raise ValueError("返回格式不被支持")
+            
+            if isinstance(new_chapters, list) and new_chapters:
+                # 确保章节数据格式正确
+                new_chapters = _sanitize_chapters(new_chapters)
                 dm.write_chapter_outline(new_chapters)
                 ui.print_success(f"已成功生成并保存 {len(new_chapters)} 章细纲。")
                 view_chapter_outlines(new_chapters)
             else:
-                raise ValueError("JSON的顶层结构不是一个列表")
+                raise ValueError("生成的章节列表为空或格式错误")
         except (json.JSONDecodeError, ValueError) as e:
             ui.print_error(f"AI返回的格式无效，无法解析分章细纲: {e}")
             ui.print_info("请尝试调整Prompt或模型，期望返回一个JSON格式的章节列表。")
             ui.print_info("原始返回内容：")
-            ui.print(new_chapters_str)
+            ui.print(str(new_chapters_result))
 
     else:
         ui.print_error("生成分章细纲失败。")
