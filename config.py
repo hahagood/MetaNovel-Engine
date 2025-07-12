@@ -140,7 +140,11 @@ FILE_PATHS = {
     "story_outline": META_DIR / "story_outline.json",
     "chapter_outline": META_DIR / "chapter_outline.json",
     "chapter_summary": META_DIR / "chapter_summary.json",
-    "novel_text": META_DIR / "novel_text.json"
+    "novel_text": META_DIR / "novel_text.json",
+    "critiques": META_DIR / "critiques.json",
+    "refinement_history": META_DIR / "refinement_history.json",
+    "initial_drafts": META_DIR / "initial_drafts.json",
+    "refined_drafts": META_DIR / "refined_drafts.json"
 }
 
 def get_project_paths(project_path: Optional[Path] = None) -> Dict[str, Path]:
@@ -173,7 +177,11 @@ def get_project_paths(project_path: Optional[Path] = None) -> Dict[str, Path]:
         "story_outline": meta_dir / "story_outline.json",
         "chapter_outline": meta_dir / "chapter_outline.json",
         "chapter_summary": meta_dir / "chapter_summary.json",
-        "novel_text": meta_dir / "novel_text.json"
+        "novel_text": meta_dir / "novel_text.json",
+        "critiques": meta_dir / "critiques.json",
+        "refinement_history": meta_dir / "refinement_history.json",
+        "initial_drafts": meta_dir / "initial_drafts.json",
+        "refined_drafts": meta_dir / "refined_drafts.json"
     }
 
 # --- 生成内容配置 ---
@@ -189,7 +197,9 @@ GENERATION_CONFIG = {
     "novel_critique_length": "200-300字左右",
     "enable_refinement": bool(os.getenv("ENABLE_REFINEMENT", "true").lower() == "true"),
     "show_critique_to_user": bool(os.getenv("SHOW_CRITIQUE_TO_USER", "true").lower() == "true"),
-    "refinement_mode": os.getenv("REFINEMENT_MODE", "auto")  # auto, manual, disabled
+    "refinement_mode": os.getenv("REFINEMENT_MODE", "auto"),  # auto, manual, disabled
+    "save_intermediate_data": bool(os.getenv("SAVE_INTERMEDIATE_DATA", "true").lower() == "true"),
+    "save_initial_drafts": bool(os.getenv("SAVE_INITIAL_DRAFTS", "false").lower() == "true")
 }
 
 # --- 智能重试机制配置 ---

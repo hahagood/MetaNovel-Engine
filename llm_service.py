@@ -3,6 +3,7 @@ import json
 import re
 import httpx
 import asyncio
+from datetime import datetime
 from pathlib import Path
 from openai import OpenAI, APIStatusError, AsyncOpenAI
 from openai.types.chat import ChatCompletion
@@ -140,6 +141,194 @@ class LLMService:
     def is_async_available(self):
         """检查异步AI服务是否可用"""
         return self.async_client is not None
+    
+    def _save_critique_data(self, chapter_num, chapter_title, critique_data, timestamp=None):
+        """保存批评数据到文件"""
+        if not GENERATION_CONFIG.get('save_intermediate_data', True):
+            return
+        
+        try:
+            from project_data_manager import project_data_manager
+            data_manager = project_data_manager.get_data_manager()
+            
+            if timestamp is None:
+                timestamp = datetime.now().isoformat()
+            
+            # 读取现有的critiques数据
+            critiques_path = data_manager.get_path("critiques")
+            if critiques_path.exists():
+                with open(critiques_path, 'r', encoding='utf-8') as f:
+                    critiques = json.load(f)
+            else:
+                critiques = {}
+            
+            # 添加新的critique数据
+            chapter_key = f"chapter_{chapter_num}"
+            if chapter_key not in critiques:
+                critiques[chapter_key] = []
+            
+            critique_entry = {
+                "timestamp": timestamp,
+                "chapter_title": chapter_title,
+                "critique_data": critique_data
+            }
+            
+            critiques[chapter_key].append(critique_entry)
+            
+            # 保存到文件
+            critiques_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(critiques_path, 'w', encoding='utf-8') as f:
+                json.dump(critiques, f, ensure_ascii=False, indent=2)
+                
+        except Exception as e:
+            print(f"保存critique数据时出错: {e}")
+    
+    def _save_refinement_history(self, chapter_num, chapter_title, initial_content, refined_content, critique_data, timestamp=None):
+        """保存修正历史到文件（只保存摘要信息，不保存完整内容）"""
+        if not GENERATION_CONFIG.get('save_intermediate_data', True):
+            return
+        
+        try:
+            from project_data_manager import project_data_manager
+            data_manager = project_data_manager.get_data_manager()
+            
+            if timestamp is None:
+                timestamp = datetime.now().isoformat()
+            
+            # 读取现有的refinement历史数据
+            history_path = data_manager.get_path("refinement_history")
+            if history_path.exists():
+                with open(history_path, 'r', encoding='utf-8') as f:
+                    history = json.load(f)
+            else:
+                history = {}
+            
+            # 添加新的refinement记录（只保存摘要）
+            chapter_key = f"chapter_{chapter_num}"
+            if chapter_key not in history:
+                history[chapter_key] = []
+            
+            refinement_entry = {
+                "timestamp": timestamp,
+                "chapter_title": chapter_title,
+                "initial_word_count": len(initial_content) if initial_content else 0,
+                "refined_word_count": len(refined_content) if refined_content else 0,
+                "critique_summary": self._extract_critique_summary(critique_data),
+                "word_count_change": (len(refined_content) - len(initial_content)) if (initial_content and refined_content) else 0,
+                "improvement_percentage": round(((len(refined_content) - len(initial_content)) / len(initial_content)) * 100, 2) if initial_content else 0
+            }
+            
+            history[chapter_key].append(refinement_entry)
+            
+            # 保存到文件
+            history_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(history_path, 'w', encoding='utf-8') as f:
+                json.dump(history, f, ensure_ascii=False, indent=2)
+                
+        except Exception as e:
+            print(f"保存refinement历史时出错: {e}")
+    
+    def _extract_critique_summary(self, critique_data):
+        """从critique数据中提取摘要信息"""
+        try:
+            if isinstance(critique_data, str):
+                parsed_data = json.loads(critique_data)
+            else:
+                parsed_data = critique_data
+            
+            return {
+                "issues_count": len(parsed_data.get("issues", [])),
+                "strengths": parsed_data.get("strengths", []),
+                "priority_fixes": parsed_data.get("priority_fixes", []),
+                "issue_categories": [issue.get("category", "") for issue in parsed_data.get("issues", [])]
+            }
+        except:
+            return {"raw_critique": str(critique_data)[:200] + "..." if len(str(critique_data)) > 200 else str(critique_data)}
+    
+    def _save_initial_draft(self, chapter_num, chapter_title, content, timestamp=None):
+        """保存初稿内容到单独文件"""
+        if not GENERATION_CONFIG.get('save_intermediate_data', True):
+            return
+        
+        try:
+            from project_data_manager import project_data_manager
+            data_manager = project_data_manager.get_data_manager()
+            
+            if timestamp is None:
+                timestamp = datetime.now().isoformat()
+            
+            # 读取现有的初稿数据
+            drafts_path = data_manager.get_path("initial_drafts")
+            if drafts_path.exists():
+                with open(drafts_path, 'r', encoding='utf-8') as f:
+                    drafts = json.load(f)
+            else:
+                drafts = {}
+            
+            # 添加新的初稿数据
+            chapter_key = f"chapter_{chapter_num}"
+            if chapter_key not in drafts:
+                drafts[chapter_key] = []
+            
+            draft_entry = {
+                "timestamp": timestamp,
+                "chapter_title": chapter_title,
+                "content": content,
+                "word_count": len(content) if content else 0
+            }
+            
+            drafts[chapter_key].append(draft_entry)
+            
+            # 保存到文件
+            drafts_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(drafts_path, 'w', encoding='utf-8') as f:
+                json.dump(drafts, f, ensure_ascii=False, indent=2)
+                
+        except Exception as e:
+            print(f"保存初稿数据时出错: {e}")
+    
+    def _save_refined_draft(self, chapter_num, chapter_title, content, timestamp=None):
+        """保存修订内容到单独文件"""
+        if not GENERATION_CONFIG.get('save_intermediate_data', True):
+            return
+        
+        try:
+            from project_data_manager import project_data_manager
+            data_manager = project_data_manager.get_data_manager()
+            
+            if timestamp is None:
+                timestamp = datetime.now().isoformat()
+            
+            # 读取现有的修订数据
+            refined_path = data_manager.get_path("refined_drafts")
+            if refined_path.exists():
+                with open(refined_path, 'r', encoding='utf-8') as f:
+                    refined = json.load(f)
+            else:
+                refined = {}
+            
+            # 添加新的修订数据
+            chapter_key = f"chapter_{chapter_num}"
+            if chapter_key not in refined:
+                refined[chapter_key] = []
+            
+            refined_entry = {
+                "timestamp": timestamp,
+                "chapter_title": chapter_title,
+                "content": content,
+                "word_count": len(content) if content else 0
+            }
+            
+            refined[chapter_key].append(refined_entry)
+            
+            # 保存到文件
+            refined_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(refined_path, 'w', encoding='utf-8') as f:
+                json.dump(refined, f, ensure_ascii=False, indent=2)
+                
+        except Exception as e:
+            print(f"保存修订数据时出错: {e}")
+    
     
     def _make_json_request(self, prompt, timeout=None, task_name="", with_retry=True):
         """专门用于需要JSON响应的请求（同步版本）"""
@@ -980,17 +1169,21 @@ class LLMService:
     
     def generate_novel_chapter_with_refinement(self, chapter, summary_info, chapter_num, context_info, user_prompt="", progress_callback=None):
         """生成小说章节正文，包含反思修正流程"""
+        timestamp = datetime.now().isoformat()
+        chapter_title = chapter.get('title', f'第{chapter_num}章')
+        
         # 首先生成初稿
         initial_content = self.generate_novel_chapter(chapter, summary_info, chapter_num, context_info, user_prompt)
         
         if not initial_content:
             return None
         
+        # 保存初稿内容到单独文件
+        self._save_initial_draft(chapter_num, chapter_title, initial_content, timestamp)
+        
         # 检查是否启用反思修正
         if not GENERATION_CONFIG.get('enable_refinement', True):
             return initial_content
-        
-        chapter_title = chapter.get('title', f'第{chapter_num}章')
         
         # 生成批评反馈
         critique = self.generate_novel_critique(chapter_title, chapter_num, initial_content, context_info)
@@ -998,6 +1191,14 @@ class LLMService:
         if not critique:
             print(f"第{chapter_num}章批评生成失败，返回初稿")
             return initial_content
+        
+        # 保存critique数据
+        try:
+            critique_data = json.loads(critique) if isinstance(critique, str) else critique
+            self._save_critique_data(chapter_num, chapter_title, critique_data, timestamp)
+        except:
+            # 如果critique不是有效的JSON，保存原始文本
+            self._save_critique_data(chapter_num, chapter_title, {"raw_critique": critique}, timestamp)
         
         # 显示批评反馈（如果配置允许）
         if GENERATION_CONFIG.get('show_critique_to_user', True):
@@ -1032,6 +1233,17 @@ class LLMService:
         if not refined_content:
             print(f"第{chapter_num}章修正失败，返回初稿")
             return initial_content
+        
+        # 保存修订内容到单独文件
+        self._save_refined_draft(chapter_num, chapter_title, refined_content, timestamp)
+        
+        # 保存refinement历史（不再保存完整内容，只保存摘要）
+        try:
+            critique_data = json.loads(critique) if isinstance(critique, str) else critique
+        except:
+            critique_data = {"raw_critique": critique}
+        
+        self._save_refinement_history(chapter_num, chapter_title, initial_content, refined_content, critique_data, timestamp)
         
         print(f"第{chapter_num}章已完成反思修正流程")
         return refined_content
@@ -1134,6 +1346,9 @@ class LLMService:
     
     async def generate_novel_chapter_with_refinement_async(self, chapter, summary_info, chapter_num, context_info, user_prompt="", progress_callback=None):
         """异步生成小说章节正文，包含反思修正流程"""
+        timestamp = datetime.now().isoformat()
+        chapter_title = chapter.get('title', f'第{chapter_num}章')
+        
         # 首先生成初稿
         if progress_callback:
             progress_callback(f"第{chapter_num}章：生成初稿...")
@@ -1143,11 +1358,12 @@ class LLMService:
         if not initial_content:
             return None
         
+        # 保存初稿内容到单独文件
+        self._save_initial_draft(chapter_num, chapter_title, initial_content, timestamp)
+        
         # 检查是否启用反思修正
         if not GENERATION_CONFIG.get('enable_refinement', True):
             return initial_content
-        
-        chapter_title = chapter.get('title', f'第{chapter_num}章')
         
         # 生成批评反馈
         if progress_callback:
@@ -1159,6 +1375,14 @@ class LLMService:
             if progress_callback:
                 progress_callback(f"第{chapter_num}章：批评生成失败，返回初稿")
             return initial_content
+        
+        # 保存critique数据
+        try:
+            critique_data = json.loads(critique) if isinstance(critique, str) else critique
+            self._save_critique_data(chapter_num, chapter_title, critique_data, timestamp)
+        except:
+            # 如果critique不是有效的JSON，保存原始文本
+            self._save_critique_data(chapter_num, chapter_title, {"raw_critique": critique}, timestamp)
         
         # 显示批评反馈（如果配置允许）
         if GENERATION_CONFIG.get('show_critique_to_user', True):
@@ -1192,6 +1416,17 @@ class LLMService:
             if progress_callback:
                 progress_callback(f"第{chapter_num}章：修正失败，返回初稿")
             return initial_content
+        
+        # 保存修订内容到单独文件
+        self._save_refined_draft(chapter_num, chapter_title, refined_content, timestamp)
+        
+        # 保存refinement历史（不再保存完整内容，只保存摘要）
+        try:
+            critique_data = json.loads(critique) if isinstance(critique, str) else critique
+        except:
+            critique_data = {"raw_critique": critique}
+        
+        self._save_refinement_history(chapter_num, chapter_title, initial_content, refined_content, critique_data, timestamp)
         
         if progress_callback:
             progress_callback(f"第{chapter_num}章：反思修正流程完成")

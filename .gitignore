@@ -300,3 +300,6 @@ meta/
 
 # Gemini CLI specific
 GEMINI.md
+
+# Claude Code specific
+CLAUDE.md

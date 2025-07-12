@@ -29,6 +29,10 @@ class DataManager:
         self._status_cache = None
         self._status_cache_time = None
     
+    def get_path(self, key):
+        """获取指定类型文件的路径"""
+        return self.file_paths.get(key)
+    
     def read_json_file(self, file_path):
         """读取JSON文件"""
         try:
