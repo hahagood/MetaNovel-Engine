@@ -91,19 +91,28 @@ def export_single_chapter(chapters, novel_chapters):
         try:
             with open(os.path.join(export_dir, filename), 'w', encoding='utf-8') as f:
                 # 写入元数据头部
-                f.write(f"{novel_name}\n")
+                f.write(f"《{novel_name}》\n")
                 f.write("=" * 50 + "\n")
                 f.write(f"导出时间: {display_timestamp}\n")
-                f.write(f"导出章节: {title}\n")
+                # 获取章节号码
+                chapter_num = int(chapter_key.split('_')[1])
+                f.write(f"导出章节: 第{chapter_num}章 {title}\n")
                 f.write(f"字数: {word_count} 字\n")
                 f.write("=" * 50 + "\n\n")
                 
                 # 写入章节标题
-                f.write(f"{title}\n")
+                f.write(f"第{chapter_num}章 {title}\n")
                 f.write("=" * 30 + "\n\n")
                 
                 # 写入正文内容
                 f.write(content)
+                
+                # 添加AI生成作品说明
+                f.write("\n\n" + "=" * 50 + "\n")
+                f.write("这是 AI 生成的作品\n")
+                f.write("如有问题或建议\n")
+                f.write("请访问GitHub页面：\n")
+                f.write("https://github.com/hahagood/MetaNovel-Engine\n")
                 
             ui.print_success(f"章节 '{title}' 已导出到: {os.path.join(export_dir, filename)}\n")
         except Exception as e:
@@ -203,7 +212,14 @@ def export_chapter_range(chapters, novel_chapters):
             f.write(f"《{novel_name}》\n")
             f.write("=" * 50 + "\n")
             f.write(f"导出时间: {display_timestamp}\n")
-            f.write(f"导出章节: {chapters_str}\n")
+            # 根据章节范围显示不同的导出信息
+            if start_idx == end_idx:
+                chapter_num = int(selected_chapters[0][0].split('_')[1])
+                f.write(f"导出章节: 第{chapter_num}章 {selected_chapters[0][1]}\n")
+            else:
+                start_num = int(selected_chapters[0][0].split('_')[1])
+                end_num = int(selected_chapters[-1][0].split('_')[1])
+                f.write(f"导出章节: 第{start_num}章到第{end_num}章\n")
             f.write(f"字数: {total_word_count} 字\n")
             f.write("=" * 50 + "\n\n")
             
@@ -215,6 +231,13 @@ def export_chapter_range(chapters, novel_chapters):
                 f.write("=" * 30 + "\n\n")
                 f.write(chapter_data.get('content', ''))
                 f.write("\n\n---\n\n")
+            
+            # 添加AI生成作品说明
+            f.write("\n" + "=" * 50 + "\n")
+            f.write("这是 AI 生成的作品\n")
+            f.write("如有问题或建议\n")
+            f.write("请访问GitHub页面：\n")
+            f.write("https://github.com/hahagood/MetaNovel-Engine\n")
         
         if start_idx == end_idx:
             ui.print_success(f"章节 '{chapter_titles[0]}' 已导出到: {filepath}\n")
@@ -265,7 +288,7 @@ def export_complete_novel(chapters, novel_chapters):
             f.write(f"《{novel_name}》\n")
             f.write("=" * 50 + "\n")
             f.write(f"导出时间: {display_timestamp}\n")
-            f.write(f"导出章节: {chapters_str}\n")
+            f.write(f"导出章节: 全文导出\n")
             f.write(f"字数: {total_word_count} 字\n")
             f.write("=" * 50 + "\n\n")
             
@@ -278,6 +301,13 @@ def export_complete_novel(chapters, novel_chapters):
                 f.write("=" * 30 + "\n\n")
                 f.write(chapter_data.get('content', ''))
                 f.write("\n\n---\n\n")
+            
+            # 添加AI生成作品说明
+            f.write("\n" + "=" * 50 + "\n")
+            f.write("这是 AI 生成的作品\n")
+            f.write("如有问题或建议\n")
+            f.write("请访问GitHub页面：\n")
+            f.write("https://github.com/hahagood/MetaNovel-Engine\n")
         ui.print_success(f"完整小说已导出到: {filepath}\n")
     except Exception as e:
         ui.print_error(f"导出失败: {e}")

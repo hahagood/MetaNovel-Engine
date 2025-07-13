@@ -1,6 +1,6 @@
 # MetaNovel-Engine
 
-![Version](https://img.shields.io/badge/version-v0.0.18-blue.svg)
+![Version](https://img.shields.io/badge/version-v0.0.19-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
