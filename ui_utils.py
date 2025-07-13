@@ -54,8 +54,9 @@ class UIUtils:
         console.print(f"⚠️  {message}", style=Colors.WARNING)
     
     @staticmethod
-    def print_info(message: str):
+    def print_info(message: str, center: bool = False):
         """打印信息消息"""
+        # 取消居中，直接左对齐显示
         console.print(f"ℹ️  {message}", style=Colors.INFO)
     
     @staticmethod
@@ -320,6 +321,19 @@ class UIUtils:
         """暂停程序，等待用户输入"""
         try:
             console.input(f"[dim]{message}[/dim]")
+        except KeyboardInterrupt:
+            # 重新抛出 KeyboardInterrupt 让上层处理
+            raise
+
+    @staticmethod
+    def get_user_input(prompt_message: str, default: str = "") -> str:
+        """获取用户输入，左对齐显示"""
+        try:
+            return Prompt.ask(
+                f"[{Colors.ACCENT}]{prompt_message}[/]",
+                default=default if default else None,
+                show_default=bool(default)
+            )
         except KeyboardInterrupt:
             # 重新抛出 KeyboardInterrupt 让上层处理
             raise

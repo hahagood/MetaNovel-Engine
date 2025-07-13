@@ -1,6 +1,6 @@
 # MetaNovel-Engine
 
-![Version](https://img.shields.io/badge/version-v0.0.17-blue.svg)
+![Version](https://img.shields.io/badge/version-v0.0.18-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
@@ -72,9 +72,11 @@ python meta_novel_cli.py
 - **模块化架构**：采用独立服务模块设计，便于功能扩展和维护
 
 ### 📤 导出功能
-- 支持单章节或整本小说导出
-- 自动生成标准文本格式
-- 可自定义导出路径
+- **多样化导出选项**：支持单章节、章节范围（如1-3章）、整本小说导出
+- **规范元数据格式**：自动生成包含作品名、导出时间、章节信息、字数统计的标准头部
+- **智能范围选择**：支持多种范围格式输入（1-3、1,3、1 3等）
+- **精确字数统计**：使用预存储的字数数据，确保统计准确性
+- **用户友好界面**：统一的左对齐提示信息，提供清晰的操作指引
 
 ### 🔧 系统设置
 - AI模型切换
