@@ -1,5 +1,5 @@
 from ui_utils import ui
-from config import get_llm_model, set_llm_model, LLM_MODELS, get_retry_config, set_retry_config, reset_retry_config, get_export_path_info, set_custom_export_path, clear_custom_export_path
+from config import get_llm_model, set_llm_model, LLM_MODELS, add_llm_model, get_retry_config, set_retry_config, reset_retry_config, get_export_path_info, set_custom_export_path, clear_custom_export_path
 from prompts_ui import handle_prompts_management
 
 
@@ -7,8 +7,13 @@ def handle_system_settings():
     """主设置菜单"""
     try:
         while True:
+            # 动态获取当前模型名称用于菜单显示
+            model_id_to_name = {v: k for k, v in LLM_MODELS.items()}
+            current_model_id = get_llm_model()
+            current_model_name = model_id_to_name.get(current_model_id, current_model_id)
+
             menu_options = [
-                f"切换AI模型 (当前: {get_llm_model()})",
+                f"AI模型管理 (当前: {current_model_name})",
                 "Prompts模板管理",
                 "智能重试配置",
                 "导出路径配置",
@@ -17,7 +22,7 @@ def handle_system_settings():
             choice = ui.display_menu("系统设置", menu_options)
 
             if choice == '1':
-                switch_llm_model()
+                handle_llm_model_settings()
             elif choice == '2':
                 handle_prompts_management()
             elif choice == '3':
@@ -31,11 +36,35 @@ def handle_system_settings():
         # 重新抛出 KeyboardInterrupt 让上层处理
         raise
 
+def handle_llm_model_settings():
+    """AI模型管理子菜单"""
+    try:
+        while True:
+            menu_options = [
+                "切换AI模型",
+                "添加新模型",
+                "返回"
+            ]
+            choice = ui.display_menu("AI模型管理", menu_options)
 
-def switch_llm_model():
-    """切换语言模型"""
-    current_model = get_llm_model()
-    ui.print_info(f"当前模型: {current_model}")
+            if choice == '1':
+                switch_llm_model_ui()
+            elif choice == '2':
+                add_new_llm_model_ui()
+            elif choice == '0':
+                break
+    
+    except KeyboardInterrupt:
+        # 重新抛出，由上层处理
+        raise
+
+def switch_llm_model_ui():
+    """切换语言模型的UI交互"""
+    model_id_to_name = {v: k for k, v in LLM_MODELS.items()}
+    
+    current_model_id = get_llm_model()
+    current_model_name = model_id_to_name.get(current_model_id, current_model_id)
+    ui.print_info(f"当前模型: {current_model_name}")
     
     model_options = list(LLM_MODELS.keys())
     model_options.append("返回")
@@ -45,11 +74,39 @@ def switch_llm_model():
     if choice_str.isdigit():
         choice = int(choice_str)
         if 1 <= choice <= len(LLM_MODELS):
-            new_model = list(LLM_MODELS.keys())[choice - 1]
-            set_llm_model(new_model)
-            ui.print_success(f"AI模型已切换为: {new_model}")
-        elif choice == 0: # 假设返回是0
+            new_model_name = list(LLM_MODELS.keys())[choice - 1]
+            new_model_id = LLM_MODELS[new_model_name]
+            
+            if set_llm_model(new_model_id):
+                ui.print_success(f"AI模型已成功切换为: {new_model_name}")
+            else:
+                ui.print_error("模型切换失败，请检查配置或.env文件权限。")
+
+        elif choice == 0:
              return
+    ui.pause()
+
+def add_new_llm_model_ui():
+    """添加新模型的UI交互"""
+    ui.print_info("添加新的AI模型")
+    
+    model_name = ui.prompt("请输入模型显示名称 (例如 'My New Model'):")
+    if not model_name:
+        ui.print_warning("操作已取消。")
+        ui.pause()
+        return
+
+    model_id = ui.prompt(f"请输入 '{model_name}' 的模型ID (例如 'vendor/model-name'):")
+    if not model_id:
+        ui.print_warning("操作已取消。")
+        ui.pause()
+        return
+
+    if add_llm_model(model_name, model_id):
+        ui.print_success(f"模型 '{model_name}' 添加成功！")
+    else:
+        ui.print_error("添加模型失败，可能是名称或ID已存在，或文件写入权限不足。")
+    
     ui.pause()
 
 

@@ -1,11 +1,36 @@
 import os
 import platform
 from pathlib import Path
-from dotenv import load_dotenv
+from dotenv import load_dotenv, set_key, find_dotenv
 from typing import Dict, Optional
 
+# --- .env 文件处理 ---
+# 查找.env文件，如果不存在则在项目根目录创建一个
+dotenv_path = find_dotenv()
+if not dotenv_path:
+    dotenv_path = Path(os.getcwd()) / '.env'
+    dotenv_path.touch()
+
 # 加载.env文件中的环境变量
-load_dotenv()
+load_dotenv(dotenv_path=dotenv_path)
+
+def update_env_file(key: str, value: str) -> bool:
+    """
+    更新.env文件中的键值对
+    
+    Args:
+        key: 要更新的键
+        value: 要设置的新值
+        
+    Returns:
+        bool: 更新成功返回True，否则返回False
+    """
+    try:
+        set_key(dotenv_path, key, value)
+        return True
+    except Exception as e:
+        print(f"更新.env文件时出错: {e}")
+        return False
 
 def get_app_data_dir() -> Path:
     """
@@ -93,6 +118,7 @@ PROXY_CONFIG = {
     "https_proxy": os.getenv("HTTPS_PROXY", "http://127.0.0.1:7890")
 }
 
+import json
 # --- AI模型配置 ---
 AI_CONFIG = {
     "model": os.getenv("DEFAULT_MODEL", "google/gemini-2.5-pro-preview-06-05"),
@@ -101,8 +127,10 @@ AI_CONFIG = {
     "timeout": int(os.getenv("REQUEST_TIMEOUT", "60"))
 }
 
-# 可选的LLM模型列表
-LLM_MODELS = {
+# --- LLM模型列表管理 ---
+LLM_MODELS_FILE = Path("llm_models.json")
+
+DEFAULT_LLM_MODELS = {
     "Gemini 2.5 Pro (最新)": "google/gemini-2.5-pro-preview-06-05",
     "GPT-4o (最新)": "openai/gpt-4o",
     "Llama 3.1 70B": "meta-llama/llama-3.1-70b-instruct",
@@ -110,15 +138,72 @@ LLM_MODELS = {
     "Qwen 2 72B": "qwen/qwen-2-72b-instruct",
 }
 
+def load_llm_models() -> Dict[str, str]:
+    """从llm_models.json加载模型列表，如果文件不存在则创建并使用默认模型"""
+    if not LLM_MODELS_FILE.exists():
+        try:
+            with open(LLM_MODELS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(DEFAULT_LLM_MODELS, f, ensure_ascii=False, indent=4)
+            return DEFAULT_LLM_MODELS
+        except IOError as e:
+            print(f"无���创建模型文件 {LLM_MODELS_FILE}: {e}")
+            return DEFAULT_LLM_MODELS
+    
+    try:
+        with open(LLM_MODELS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"读取或解析模型文件时出错: {e}")
+        return DEFAULT_LLM_MODELS
+
+# 可选的LLM模型列表 (从文件加载)
+LLM_MODELS = load_llm_models()
+
+def add_llm_model(name: str, model_id: str) -> bool:
+    """添加新模型到列表并保存到JSON文件"""
+    if name in LLM_MODELS:
+        print(f"警告: 模型显示名称 '{name}' 已存在。")
+        return False
+    if model_id in LLM_MODELS.values():
+        print(f"警告: 模型ID '{model_id}' 已存在。")
+        return False
+        
+    LLM_MODELS[name] = model_id
+    try:
+        with open(LLM_MODELS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(LLM_MODELS, f, ensure_ascii=False, indent=4)
+        return True
+    except IOError as e:
+        print(f"保存模型文件时出错: {e}")
+        # 回滚内存中的更改
+        del LLM_MODELS[name]
+        return False
+
 def get_llm_model() -> str:
     """获取当前选择的AI模型ID"""
     return AI_CONFIG.get("model", "")
 
-def set_llm_model(model_id: str):
-    """设置AI模型"""
+def set_llm_model(model_id: str) -> bool:
+    """
+    设置AI模型,并将其保存到.env文件
+    
+    Args:
+        model_id: 要设置的模型ID
+        
+    Returns:
+        bool: 设置成功返回True, 否则返回False
+    """
     if model_id in LLM_MODELS.values():
+        # 更新内存中的配置
         AI_CONFIG["model"] = model_id
-        return True
+        
+        # 更新.env文件
+        if update_env_file("DEFAULT_MODEL", model_id):
+            return True
+        else:
+            # 如果.env文件更新失败, 恢复内存中的配置以保持一致性
+            AI_CONFIG["model"] = os.getenv("DEFAULT_MODEL", "google/gemini-2.5-pro-preview-06-05")
+            return False
     return False
 
 # 默认的重试配置

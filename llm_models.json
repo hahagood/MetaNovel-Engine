@@ -1,0 +1,9 @@
+{
+    "Gemini 2.5 Pro (最新)": "google/gemini-2.5-pro-preview-06-05",
+    "GPT-4o (最新)": "openai/gpt-4o",
+    "Llama 3.1 70B": "meta-llama/llama-3.1-70b-instruct",
+    "Llama 3.1 8B": "meta-llama/llama-3.1-8b-instruct",
+    "Qwen 2 72B": "qwen/qwen-2-72b-instruct",
+    "Kimi K2": "moonshotai/kimi-k2",
+    "Kimi K2 free": "moonshotai/kimi-k2:free"
+}
