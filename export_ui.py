@@ -92,13 +92,13 @@ def export_single_chapter(chapters, novel_chapters):
             with open(os.path.join(export_dir, filename), 'w', encoding='utf-8') as f:
                 # 写入元数据头部
                 f.write(f"《{novel_name}》\n")
-                f.write("=" * 50 + "\n")
+                f.write("=" * 30 + "\n")
                 f.write(f"导出时间: {display_timestamp}\n")
                 # 获取章节号码
                 chapter_num = int(chapter_key.split('_')[1])
                 f.write(f"导出章节: 第{chapter_num}章 {title}\n")
                 f.write(f"字数: {word_count} 字\n")
-                f.write("=" * 50 + "\n\n")
+                f.write("=" * 30 + "\n\n")
                 
                 # 写入章节标题
                 f.write(f"第{chapter_num}章 {title}\n")
@@ -108,7 +108,7 @@ def export_single_chapter(chapters, novel_chapters):
                 f.write(content)
                 
                 # 添加AI生成作品说明
-                f.write("\n\n" + "=" * 50 + "\n")
+                f.write("\n\n" + "=" * 30 + "\n")
                 f.write("这是 AI 生成的作品\n")
                 f.write("如有问题或建议\n")
                 f.write("请访问GitHub页面：\n")
@@ -210,7 +210,7 @@ def export_chapter_range(chapters, novel_chapters):
         with open(filepath, 'w', encoding='utf-8') as f:
             # 写入元数据头部
             f.write(f"《{novel_name}》\n")
-            f.write("=" * 50 + "\n")
+            f.write("=" * 30 + "\n")
             f.write(f"导出时间: {display_timestamp}\n")
             # 根据章节范围显示不同的导出信息
             if start_idx == end_idx:
@@ -221,7 +221,7 @@ def export_chapter_range(chapters, novel_chapters):
                 end_num = int(selected_chapters[-1][0].split('_')[1])
                 f.write(f"导出章节: 第{start_num}章到第{end_num}章\n")
             f.write(f"字数: {total_word_count} 字\n")
-            f.write("=" * 50 + "\n\n")
+            f.write("=" * 30 + "\n\n")
             
             # 直接写入章节内容，不重复作品名
             for key, title in selected_chapters:
@@ -233,7 +233,7 @@ def export_chapter_range(chapters, novel_chapters):
                 f.write("\n\n---\n\n")
             
             # 添加AI生成作品说明
-            f.write("\n" + "=" * 50 + "\n")
+            f.write("\n" + "=" * 30 + "\n")
             f.write("这是 AI 生成的作品\n")
             f.write("如有问题或建议\n")
             f.write("请访问GitHub页面：\n")
@@ -255,7 +255,7 @@ def export_complete_novel(chapters, novel_chapters):
     timestamp = datetime.datetime.now()
     timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
     display_timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
-    filename = f"{novel_name}_完整小说_{timestamp_str}.txt"
+    filename = f"{novel_name}_全本_{timestamp_str}.txt"
     filepath = os.path.join(export_dir, filename)
     
     # 使用已有的字数数据计算总字数
@@ -286,11 +286,11 @@ def export_complete_novel(chapters, novel_chapters):
         with open(filepath, 'w', encoding='utf-8') as f:
             # 写入元数据头部
             f.write(f"《{novel_name}》\n")
-            f.write("=" * 50 + "\n")
+            f.write("=" * 30 + "\n")
             f.write(f"导出时间: {display_timestamp}\n")
             f.write(f"导出章节: 全文导出\n")
             f.write(f"字数: {total_word_count} 字\n")
-            f.write("=" * 50 + "\n\n")
+            f.write("=" * 30 + "\n\n")
             
             # 直接写入章节内容，不重复作品名
             for key in sorted_keys:
@@ -303,7 +303,7 @@ def export_complete_novel(chapters, novel_chapters):
                 f.write("\n\n---\n\n")
             
             # 添加AI生成作品说明
-            f.write("\n" + "=" * 50 + "\n")
+            f.write("\n" + "=" * 30 + "\n")
             f.write("这是 AI 生成的作品\n")
             f.write("如有问题或建议\n")
             f.write("请访问GitHub页面：\n")

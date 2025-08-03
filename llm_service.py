@@ -41,13 +41,14 @@ class LLMService:
             from project_data_manager import project_data_manager
             data_manager = project_data_manager.get_data_manager()
             
-            if data_manager.project_path:
+            if data_manager and data_manager.project_path:
                 # 多项目模式：使用项目路径下的prompts.json
                 prompts_path = data_manager.project_path / 'prompts.json'
                 
                 # 如果项目路径下不存在prompts.json，从根目录复制默认的
                 if not prompts_path.exists():
                     import shutil
+                    # 优先从根目录的 prompts.json 复制
                     root_prompts = Path('prompts.json')
                     if root_prompts.exists():
                         shutil.copy2(root_prompts, prompts_path)
@@ -60,12 +61,15 @@ class LLMService:
                             print(f"已为项目复制默认prompts模板到: {prompts_path}")
                 
                 return prompts_path
-            else:
-                # 单项目模式：使用根目录的prompts.json
-                return Path('prompts.json')
+        except ImportError:
+            # 在某些测试或启动场景下，可能无法导入 project_data_manager
+            pass
         except Exception as e:
-            # 静默处理路径获取错误，避免在启动时显示错误信息
-            return Path('prompts.json')
+            # 记录错误，但不影响核心逻辑
+            print(f"获取项目特定prompts路径时出错: {e}，将使用默认路径。")
+
+        # 单项目模式或回退方案：使用根目录的prompts.json
+        return Path('prompts.json')
     
     def reload_prompts(self):
         """重新加载prompts配置，用于项目切换时"""

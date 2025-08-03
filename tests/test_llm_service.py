@@ -9,6 +9,7 @@ import json
 import tempfile
 import shutil
 from unittest.mock import patch, MagicMock
+from pathlib import Path
 
 # Add project root to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -68,6 +69,38 @@ class TestLLMService(unittest.TestCase):
         service = LLMService()
         mock_openai.assert_called()
         mock_async_openai.assert_called()
+
+    def test_get_prompts_path_multi_project_mode(self):
+        """测试在多项目模式下_get_prompts_path的行为"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir)
+            project_prompts_path = project_path / 'prompts.json'
+            
+            # 模拟项目prompts文件
+            with open(project_prompts_path, 'w', encoding='utf-8') as f:
+                json.dump({"test": "project_prompt"}, f)
+
+            # 模拟 project_data_manager
+            mock_data_manager = MagicMock()
+            mock_data_manager.project_path = project_path
+            
+            # 我们需要模拟 'project_data_manager.project_data_manager.get_data_manager'
+            # 因为在 llm_service.py 中是这样导入的
+            with patch('project_data_manager.project_data_manager.get_data_manager', return_value=mock_data_manager):
+                # 创建一个新的LLMService实例以触发路径加载
+                # 我们需要绕过构造函数中的 _load_prompts 和 _initialize_clients
+                with patch.object(LLMService, '_load_prompts'), patch.object(LLMService, '_initialize_clients'):
+                    service = LLMService()
+                
+                # 直接调用私有方法进行测试
+                returned_path = service._get_prompts_path()
+                
+                # 断言返回的路径是项目路径，而不是根路径
+                self.assertEqual(returned_path, project_prompts_path)
+                
+                # 验证加载的内容是否也正确
+                service._load_prompts() # 重新加载
+                self.assertEqual(service.prompts.get("test"), "project_prompt")
 
 if __name__ == '__main__':
     unittest.main()
