@@ -1,6 +1,6 @@
 # MetaNovel-Engine
 
-![Version](https://img.shields.io/badge/version-v0.0.20-blue.svg)
+![Version](https://img.shields.io/badge/version-v0.0.21-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
@@ -126,3 +126,10 @@ A: 在项目工作台选择"导出小说"，支持导出单章节、章节范围
 ---
 
 **让AI成为你最好的创作伙伴！** ✨
+
+## 📜 更新日志
+
+### v0.0.21 (2025-08-02)
+- **修复**: 解决了在多项目模式下，AI生成内容时错误地加载项目根目录的`prompts.json`而不是当前小说项目下的`prompts.json`的问题。现在可以确保每个项目使用其独立的、修改后的提示词。
+- **优化**: 调整了导出文件的分隔符样式和文件名格式，使其更加美观和规范。
+- **测试**: 为Prompt加载逻辑添加了单元测试，提高了代码的健壮性。
